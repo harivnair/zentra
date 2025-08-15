@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false # do not persist GITHUB_TOKEN to avoid accidental pushes
+          persist-credentials: true # allow the action to use GITHUB_TOKEN for pushing deploy commits (or provide a PAT via secrets for stricter control)
 
       - name: Setup Node
         uses: actions/setup-node@v4
