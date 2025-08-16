@@ -26,26 +26,46 @@ jobs:
         - name: Setup Node.js
           uses: actions/setup-node@v4
           with:
-            node-version: '18'
+            name: Deploy to GitHub Pages
 
-        - name: Install dependencies
-          run: npm ci
+            on:
+              push:
+                branches: [ 'main', 'dev' ]
 
-        - name: Build
-          run: npm run build --if-present
+            jobs:
+              build:
+                runs-on: ubuntu-latest
+                permissions:
+                  contents: read
+                  pages: write
+                  id-token: write
 
-        - name: Upload artifact for Pages
-          uses: actions/upload-pages-artifact@v1
-          with:
-            path: ./dist
+                steps:
+                  - name: Checkout repository
+                    uses: actions/checkout@v4
 
-    deploy:
-      needs: build
-      runs-on: ubuntu-latest
-      permissions:
-        pages: write
-        id-token: write
+                  - name: Setup Node.js
+                    uses: actions/setup-node@v4
+                    with:
+                      node-version: '18'
 
-      steps:
-        - name: Deploy to GitHub Pages
-          uses: actions/deploy-pages@v3
+                  - name: Install dependencies
+                    run: npm ci
+
+                  - name: Build
+                    run: npm run build --if-present
+
+                  - name: Upload artifact for Pages
+                    uses: actions/upload-pages-artifact@v1
+                    with:
+                      path: ./dist
+
+              deploy:
+                needs: build
+                runs-on: ubuntu-latest
+                permissions:
+                  pages: write
+
+                steps:
+                  - name: Deploy to GitHub Pages
+                    uses: actions/deploy-pages@v3
