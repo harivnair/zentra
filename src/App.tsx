@@ -7,7 +7,7 @@ import EventDetails from './pages/Events/EventDetails'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/zentra">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
