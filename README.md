@@ -34,3 +34,15 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Local backend (BACKEND_URL)
+
+This app proxies requests to a backend service through the server-side API routes in `src/app/api/*`.
+
+Set the backend base URL with the `BACKEND_URL` environment variable. For local development, create a `.env.local` file in the project root and add:
+
+```
+BACKEND_URL=http://localhost:8080
+```
+
+Adjust the port or host to match your backend. If the backend is not running or the address is unreachable, the API route will return a 502 (connection refused) or 504 (timeout) with a short diagnostic message.

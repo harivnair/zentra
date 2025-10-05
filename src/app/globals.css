@@ -129,3 +129,30 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+/* Background video helpers */
+.bg-video::-webkit-media-controls {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-video {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .bg-video {
+    display: none !important;
+  }
+}
+
+/* Navigation loader shimmer animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

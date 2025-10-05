@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "zentra",
-  description: "Zentra application",
+  description: "zentra application",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
