@@ -48,7 +48,15 @@ export default function DashboardPage() {
 
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     {loading ? (
-                        <ListSkeleton type="stats" count={5} />
+                        <>
+                            {/* Show a skeleton card for each stat */}
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="rounded-lg p-6 border border-gray-200 shadow-md animate-pulse">
+                                    <div className="h-8 w-12 mb-2 bg-gray-200 rounded" />
+                                    <div className="h-4 w-24 bg-gray-200 rounded" />
+                                </div>
+                            ))}
+                        </>
                     ) : (
                         <>
                             <StatCard color="bg-purple-200" value="12" label="Upcoming Events" />

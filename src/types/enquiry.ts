@@ -15,7 +15,7 @@ export interface EnquiryFormData {
     eventPoC?: string
     client: string // Client ID
     clientName?: string // For new client creation upon submit
-    eventType?: 'CORPORATE' | 'INDIVIDUAL'
+    eventType?: 'PERSONAL' | 'CORPORATE' | 'OTHER'
 }
 
 export interface CreateEnquiryModalProps {

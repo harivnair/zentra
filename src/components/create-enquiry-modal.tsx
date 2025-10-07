@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef } from "react"
+import { API_ENDPOINTS } from "../lib/endpoint"
 import { Formik, Form, Field, ErrorMessage, FormikHelpers, FieldProps, FormikProps } from "formik"
 import * as Yup from "yup"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,7 @@ const validationSchema = Yup.object({
         const { clientName } = this.parent as { clientName?: string }
         return Boolean(value) || Boolean(clientName)
     }),
-    eventType: Yup.string().oneOf(['CORPORATE', 'INDIVIDUAL'], 'Please select an event type').required("Event type is required"),
+    eventType: Yup.string().oneOf(['PERSONAL', 'CORPORATE', 'OTHER'], 'Please select an event type').required("Event type is required"),
     fromDate: Yup.string().required("Event start date & time is required"),
     toDate: Yup.string().required("Event end date & time is required").test('after-start', 'End must be after start', function (value) {
         const { fromDate } = this.parent as { fromDate?: string }
@@ -81,7 +82,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
             let clientId = values.client
             // If user typed a new client (clientName present but no client id), create it now
             if (!clientId && values.clientName) {
-                const res = await fetch('/api/clients', {
+                const res = await fetch(API_ENDPOINTS.clients.list, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: values.clientName })
@@ -105,7 +106,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                 requestBody.id = editData.id
             }
 
-            const response = await fetch('/api/enquiries', {
+            const response = await fetch(API_ENDPOINTS.enquiries.list, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
@@ -128,16 +129,22 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
         }
     }
 
-    // When clients are available and we have edit data, set the client on the Formik instance
+    // When clients are loaded and we have edit data, set the client only if it exists in the clients array
     useEffect(() => {
         if (!isOpen) return
         if (!clientsLoading && editData?.client && formikRef.current) {
-            const currentClient = formikRef.current.values.client
-            if (currentClient !== editData.client) {
-                formikRef.current.setFieldValue('client', editData.client)
+            const found = clients.find(c => c.id === editData.client)
+            if (found) {
+                const currentClient = formikRef.current.values.client
+                if (currentClient !== editData.client) {
+                    formikRef.current.setFieldValue('client', editData.client)
+                }
+            } else {
+                // If not found, clear the client field to avoid showing the ID
+                formikRef.current.setFieldValue('client', '')
             }
         }
-    }, [isOpen, clientsLoading, editData?.client])
+    }, [isOpen, clientsLoading, editData?.client, clients])
 
     if (!isOpen) return null
 
@@ -234,12 +241,16 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                         <Label>Event Type</Label>
                                         <div className="mt-2 flex gap-6">
                                             <label className="flex items-center gap-2 cursor-pointer">
+                                                <Field type="radio" name="eventType" value="PERSONAL" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                                <span className="text-sm text-gray-700">Personal</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
                                                 <Field type="radio" name="eventType" value="CORPORATE" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
                                                 <span className="text-sm text-gray-700">Corporate</span>
                                             </label>
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <Field type="radio" name="eventType" value="INDIVIDUAL" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                                <span className="text-sm text-gray-700">Individual</span>
+                                                <Field type="radio" name="eventType" value="OTHER" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                                <span className="text-sm text-gray-700">Other</span>
                                             </label>
                                         </div>
                                         <ErrorMessage name="eventType" component="div" className="mt-1 text-sm text-red-600" />
@@ -258,13 +269,14 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                                     isClearable
                                                     placeholder="Search or create client..."
                                                     value={(() => {
-                                                        const option = clients.find(c => c.id === values.client)
-                                                        if (option) return { value: option.id, label: option.name }
-                                                        if (values.clientName) return { value: '__new__', label: values.clientName }
-                                                        return null
+                                                        const option = clients.find(c => c.id === values.client);
+                                                        if (option) return { value: option.id, label: option.name };
+                                                        if (clientsLoading) return null;
+                                                        if (values.clientName) return { value: '__new__', label: values.clientName };
+                                                        return null;
                                                     })()}
                                                     onChange={(opt) => {
-                                                        const selected = Array.isArray(opt) ? opt[0] : opt
+                                                        const selected = Array.isArray(opt) ? opt[0] : opt;
                                                         if (!selected) {
                                                             setFieldValue('client', '')
                                                             setFieldValue('clientName', '')
@@ -274,13 +286,13 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                                         if (sel.value === '__new__') {
                                                             setFieldValue('client', '')
                                                             setFieldValue('clientName', sel.label)
-                                                            if (values.eventType === 'INDIVIDUAL') {
+                                                            if (values.eventType === 'PERSONAL') {
                                                                 setFieldValue('clientPoC', sel.label)
                                                             }
                                                         } else {
                                                             setFieldValue('client', sel.value)
                                                             setFieldValue('clientName', '')
-                                                            if (values.eventType === 'INDIVIDUAL') {
+                                                            if (values.eventType === 'PERSONAL') {
                                                                 const selectedClient = clients.find(c => c.id === sel.value)
                                                                 if (selectedClient) setFieldValue('clientPoC', selectedClient.name)
                                                             }
@@ -290,7 +302,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                                         // Do not persist immediately; store typed name and show as selected
                                                         setFieldValue('client', '')
                                                         setFieldValue('clientName', inputValue)
-                                                        if (values.eventType === 'INDIVIDUAL') {
+                                                        if (values.eventType === 'PERSONAL') {
                                                             setFieldValue('clientPoC', inputValue)
                                                         }
                                                     }}
@@ -304,15 +316,16 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
                                     {/* Client POC */}
                                     <div className="mb-4">
-                                        <Label htmlFor="clientPoC">Client POC {values.eventType === 'INDIVIDUAL' && '(Same as Client Name)'}</Label>
+                                        <Label htmlFor="clientPoC">Client POC {values.eventType === 'PERSONAL' && '(Same as Client Name)'}
+                                        </Label>
                                         <Field
                                             as={Input}
                                             id="clientPoC"
                                             name="clientPoC"
                                             type="text"
                                             placeholder={values.eventType === 'CORPORATE' ? "Enter POC name" : "Client name (auto-filled)"}
-                                            disabled={values.eventType === 'INDIVIDUAL'}
-                                            className={`mt-1 ${values.eventType === 'INDIVIDUAL' ? 'bg-gray-100 cursor-not-allowed' : ''} ${errors.clientPoC && touched.clientPoC ? 'border-red-500' : ''}`}
+                                            disabled={values.eventType === 'PERSONAL'}
+                                            className={`mt-1 ${values.eventType === 'PERSONAL' ? 'bg-gray-100 cursor-not-allowed' : ''} ${errors.clientPoC && touched.clientPoC ? 'border-red-500' : ''}`}
                                         />
                                         <ErrorMessage name="clientPoC" component="div" className="mt-1 text-sm text-red-600" />
                                     </div>

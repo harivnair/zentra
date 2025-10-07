@@ -35,10 +35,15 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
         try {
             setStatus(null)
             const isEdit = mode === 'edit' || !!editData?.id
-            // Build minimal payload matching Postman sample / backend expectations
+            // Build minimal payload matching backend expectations
+            // Convert date to LocalDateTime format (YYYY-MM-DDTHH:mm:ss)
+            let dateString = values.date
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+                dateString = `${dateString}T00:00:00`
+            }
             const payload: Record<string, unknown> = {
                 title: values.title,
-                date: values.date,
+                date: dateString,
             }
             if (values.location) payload.location = values.location
             if (values.clientId) payload.client = { id: values.clientId }
@@ -90,15 +95,15 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
                                         <ErrorMessage name="title" component="div" className="mt-1 text-sm text-red-600" />
                                     </div>
                                     <div>
-                                        <Label htmlFor="date">Date</Label>
-                                        <Field as={Input} id="date" name="date" type="date" className="mt-1" />
+                                        <Label htmlFor="date">Date & Time</Label>
+                                        <Field as={Input} id="date" name="date" type="datetime-local" className="mt-1" />
                                         <ErrorMessage name="date" component="div" className="mt-1 text-sm text-red-600" />
                                     </div>
                                 </div>
 
                                 <div>
                                     <Label htmlFor="location">Location</Label>
-                                    <Field as={Input} id="location" name="location" placeholder="Venue or location" className="mt-1" />
+                                    <Field as={Input} id="location" name="location" placeholder="Enter location" className="mt-1" />
                                 </div>
 
                                 <div>
@@ -108,7 +113,7 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
                                     ) : (
                                         <Field as="select" id="clientId" name="clientId" className="mt-1 w-full px-3 py-2 border rounded-md">
                                             <option value="">Select a client</option>
-                                            {clients.map(c => <option key={c.id} value={c.id}>{c.name} ({c.email})</option>)}
+                                            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </Field>
                                     )}
                                 </div>

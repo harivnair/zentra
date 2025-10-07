@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react"
+import { API_ENDPOINTS } from "../lib/endpoint"
 import { Form, Formik, Field, ErrorMessage, FieldProps } from "formik"
 import * as Yup from "yup"
 import { Input } from "@/components/ui/input"
@@ -127,7 +128,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                                 }}
                                                 onCreateOption={async (inputValue: string) => {
                                                     try {
-                                                        const res = await fetch('/api/clients', {
+                                                        const res = await fetch(API_ENDPOINTS.clients.list, {
                                                             method: 'POST',
                                                             headers: { 'Content-Type': 'application/json' },
                                                             body: JSON.stringify({ name: inputValue })

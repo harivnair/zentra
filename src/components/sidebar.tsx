@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -9,10 +9,7 @@ import { Home, FileText, Calendar, Grid, DollarSign, BookOpen, CreditCard, BarCh
 export default function Sidebar() {
     const pathname = usePathname() || "/"
 
-    // avoid hydration mismatch: render sidebar only on the client after mount
-    const [isClient, setIsClient] = useState(false)
-    useEffect(() => setIsClient(true), [])
-    if (!isClient) return null
+    // Render immediately; Next.js hydration mismatch is not an issue for this sidebar
 
     // hide sidebar on login route (and its subroutes)
     if (pathname === "/login" || pathname.startsWith("/login/")) return null

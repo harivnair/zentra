@@ -1,5 +1,7 @@
 "use client"
 
+import { API_ENDPOINTS } from "../lib/endpoint"
+
 import React, { createContext, useContext, useEffect, useState } from "react"
 
 type Enquiry = {
@@ -26,15 +28,13 @@ export function EnquiriesProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // default to local proxy route to avoid CORS; can override with NEXT_PUBLIC_API_URL
-    const base = process.env.NEXT_PUBLIC_API_URL ?? "" // empty -> relative to same origin
 
     async function fetchEnquiries() {
         setLoading(true)
         setError(null)
         try {
-            const url = base ? `${base}/enquiries` : `/api/enquiries`
-            const res = await fetch(url)
+            // Always use Next.js API route to avoid CORS issues
+            const res = await fetch(`${API_ENDPOINTS.enquiries.list}?page=0&size=10`)
             if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
             const data = await res.json()
 

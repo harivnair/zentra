@@ -44,7 +44,7 @@ export default function EnquiriesPage() {
     const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
 
     const { enquiries, loading, error, refresh } = useEnquiries()
-    const { clients } = useClients()
+    const { clients, refresh: refreshClients, loading: clientsLoading } = useClients()
 
     // Create a map of client ID to client name
     const clientMap = useMemo(() => {
@@ -74,7 +74,7 @@ export default function EnquiriesPage() {
 
     const handleCreateEnquiry = async () => {
         try {
-            await refresh()
+            await Promise.all([refresh(), refreshClients()])
         } catch (error) {
             console.error("Error refreshing enquiries:", error)
         }
@@ -97,10 +97,11 @@ export default function EnquiriesPage() {
             fromDate: enquiry.fromDate || '',
             toDate: enquiry.toDate || '',
             venue: enquiry.venue || '',
+            location: (enquiry as { location?: string }).location || '',
             clientPoC: enquiry.poc || '',
             enquiryPoCNumber: enquiry.enquiryPoCNumber || '',
             client: enquiry.client,
-            eventType: enquiry.eventType || 'CORPORATE',
+            eventType: (enquiry.eventType as 'PERSONAL' | 'CORPORATE' | 'OTHER' | undefined) || 'CORPORATE',
             eventPoC: enquiry.eventPoC || ''
         }
 
@@ -303,13 +304,13 @@ export default function EnquiriesPage() {
                 <div className="mt-6 rounded-lg bg-white p-4 sm:p-6 shadow-sm">
                     {/* Mobile / small screens: stacked cards */}
                     <div className="flex flex-col gap-4 md:hidden">
-                        {loading && <ListSkeleton type="cards" items={5} />}
+                        {(loading || clientsLoading) && <ListSkeleton type="cards" items={5} />}
                         {error && <div className="p-4 text-red-600">{error}</div>}
-                        {!loading && !error && filtered.length === 0 && (
+                        {!loading && !clientsLoading && !error && filtered.length === 0 && (
                             <div className="p-4 text-muted-foreground">No enquiries found.</div>
                         )}
 
-                        {filtered.map((e) => (
+                        {!loading && !clientsLoading && !error && filtered.map((e) => (
                             <div key={e.id} className="border rounded-md p-4 cursor-pointer">
                                 <div className="flex items-center justify-between">
                                     <div className="font-medium">{clientMap.get(e.client) || e.client}</div>
@@ -338,7 +339,7 @@ export default function EnquiriesPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {loading && <TableRowSkeleton rows={8} />}
+                                {(loading || clientsLoading) && <TableRowSkeleton rows={8} />}
                                 {error && (
                                     <tr>
                                         <td colSpan={6} className="py-8 text-center text-red-600">
@@ -346,14 +347,14 @@ export default function EnquiriesPage() {
                                         </td>
                                     </tr>
                                 )}
-                                {!loading && !error && filtered.length === 0 && (
+                                {!loading && !clientsLoading && !error && filtered.length === 0 && (
                                     <tr>
                                         <td colSpan={6} className="py-8 text-center text-muted-foreground">
                                             No enquiries found.
                                         </td>
                                     </tr>
                                 )}
-                                {!loading && !error && filtered.map((e) => (
+                                {!loading && !clientsLoading && !error && filtered.map((e) => (
                                     <tr key={e.id} className="border-t hover:bg-gray-50">
                                         <td className="py-4">{clientMap.get(e.client) || e.client}</td>
                                         <td className="py-4">{e.date}</td>
