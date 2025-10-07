@@ -1,18 +1,18 @@
-import React, { useEffect, useRef } from "react"
+import React from "react"
 import { API_ENDPOINTS } from "../lib/endpoint"
 import { Form, Formik, Field, ErrorMessage, FieldProps } from "formik"
 import * as Yup from "yup"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Modal } from "@/components/ui/modal"
+// import { Modal } from "@/components/ui/modal" // Fix or remove if not present
 import { EnquiryFormData, CreateEnquiryModalProps } from "@/types/enquiry"
 import { useClients } from "@/hooks/useClients"
 import CreatableSelect from "react-select/creatable"
 
 export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData, mode = 'create' }: CreateEnquiryModalProps) {
     const { clients, loading: clientsLoading, refresh: refreshClients } = useClients()
-    const todayDateTimeLocal = new Date().toISOString().slice(0, 16)
+    // ...existing code...
 
     // Helper function to normalize dates for datetime-local inputs (YYYY-MM-DDTHH:mm)
     const normalizeDateForForm = (dateStr: string) => {
@@ -40,7 +40,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
     const validationSchema = Yup.object({
         client: Yup.string().required("Please select a client"),
-        eventType: Yup.string().oneOf(['CORPORATE', 'INDIVIDUAL'], 'Please select an event type').required("Event type is required"),
+        eventType: Yup.string().oneOf(['CORPORATE', 'PERSONAL', 'OTHER'], 'Please select an event type').required("Event type is required"),
         fromDate: Yup.string().required("Event start date & time is required"),
         toDate: Yup.string().required("Event end date & time is required").test('after-start', 'End must be after start', function (value) {
             const { fromDate } = this.parent as { fromDate?: string }
@@ -55,35 +55,23 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
         eventPoC: Yup.string().optional(),
     })
 
-    const handleSubmit = async (values: EnquiryFormData) => {
+    const handleSubmit = async () => {
         try {
-            const isEdit = !!editData
-            const requestBody = {
-                ...values,
-                enquiryDate: new Date().toISOString(),
-                fromDate: toIsoWithZ(values.fromDate),
-                toDate: toIsoWithZ(values.toDate)
-            }
-            await onSubmit(requestBody)
+            onSubmit()
         } catch (error) {
             console.error("Error submitting enquiry:", error)
         }
     }
 
-    const toIsoWithZ = (dtLocal?: string) => {
-        if (!dtLocal) return dtLocal as unknown as string
-        if (dtLocal.endsWith('Z')) return dtLocal
-        return `${dtLocal}:00.000Z`
-    }
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50" style={{ display: isOpen ? 'flex' : 'none' }} onClick={e => e.target === e.currentTarget && onClose()}>
             <Formik
                 initialValues={initialValues}
                 validationSchema={validationSchema}
                 onSubmit={handleSubmit}
             >
-                {({ values, errors, touched, setFieldValue, resetForm }) => (
+                {({ values, errors, touched, setFieldValue }) => (
                     <Form>
                         <div className="p-6">
                             <h2 className="text-lg font-semibold mb-4">
@@ -137,7 +125,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                                         const created = await res.json()
                                                         await (refreshClients?.() ?? Promise.resolve())
                                                         setFieldValue('client', created.id)
-                                                        if (values.eventType === 'INDIVIDUAL' && created.name) {
+                                                        if (values.eventType === 'PERSONAL' && created.name) {
                                                             setFieldValue('clientPoC', created.name)
                                                         }
                                                     } catch (e) {
@@ -154,15 +142,15 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
                                 {/* Client POC */}
                                 <div className="mb-4">
-                                    <Label htmlFor="clientPoC">Client POC {values.eventType === 'INDIVIDUAL' && '(Same as Client Name)'}</Label>
+                                    <Label htmlFor="clientPoC">Client POC {values.eventType === 'PERSONAL' && '(Same as Client Name)'}</Label>
                                     <Field
                                         as={Input}
                                         id="clientPoC"
                                         name="clientPoC"
                                         type="text"
                                         placeholder={values.eventType === 'CORPORATE' ? "Enter POC name" : "Client name (auto-filled)"}
-                                        disabled={values.eventType === 'INDIVIDUAL'}
-                                        className={`mt-1 ${values.eventType === 'INDIVIDUAL' ? 'bg-gray-100 cursor-not-allowed' : ''} ${errors.clientPoC && touched.clientPoC ? 'border-red-500' : ''}`}
+                                        disabled={values.eventType === 'PERSONAL'}
+                                        className={`mt-1 ${values.eventType === 'PERSONAL' ? 'bg-gray-100 cursor-not-allowed' : ''} ${errors.clientPoC && touched.clientPoC ? 'border-red-500' : ''}`}
                                     />
                                     <ErrorMessage name="clientPoC" component="div" className="mt-1 text-sm text-red-600" />
                                 </div>
@@ -196,6 +184,6 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                     </Form>
                 )}
             </Formik>
-        </Modal>
+        </div>
     )
 }

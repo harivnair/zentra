@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { ListSkeleton } from "@/components/skeleton-loader"
 
 const StatCard = ({ color, value, label }: { color: string; value: string; label: string }) => (
     <div className={`rounded-lg p-6 text-gray-800 ${color} shadow-md border border-gray-200`}>

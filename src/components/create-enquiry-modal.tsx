@@ -35,7 +35,7 @@ const validationSchema = Yup.object({
 })
 
 export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData, mode = 'create' }: CreateEnquiryModalProps) {
-    const { clients, loading: clientsLoading, refresh: refreshClients } = useClients()
+    const { clients, loading: clientsLoading } = useClients()
 
     // Formik ref so we can set fields from outside when clients finish loading
     const formikRef = useRef<FormikProps<EnquiryFormData> | null>(null)
@@ -178,9 +178,10 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                         <Field name="fromDate">
                                             {({ field, form }: FieldProps) => (
                                                 <DatePicker
-                                                    id="fromDate"
                                                     selected={field.value ? new Date(field.value) : null}
-                                                    onChange={(date: Date | null) => form.setFieldValue('fromDate', date ? date.toISOString() : '')}
+                                                    onChange={(date: Date | null) => {
+                                                        form.setFieldValue('fromDate', date ? date.toISOString() : '')
+                                                    }}
                                                     showTimeSelect
                                                     timeIntervals={15}
                                                     dateFormat="MMM d, yyyy h:mm aa"
@@ -196,7 +197,6 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                         <Field name="toDate">
                                             {({ field, form }: FieldProps) => (
                                                 <DatePicker
-                                                    id="toDate"
                                                     selected={field.value ? new Date(field.value) : null}
                                                     onChange={(date: Date | null) => form.setFieldValue('toDate', date ? date.toISOString() : '')}
                                                     showTimeSelect

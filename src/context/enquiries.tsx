@@ -116,7 +116,7 @@ export function EnquiriesProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         fetchEnquiries()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [])
 
     return (
