@@ -43,21 +43,21 @@ export function sanitizePhone(phone: string): string {
 /**
  * Sanitize object - recursively sanitize all string values
  */
-export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
+export function sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
     const result = { ...obj }
 
     for (const key in result) {
         const value = result[key]
 
         if (typeof value === 'string') {
-            result[key] = sanitizeText(value) as any
+            result[key] = sanitizeText(value) as T[Extract<keyof T, string>]
         } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            result[key] = sanitizeObject(value)
+            result[key] = sanitizeObject(value as Record<string, unknown>) as T[Extract<keyof T, string>]
         } else if (Array.isArray(value)) {
-            result[key] = value.map(item =>
+            result[key] = value.map((item: unknown) =>
                 typeof item === 'string' ? sanitizeText(item) :
-                    typeof item === 'object' ? sanitizeObject(item) : item
-            ) as any
+                    typeof item === 'object' && item !== null ? sanitizeObject(item as Record<string, unknown>) : item
+            ) as T[Extract<keyof T, string>]
         }
     }
 
