@@ -1,30 +1,47 @@
 "use client"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/context/auth"
+import { toast } from "sonner"
 
 export default function LoginPage() {
+    const router = useRouter()
+    const { login, isAuthenticated, isLoading: authLoading } = useAuth()
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [email, setEmail] = useState("")
+    const [userID, setUserID] = useState("")
     const [password, setPassword] = useState("")
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            router.push('/dashboard')
+        }
+    }, [isAuthenticated, authLoading, router])
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
-        setTimeout(() => {
+
+        try {
+            await login(userID, password)
+            toast.success('Login successful!')
+            router.push('/dashboard')
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.'
+            setError(errorMessage)
+            toast.error(errorMessage)
+        } finally {
             setLoading(false)
-            if (!email || !password) {
-                setError("Please enter both email and password.")
-            } else {
-                setError(null)
-            }
-        }, 1200)
+        }
     }
     return (
         <>
@@ -67,20 +84,20 @@ export default function LoginPage() {
                                 </div>
                                 <h1 className="text-3xl font-bold">Login</h1>
                                 <p className="text-balance text-muted-foreground">
-                                    Enter your email below to login to your account
+                                    Enter your credentials to login to your account
                                 </p>
                             </div>
                             {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded mb-2 text-sm">{error}</div>}
                             <div className="grid gap-4">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">Email</Label>
+                                    <Label htmlFor="userID">User ID</Label>
                                     <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder="m@example.com"
+                                        id="userID"
+                                        type="text"
+                                        placeholder="Enter your user ID"
                                         required
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
+                                        value={userID}
+                                        onChange={e => setUserID(e.target.value)}
                                         className="focus:ring-2 focus:ring-green-400 focus:border-green-400"
                                     />
                                 </div>

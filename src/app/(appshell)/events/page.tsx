@@ -6,6 +6,10 @@ import DropdownMenu from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import CreateEventModal from "@/components/create-event-modal"
 import { EventFormData } from "@/types/event"
+import { showConfirmation } from "@/components/confirmation-toast"
+import { toast } from "sonner"
+import { TableRowSkeleton, ListSkeleton } from "@/components/skeleton-loader"
+import { apiRequest } from "@/lib/api-client"
 
 type EventItem = {
     id: number | string
@@ -44,7 +48,7 @@ export default function EventsPage() {
             setLoading(true)
             setError(null)
             try {
-                const res = await fetch('/api/events')
+                const res = await apiRequest('/api/events')
                 if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`)
                 const data = await res.json()
                 if (mounted) setEvents(Array.isArray(data) ? data : [])
@@ -59,18 +63,28 @@ export default function EventsPage() {
     }, [])
 
     const handleDelete = async (id: string | number) => {
-        try {
-            const res = await fetch(`/api/events/${encodeURIComponent(String(id))}`, { method: 'DELETE' })
-            if (!res.ok) {
-                const txt = await res.text().catch(() => '')
-                throw new Error(`Delete failed: ${res.status} ${txt}`)
-            }
-            // Remove from UI
-            setEvents(prev => prev.filter(e => String(e.id) !== String(id)))
-        } catch (err) {
-            console.error('Failed to delete event', err)
-            alert('Failed to delete event')
-        }
+        showConfirmation({
+            title: "Delete Event",
+            description: "Are you sure you want to delete this event? This action cannot be undone.",
+            onConfirm: async () => {
+                try {
+                    const idString = String(id)
+                    console.log('Deleting event with ID:', idString)
+                    const res = await apiRequest(`/api/events/${idString}`, { method: 'DELETE' })
+                    if (!res.ok) {
+                        const txt = await res.text().catch(() => '')
+                        console.log('Delete response status:', res.status, 'body:', txt)
+                        throw new Error(`Delete failed: ${res.status} ${txt}`)
+                    }
+                    // Remove from UI
+                    setEvents(prev => prev.filter(e => String(e.id) !== idString))
+                    toast.success('Event deleted successfully')
+                } catch (err) {
+                    console.error('Failed to delete event', err)
+                    toast.error('Failed to delete event')
+                }
+            },
+        })
     }
 
     const handleEdit = (id: string | number) => {
@@ -107,11 +121,7 @@ export default function EventsPage() {
 
             <div className="rounded-lg bg-white p-4 sm:p-6 shadow-sm">
                 <div className="hidden md:block">
-                    {loading && <div className="p-4">Loading...</div>}
                     {error && <div className="p-4 text-red-600">{error}</div>}
-                    {!loading && !error && events.length === 0 && (
-                        <div className="p-4 text-muted-foreground">No events found.</div>
-                    )}
 
                     <table className="w-full text-sm">
                         <thead>
@@ -125,6 +135,12 @@ export default function EventsPage() {
                             </tr>
                         </thead>
                         <tbody>
+                            {loading && <TableRowSkeleton rows={8} />}
+                            {!loading && !error && events.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="py-8 text-center text-muted-foreground">No events found.</td>
+                                </tr>
+                            )}
                             {events.map((ev) => (
                                 <tr key={ev.id} className="border-t hover:bg-gray-50">
                                     <td className="py-4">{ev.title}</td>
@@ -144,7 +160,7 @@ export default function EventsPage() {
 
                 {/* Mobile stacked cards */}
                 <div className="flex flex-col gap-4 md:hidden">
-                    {loading && <div className="p-4">Loading...</div>}
+                    {loading && <ListSkeleton type="cards" items={5} />}
                     {error && <div className="p-4 text-red-600">{error}</div>}
                     {!loading && !error && events.length === 0 && (
                         <div className="p-4 text-muted-foreground">No events found.</div>
@@ -178,7 +194,7 @@ export default function EventsPage() {
                     // Refresh events list after create/update
                     setLoading(true)
                     try {
-                        const res = await fetch('/api/events')
+                        const res = await apiRequest('/api/events')
                         const data = await res.json()
                         setEvents(Array.isArray(data) ? data : [])
                     } catch (err) {

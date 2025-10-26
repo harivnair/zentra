@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useRef } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { API_ENDPOINTS } from "../lib/endpoint"
 import { Formik, Form, Field, ErrorMessage, FormikHelpers, FieldProps, FormikProps } from "formik"
 import * as Yup from "yup"
@@ -10,7 +10,12 @@ import { Label } from "@/components/ui/label"
 import { EnquiryFormData, CreateEnquiryModalProps } from "@/types/enquiry"
 import { useClients } from "@/hooks/useClients"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
+import { useEstimatePrefill, type EstimatePrefillPayload } from "@/context/estimate-prefill"
+import { toast } from "sonner"
+import type { EstimateStatus } from "@/types/estimate"
 import DatePicker from "react-datepicker"
+import { apiRequest } from "@/lib/api-client"
 const CreatableSelect = dynamic(() => import("react-select/creatable"), { ssr: false })
 import "react-datepicker/dist/react-datepicker.css"
 
@@ -20,14 +25,22 @@ const validationSchema = Yup.object({
         return Boolean(value) || Boolean(clientName)
     }),
     eventType: Yup.string().oneOf(['PERSONAL', 'CORPORATE', 'OTHER'], 'Please select an event type').required("Event type is required"),
-    fromDate: Yup.string().required("Event start date & time is required"),
-    toDate: Yup.string().required("Event end date & time is required").test('after-start', 'End must be after start', function (value) {
-        const { fromDate } = this.parent as { fromDate?: string }
-        if (!value || !fromDate) return true
-        return new Date(value) >= new Date(fromDate)
-    }),
+    fromDate: Yup.string()
+        .transform(value => (value ? value : null))
+        .nullable()
+        .notRequired(),
+    toDate: Yup.string()
+        .transform(value => (value ? value : null))
+        .nullable()
+        .notRequired()
+        .test('after-start', 'End must be after start', function (value) {
+            const { fromDate } = this.parent as { fromDate?: string | null }
+            if (!value || !fromDate) return true
+            return new Date(value) >= new Date(fromDate)
+        }),
     location: Yup.string().required("Location is required"),
     venue: Yup.string().required("Venue is required"),
+    title: Yup.string().required("Event title is required").min(3, "Add at least 3 characters"),
     highlvelRequirement: Yup.string().required("High level requirements are required").min(10, "Please provide more detailed requirements (at least 10 characters)"),
     clientPoC: Yup.string().optional(),
     enquiryPoCNumber: Yup.string().required("Client POC contact number is required").matches(/^\d{10}$/, "Phone number must be exactly 10 digits"),
@@ -36,9 +49,14 @@ const validationSchema = Yup.object({
 
 export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData, mode = 'create' }: CreateEnquiryModalProps) {
     const { clients, loading: clientsLoading } = useClients()
+    const router = useRouter()
+    const { setPrefill: setEstimatePrefill } = useEstimatePrefill()
 
     // Formik ref so we can set fields from outside when clients finish loading
     const formikRef = useRef<FormikProps<EnquiryFormData> | null>(null)
+    const submitIntentRef = useRef<'save' | 'estimate'>('save')
+    const [estimateProcessing, setEstimateProcessing] = useState(false)
+    const [saveProcessing, setSaveProcessing] = useState(false)
 
     // Helper function to normalize dates for datetime-local inputs (YYYY-MM-DDTHH:mm)
     const normalizeDateForForm = (dateStr: string) => {
@@ -55,34 +73,52 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
     const initialValues: EnquiryFormData = editData ? {
         ...editData,
-        fromDate: normalizeDateForForm(editData.fromDate) || "",
-        toDate: normalizeDateForForm(editData.toDate) || "",
+        title: editData.title ?? "",
+        fromDate: normalizeDateForForm(editData.fromDate || "") || "",
+        toDate: normalizeDateForForm(editData.toDate || "") || "",
         eventType: editData.eventType || 'CORPORATE',
     } : {
-        highlvelRequirement: "", fromDate: "", toDate: "",
-        location: "", venue: "", clientPoC: "", enquiryPoCNumber: "", client: "", clientName: "",
+        highlvelRequirement: "",
+        title: "",
+        fromDate: "",
+        toDate: "",
+        location: "",
+        venue: "",
+        clientPoC: "",
+        enquiryPoCNumber: "",
+        client: "",
+        clientName: "",
         eventType: 'CORPORATE'
     }
 
+    const isEdit = mode === 'edit' || !!editData?.id
+
     const handleSubmit = async (values: EnquiryFormData, { setSubmitting, setStatus, resetForm }: FormikHelpers<EnquiryFormData>) => {
+        const intent = submitIntentRef.current
+        if (intent === 'estimate') {
+            setEstimateProcessing(true)
+        } else {
+            setSaveProcessing(true)
+        }
+
         try {
             setStatus(null)
-            const isEdit = mode === 'edit' || !!editData?.id
-
-            // Helper to convert datetime-local (YYYY-MM-DDTHH:mm) to ISO string with Z
             const toIsoWithZFromDate = (dateVal?: string | Date) => {
-                if (!dateVal) return dateVal as unknown as string
+                if (!dateVal) return undefined
                 if (typeof dateVal === 'string') {
                     if (dateVal.endsWith('Z')) return dateVal
-                    return `${dateVal}:00.000Z`
+                    if (dateVal.length === 16) return `${dateVal}:00.000Z`
+                    return dateVal
                 }
                 return new Date(dateVal).toISOString()
             }
 
+            const existingClient = clients.find(c => c.id === values.client)
             let clientId = values.client
-            // If user typed a new client (clientName present but no client id), create it now
+            let clientDisplayName = existingClient?.name ?? ''
+
             if (!clientId && values.clientName) {
-                const res = await fetch(API_ENDPOINTS.clients.list, {
+                const res = await apiRequest(API_ENDPOINTS.clients.list, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: values.clientName })
@@ -90,23 +126,31 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                 if (!res.ok) throw new Error('Failed to create client')
                 const created = await res.json()
                 clientId = created.id
+                clientDisplayName = typeof created.name === 'string' ? created.name : ''
             }
 
-            const requestBody = {
-                ...values,
+            if (!clientId) {
+                throw new Error('Client information is required before saving the enquiry')
+            }
+
+            const { fromDate, toDate, ...restValues } = values
+            const formattedFromDate = toIsoWithZFromDate(fromDate as unknown as string | Date)
+            const formattedToDate = toIsoWithZFromDate(toDate as unknown as string | Date)
+
+            const requestBody: Record<string, unknown> = {
+                ...restValues,
                 client: clientId,
-                // Always use current time for enquiryDate per requirement
                 enquiryDate: new Date().toISOString(),
-                fromDate: toIsoWithZFromDate(values.fromDate as unknown as Date),
-                toDate: toIsoWithZFromDate(values.toDate as unknown as Date)
             }
 
-            // Include ID for edit mode
+            if (formattedFromDate) requestBody.fromDate = formattedFromDate
+            if (formattedToDate) requestBody.toDate = formattedToDate
+
             if (isEdit && editData?.id) {
                 requestBody.id = editData.id
             }
 
-            const response = await fetch(API_ENDPOINTS.enquiries.list, {
+            const response = await apiRequest(API_ENDPOINTS.enquiries.list, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
@@ -114,18 +158,141 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
             if (!response.ok) throw new Error(`Failed to ${isEdit ? 'update' : 'create'} enquiry: ${response.statusText}`)
 
-            await response.json()
-            onSubmit()
+            const contentType = response.headers.get('content-type') ?? ''
+            let savedEnquiry: Record<string, unknown> | null = null
 
-            // Reset form only for create mode
-            if (!isEdit) {
+            if (contentType.includes('application/json')) {
+                try {
+                    savedEnquiry = await response.json() as Record<string, unknown>
+                } catch {
+                    throw new Error('Failed to parse enquiry response. Please try again.')
+                }
+            } else if (response.status !== 204) {
+                throw new Error('Received unexpected response when saving the enquiry.')
+            }
+
+            const sourceEnquiry: Record<string, unknown> | null = savedEnquiry ?? (isEdit && editData ? { ...editData } as unknown as Record<string, unknown> : null)
+
+            const pick = <T,>(record: Record<string, unknown> | null | undefined, keys: string[]): T | undefined => {
+                if (!record) return undefined
+                for (const key of keys) {
+                    if (key in record && record[key] !== undefined && record[key] !== null) {
+                        return record[key] as T
+                    }
+                }
+                return undefined
+            }
+
+            const persistedEnquiryId = (() => {
+                const raw = pick<string | number>(sourceEnquiry, ['id', 'enquiryId', 'enquiry_id'])
+                if (raw === undefined || raw === null) return undefined
+                return String(raw)
+            })()
+
+            const estimatePrefill: EstimatePrefillPayload | null = (() => {
+                if (intent !== 'estimate') return null
+                if (!sourceEnquiry) {
+                    throw new Error('Enquiry details are unavailable for estimate creation.')
+                }
+
+                const savedClient = pick<unknown>(sourceEnquiry, ['client'])
+                const normalisedClient = (() => {
+                    if (savedClient && typeof savedClient === 'object') {
+                        const clientRecord = savedClient as { id?: string | number; name?: string }
+                        if (clientRecord.id || clientRecord.name) {
+                            return {
+                                id: clientRecord.id ? String(clientRecord.id) : undefined,
+                                name: clientRecord.name,
+                            }
+                        }
+                    }
+                    if (clientId) {
+                        return {
+                            id: String(clientId),
+                            name: clientDisplayName || existingClient?.name,
+                        }
+                    }
+                    return undefined
+                })()
+
+                const rawItems = pick<Record<string, unknown>>(sourceEnquiry, ['items'])
+                const cleanedItems = rawItems && typeof rawItems === 'object'
+                    ? Object.entries(rawItems).reduce<Record<string, { id: string; description: string; quantity: number; unitCost: number; total: number }[]>>((acc, [category, entries]) => {
+                        if (!Array.isArray(entries)) return acc
+                        acc[category] = entries.map((item, index) => {
+                            const record = item as Record<string, unknown>
+                            const quantity = typeof record.quantity === 'number' ? record.quantity : Number(record.quantity ?? 0)
+                            const unitCost = typeof record.unitCost === 'number' ? record.unitCost : Number(record.unitCost ?? 0)
+                            const totalValue = quantity * unitCost
+                            return {
+                                id: String(record.id ?? `${category}-${index}`),
+                                description: typeof record.description === 'string' ? record.description : 'Line item',
+                                quantity: Number.isFinite(quantity) ? quantity : 0,
+                                unitCost: Number.isFinite(unitCost) ? unitCost : 0,
+                                total: Number.isFinite(totalValue) ? Number(totalValue.toFixed(2)) : 0,
+                            }
+                        })
+                        return acc
+                    }, {})
+                    : undefined
+
+                const rawStatus = pick<string>(sourceEnquiry, ['status', 'enquiryStatus'])
+                const allowedStatuses: EstimateStatus[] = ['OPEN', 'CLOSED', 'CANCELLED']
+                const normalisedStatus = rawStatus ? rawStatus.toUpperCase() : undefined
+                const status = normalisedStatus && allowedStatuses.includes(normalisedStatus as EstimateStatus)
+                    ? (normalisedStatus as EstimateStatus)
+                    : 'OPEN'
+
+                return {
+                    enquiryId: persistedEnquiryId,
+                    title: pick<string>(sourceEnquiry, ['title', 'eventName']) ?? values.title ?? '',
+                    highlvelRequirement: pick<string>(sourceEnquiry, ['highlvelRequirement', 'summary', 'title']) ?? '',
+                    enquiryDate: pick<string>(sourceEnquiry, ['enquiryDate', 'createdAt']),
+                    fromDate: pick<string>(sourceEnquiry, ['fromDate', 'eventStart']),
+                    toDate: pick<string>(sourceEnquiry, ['toDate', 'eventEnd']),
+                    status,
+                    location: pick<string>(sourceEnquiry, ['location', 'eventLocation']),
+                    venue: pick<string>(sourceEnquiry, ['venue']) ?? '',
+                    clientPoC: pick<string>(sourceEnquiry, ['clientPoC']) ?? '',
+                    pocContactNumber: pick<string>(sourceEnquiry, ['enquiryPoCNumber', 'pocContactNumber', 'clientPhone']) ?? '',
+                    enquiryPoC: pick<string>(sourceEnquiry, ['eventPoC', 'enquiryPoC']),
+                    client: normalisedClient,
+                    items: cleanedItems,
+                }
+            })()
+
+            await Promise.resolve(onSubmit())
+
+            if (!isEdit && intent === 'save') {
                 resetForm({ values: { ...initialValues } })
             }
+
+            if (intent === 'estimate') {
+                if (!estimatePrefill) {
+                    throw new Error('Failed to create estimate prefill from enquiry response.')
+                }
+
+                setEstimatePrefill(estimatePrefill)
+                onClose()
+                router.push('/estimates')
+                return
+            }
+
             onClose()
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : `Failed to ${mode === 'edit' ? 'update' : 'create'} enquiry`)
+            const message = error instanceof Error ? error.message : `Failed to ${isEdit ? 'update' : 'create'} enquiry`
+            setStatus(message)
+            toast.error(`Unable to ${isEdit ? 'update' : 'create'} enquiry`, {
+                description: message,
+            })
         } finally {
             setSubmitting(false)
+            submitIntentRef.current = 'save'
+            if (intent === 'estimate') {
+                setEstimateProcessing(false)
+            } else {
+                setSaveProcessing(false)
+            }
         }
     }
 
@@ -150,9 +317,9 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
     return (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-2xl max-h-[95vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
+            <div className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
                 <Formik innerRef={formikRef} initialValues={initialValues} enableReinitialize validationSchema={validationSchema} onSubmit={handleSubmit}>
-                    {({ errors, touched, isSubmitting, status, values, setFieldValue }) => (
+                    {({ errors, touched, isSubmitting, status, values, setFieldValue, submitForm }) => (
                         <Form>
                             {/* Header */}
                             <div className="flex items-center justify-between mb-4">
@@ -165,7 +332,19 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                 </div>
                                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl" type="button">×</button>
                             </div>
-
+                            {/* Event Title */}
+                            <div>
+                                <Label htmlFor="title">Event Title</Label>
+                                <Field
+                                    as={Input}
+                                    id="title"
+                                    name="title"
+                                    type="text"
+                                    placeholder="e.g. Birthday party, Annual day celebration"
+                                    className={`mt-1 ${errors.title && touched.title ? 'border-red-500' : ''}`}
+                                />
+                                <ErrorMessage name="title" component="div" className="mt-1 text-sm text-red-600" />
+                            </div>
                             <div className="pt-4 space-y-4">
                                 {status && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{status}</div>}
 
@@ -174,7 +353,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                 {/* Row 2: Event Dates */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <Label htmlFor="fromDate">Event From (Date & Time)</Label>
+                                        <Label htmlFor="fromDate">Event From (Date & Time) <span className="text-gray-500 text-xs">(optional)</span></Label>
                                         <Field name="fromDate">
                                             {({ field, form }: FieldProps) => (
                                                 <DatePicker
@@ -193,7 +372,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                         <ErrorMessage name="fromDate" component="div" className="mt-1 text-sm text-red-600" />
                                     </div>
                                     <div>
-                                        <Label htmlFor="toDate">Event To (Date & Time)</Label>
+                                        <Label htmlFor="toDate">Event To (Date & Time) <span className="text-gray-500 text-xs">(optional)</span></Label>
                                         <Field name="toDate">
                                             {({ field, form }: FieldProps) => (
                                                 <DatePicker
@@ -210,6 +389,8 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                         <ErrorMessage name="toDate" component="div" className="mt-1 text-sm text-red-600" />
                                     </div>
                                 </div>
+
+
 
                                 {/* Location and Venue */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,16 +423,13 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                         <div className="mt-2 flex gap-6">
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <Field type="radio" name="eventType" value="PERSONAL" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                                <span className="text-sm text-gray-700">Personal</span>
+                                                <span className="text-sm text-gray-700">Individual</span>
                                             </label>
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <Field type="radio" name="eventType" value="CORPORATE" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
                                                 <span className="text-sm text-gray-700">Corporate</span>
                                             </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <Field type="radio" name="eventType" value="OTHER" className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                                <span className="text-sm text-gray-700">Other</span>
-                                            </label>
+
                                         </div>
                                         <ErrorMessage name="eventType" component="div" className="mt-1 text-sm text-red-600" />
                                     </div>
@@ -352,10 +530,35 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                             </div>
 
                             {/* Footer */}
-                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                                <Button variant="outline" onClick={onClose} type="button" disabled={isSubmitting}>Cancel</Button>
-                                <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-                                    {isSubmitting ? (mode === 'edit' ? "Updating..." : "Creating...") : (mode === 'edit' ? "Update Enquiry" : "Create Enquiry")}
+                            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end mt-6 pt-4 border-t">
+                                <div className="flex gap-3 justify-end">
+                                    <Button variant="outline" onClick={onClose} type="button" disabled={isSubmitting || estimateProcessing || saveProcessing}>Cancel</Button>
+                                    <Button
+                                        type="button"
+                                        disabled={isSubmitting || saveProcessing || estimateProcessing}
+                                        onClick={() => {
+                                            submitIntentRef.current = 'save'
+                                            submitForm()
+                                        }}
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                        {saveProcessing || (isSubmitting && submitIntentRef.current === 'save')
+                                            ? 'Saving...'
+                                            : (mode === 'edit' ? 'Save Changes' : 'Save Enquiry')}
+                                    </Button>
+                                </div>
+                                <Button
+                                    type="button"
+                                    className="bg-purple-600 text-white hover:bg-purple-700"
+                                    disabled={isSubmitting || estimateProcessing}
+                                    onClick={() => {
+                                        submitIntentRef.current = 'estimate'
+                                        submitForm()
+                                    }}
+                                >
+                                    {estimateProcessing || (isSubmitting && submitIntentRef.current === 'estimate')
+                                        ? 'Saving & Redirecting...'
+                                        : 'Create Estimate'}
                                 </Button>
                             </div>
                         </Form>

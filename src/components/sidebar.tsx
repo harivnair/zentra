@@ -3,11 +3,21 @@
 import React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, FileText, Calendar, Grid, DollarSign, BookOpen, CreditCard, BarChart2, Users, Truck } from 'lucide-react'
+import { usePathname, useRouter } from "next/navigation"
+import { Home, FileText, Calendar, Grid, DollarSign, BookOpen, CreditCard, BarChart2, Users, Truck, LogOut } from 'lucide-react'
+import { useAuth } from "@/context/auth"
+import { toast } from "sonner"
 
 export default function Sidebar() {
     const pathname = usePathname() || "/"
+    const router = useRouter()
+    const { logout } = useAuth()
+
+    const handleLogout = () => {
+        logout()
+        toast.success('Logged out successfully')
+        router.push('/login')
+    }
 
     // Render immediately; Next.js hydration mismatch is not an issue for this sidebar
 
@@ -94,7 +104,13 @@ export default function Sidebar() {
             </div>
 
             <div className="mt-4">
-                <Link href="/logout" className="block px-3 py-2 rounded hover:bg-white/10">Logout</Link>
+                <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-left"
+                >
+                    <LogOut className="w-4 h-4 opacity-90" />
+                    <span>Logout</span>
+                </button>
             </div>
         </aside>
     )

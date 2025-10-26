@@ -9,6 +9,9 @@ import { EnquiryFormData } from "@/types/enquiry"
 import { useEnquiries } from "@/context/enquiries"
 import { useClients } from "@/hooks/useClients"
 import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader"
+import { showConfirmation } from "@/components/confirmation-toast"
+import { toast } from "sonner"
+import { apiRequest } from "@/lib/api-client"
 
 type Enquiry = {
     id: number | string
@@ -142,45 +145,48 @@ export default function EnquiriesPage() {
     }
 
     const handleDelete = async (id: string) => {
-        const confirmed = window.confirm("Are you sure you want to delete this enquiry? This action cannot be undone.")
-        if (confirmed) {
-            try {
-                console.log("Delete enquiry:", id)
-                const res = await fetch(`/api/enquiries/${encodeURIComponent(id)}`, {
-                    method: 'DELETE'
-                })
+        showConfirmation({
+            title: "Delete Enquiry",
+            description: "Are you sure you want to delete this enquiry? This action cannot be undone.",
+            onConfirm: async () => {
+                try {
+                    console.log("Delete enquiry:", id)
+                    const res = await apiRequest(`/api/enquiries/${id}`, {
+                        method: 'DELETE'
+                    })
 
-                // Treat 200..299 and 204 as success. Some backends return empty body for DELETE.
-                if (res.ok) {
-                    try {
-                        // attempt to read body for debugging, but ignore parse errors
-                        const text = await res.text().catch(() => '')
-                        console.log('Delete response body:', text)
-                    } catch {
-                        // ignore
+                    // Treat 200..299 and 204 as success. Some backends return empty body for DELETE.
+                    if (res.ok) {
+                        try {
+                            // attempt to read body for debugging, but ignore parse errors
+                            const text = await res.text().catch(() => '')
+                            console.log('Delete response body:', text)
+                        } catch {
+                            // ignore
+                        }
+
+                        // Refresh enquiries list from context, but don't treat a refresh failure
+                        // as a delete failure (backend may have deleted the resource while
+                        // the list refresh fails due to a transient issue).
+                        try {
+                            await refresh()
+                        } catch (refreshErr) {
+                            console.error('Failed to refresh enquiries after delete:', refreshErr)
+                        }
+
+                        toast.success('Enquiry deleted successfully')
+                    } else {
+                        // Try to surface backend message if any
+                        const errText = await res.text().catch(() => '')
+                        console.error('Delete failed, status:', res.status, 'body:', errText)
+                        throw new Error(`Failed to delete enquiry: ${res.status} ${errText}`)
                     }
-
-                    // Refresh enquiries list from context, but don't treat a refresh failure
-                    // as a delete failure (backend may have deleted the resource while
-                    // the list refresh fails due to a transient issue).
-                    try {
-                        await refresh()
-                    } catch (refreshErr) {
-                        console.error('Failed to refresh enquiries after delete:', refreshErr)
-                    }
-
-                    alert(`Enquiry ${id} deleted.`)
-                } else {
-                    // Try to surface backend message if any
-                    const errText = await res.text().catch(() => '')
-                    console.error('Delete failed, status:', res.status, 'body:', errText)
-                    throw new Error(`Failed to delete enquiry: ${res.status} ${errText}`)
+                } catch (error) {
+                    toast.error('Failed to delete enquiry')
+                    console.error("Error deleting enquiry:", error)
                 }
-            } catch (error) {
-                alert("Failed to delete enquiry. Please try again.")
-                console.error("Error deleting enquiry:", error)
-            }
-        }
+            },
+        })
     }
 
     const handlePrint = (id: string) => {

@@ -2,9 +2,10 @@ export interface EnquiryFormData {
     id?: string | number // Optional for create, required for edit
     status?: string // Enum: OPEN, CLOSED, etc.
     highlvelRequirement: string
+    title?: string
     enquiryDate?: string
-    fromDate: string
-    toDate: string
+    fromDate?: string
+    toDate?: string
     venue: string
     eventName?: string
     location?: string

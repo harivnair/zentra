@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+import { getBackendHeaders, getBackendUrl } from '@/lib/api-server'
 
 const DEFAULT_TIMEOUT = 5000 // ms
 
@@ -28,14 +27,15 @@ function isConnectionRefusedError(err: unknown) {
     return false
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const BACKEND_URL = getBackendUrl()
     try {
         const url = `${BACKEND_URL}/clients`
+        const headers = { ...getBackendHeaders(request), 'Content-Type': 'application/json' }
+
         const response = await fetchWithTimeout(url, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers,
         })
 
         if (!response.ok) {
@@ -60,15 +60,15 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+    const BACKEND_URL = getBackendUrl()
     try {
         const body = await request.json()
         const url = `${BACKEND_URL}/clients`
 
+        const headers = { ...getBackendHeaders(request), 'Content-Type': 'application/json' }
         const response = await fetchWithTimeout(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify(body),
         })
 

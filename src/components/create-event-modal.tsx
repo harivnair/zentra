@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { EventFormData, CreateEventModalProps } from "@/types/event"
 import { useClients } from "@/hooks/useClients"
+import { apiRequest } from "@/lib/api-client"
 
 const validationSchema = Yup.object({
     title: Yup.string().required('Title is required'),
@@ -51,7 +52,7 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
             const url = isEdit && editData?.id ? `/api/events/${encodeURIComponent(String(editData.id))}` : `/api/events`
             const method = isEdit ? 'PUT' : 'POST'
 
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            const res = await apiRequest(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
             if (!res.ok) {
                 const text = await res.text().catch(() => '')
                 throw new Error(text || `Failed to ${isEdit ? 'update' : 'create'} event: ${res.status}`)
@@ -70,7 +71,7 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
 
     return (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-2xl max-h-[95vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
+            <div className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
                 <Formik innerRef={formikRef} initialValues={initialValues} enableReinitialize validationSchema={validationSchema} onSubmit={handleSubmit}>
                     {({ isSubmitting, status }) => (
                         <Form>

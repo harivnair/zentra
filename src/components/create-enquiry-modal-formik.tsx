@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { EnquiryFormData, CreateEnquiryModalProps } from "@/types/enquiry"
 import { useClients } from "@/hooks/useClients"
 import CreatableSelect from "react-select/creatable"
+import { apiRequest } from "@/lib/api-client"
 
 export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData, mode = 'create' }: CreateEnquiryModalProps) {
     const { clients, loading: clientsLoading, refresh: refreshClients } = useClients()
@@ -29,8 +30,8 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
     const initialValues: EnquiryFormData = editData ? {
         ...editData,
-        fromDate: normalizeDateForForm(editData.fromDate) || "",
-        toDate: normalizeDateForForm(editData.toDate) || "",
+        fromDate: normalizeDateForForm(editData.fromDate ?? "") || "",
+        toDate: normalizeDateForForm(editData.toDate ?? "") || "",
         eventType: editData.eventType || 'CORPORATE',
     } : {
         highlvelRequirement: "", fromDate: "", toDate: "",
@@ -116,7 +117,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                                 }}
                                                 onCreateOption={async (inputValue: string) => {
                                                     try {
-                                                        const res = await fetch(API_ENDPOINTS.clients.list, {
+                                                        const res = await apiRequest(API_ENDPOINTS.clients.list, {
                                                             method: 'POST',
                                                             headers: { 'Content-Type': 'application/json' },
                                                             body: JSON.stringify({ name: inputValue })

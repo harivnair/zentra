@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Client } from '@/types/client'
+import { apiRequest } from '@/lib/api-client'
 
 export function useClients() {
     const [clients, setClients] = useState<Client[]>([])
@@ -12,7 +13,7 @@ export function useClients() {
         try {
             setLoading(true)
             setError(null)
-            const response = await fetch('/api/clients')
+            const response = await apiRequest('/api/clients')
 
             if (!response.ok) {
                 throw new Error(`Failed to fetch clients: ${response.statusText}`)

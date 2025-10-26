@@ -1,6 +1,7 @@
 "use client"
 
 import { API_ENDPOINTS } from "../lib/endpoint"
+import { apiRequest } from "@/lib/api-client"
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 
@@ -34,7 +35,7 @@ export function EnquiriesProvider({ children }: { children: React.ReactNode }) {
         setError(null)
         try {
             // Always use Next.js API route to avoid CORS issues
-            const res = await fetch(`${API_ENDPOINTS.enquiries.list}?page=0&size=10`)
+            const res = await apiRequest(`${API_ENDPOINTS.enquiries.list}?page=0&size=10`)
             if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
             const data = await res.json()
 
@@ -116,7 +117,7 @@ export function EnquiriesProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         fetchEnquiries()
-         
+
     }, [])
 
     return (

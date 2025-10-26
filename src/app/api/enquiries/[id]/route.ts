@@ -1,7 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getBackendHeaders, getBackendUrl } from "@/lib/api-server"
+
+export async function GET(request: NextRequest) {
+    const upstream = getBackendUrl()
+    try {
+        const pathname = request.nextUrl?.pathname ?? ""
+        const parts = pathname.split("/")
+        const id = parts[parts.length - 1]
+        if (!id) {
+            return NextResponse.json({ error: "Missing enquiry id" }, { status: 400 })
+        }
+
+        const headers = getBackendHeaders(request)
+        const res = await fetch(`${upstream}/enquiries/${encodeURIComponent(id)}`, { headers })
+        const responseBody = await res.text()
+        const responseHeaders: Record<string, string> = {}
+        const contentType = res.headers.get("content-type")
+        if (contentType) responseHeaders["content-type"] = contentType
+
+        return new NextResponse(responseBody, { status: res.status, headers: responseHeaders })
+    } catch (error) {
+        console.error("Error proxying GET enquiry request:", error)
+        return NextResponse.json({ error: "Failed to proxy request" }, { status: 502 })
+    }
+}
 
 export async function DELETE(request: NextRequest) {
-    const upstream = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
+    const upstream = getBackendUrl()
     try {
         // request.nextUrl.pathname is like /api/enquiries/{id}
         const pathname = request.nextUrl?.pathname ?? ''
@@ -11,16 +36,18 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Missing enquiry id' }, { status: 400 })
         }
 
+        const headers = getBackendHeaders(request)
         const res = await fetch(`${upstream}/enquiries/${encodeURIComponent(id)}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers
         })
 
         const responseBody = await res.text()
-        const headers: Record<string, string> = {}
+        const responseHeaders: Record<string, string> = {}
         const contentType = res.headers.get("content-type")
-        if (contentType) headers["content-type"] = contentType
+        if (contentType) responseHeaders["content-type"] = contentType
 
-        return new NextResponse(responseBody, { status: res.status, headers })
+        return new NextResponse(responseBody, { status: res.status, headers: responseHeaders })
     } catch (error) {
         console.error('Error proxying DELETE request:', error)
         return NextResponse.json({ error: "Failed to proxy request" }, { status: 502 })

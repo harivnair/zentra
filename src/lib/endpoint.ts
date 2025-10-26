@@ -4,6 +4,7 @@ export const API_ENDPOINTS = {
     enquiries: {
         list: '/api/enquiries',
         detail: (id: string | number) => `/api/enquiries/${id}`,
+        clientSummary: '/api/enquiries/client-enquiry-summary',
     },
     events: {
         list: '/api/events',
@@ -11,6 +12,10 @@ export const API_ENDPOINTS = {
     },
     clients: {
         list: '/api/clients',
+    },
+    estimates: {
+        list: '/api/estimates',
+        detail: (id: string | number) => `/api/estimates/${id}`,
     },
     // Add other endpoints as needed
 }
