@@ -141,6 +141,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                 ...restValues,
                 client: clientId,
                 enquiryDate: new Date().toISOString(),
+                eventName: values.title, // Send title as eventName to backend
             }
 
             if (formattedFromDate) requestBody.fromDate = formattedFromDate
@@ -557,8 +558,8 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                     }}
                                 >
                                     {estimateProcessing || (isSubmitting && submitIntentRef.current === 'estimate')
-                                        ? 'Saving & Redirecting...'
-                                        : 'Create Estimate'}
+                                        ? 'Saving & Opening Estimate...'
+                                        : 'Save & Create Estimate'}
                                 </Button>
                             </div>
                         </Form>

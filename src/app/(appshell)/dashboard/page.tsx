@@ -1,6 +1,8 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useAuth } from "@/context/auth"
+import { Home } from "lucide-react"
 
 const StatCard = ({ color, value, label }: { color: string; value: string; label: string }) => (
     <div className={`rounded-lg p-6 text-gray-800 ${color} shadow-md border border-gray-200`}>
@@ -11,6 +13,7 @@ const StatCard = ({ color, value, label }: { color: string; value: string; label
 
 export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
+    const { user } = useAuth()
 
     // Simulate loading data
     useEffect(() => {
@@ -24,7 +27,12 @@ export default function DashboardPage() {
         { name: "Experion Team Meet", date: "August 14, 2025", task: "Venue Updates", status: "Open", assignee: "Sherin John" },
         { name: "Spring Gala", date: "August 14, 2025", task: "Guest Confirmation", status: "Open", assignee: "Athel Mathew" },
         { name: "IBM Annual Day", date: "September 14, 2025", task: "Deciding Venue", status: "Cancelled", assignee: "Shilpa Kumar" },
-    ]
+    ].sort((a, b) => {
+        // Sort by date descending (most recent first)
+        const dateA = new Date(a.date)
+        const dateB = new Date(b.date)
+        return dateB.getTime() - dateA.getTime()
+    })
 
     const statusPill = (s: string) => {
         const base = "inline-block rounded-full px-3 py-1 text-sm font-medium"
@@ -38,9 +46,11 @@ export default function DashboardPage() {
         <div className="min-h-screen flex bg-gray-50">
             <main className="flex-1 p-6 md:p-8">
                 <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-md bg-yellow-100 flex items-center justify-center">📊</div>
+                    <div className="h-14 w-14 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <Home className="h-8 w-8 text-blue-600" />
+                    </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Hi, Arun!</h2>
+                        <h2 className="text-2xl font-bold">Hi, {user?.name || user?.uid || 'User'}!</h2>
                         <p className="text-muted-foreground">You have 12 Events active this week</p>
                     </div>
                 </div>

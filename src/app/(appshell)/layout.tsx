@@ -2,6 +2,7 @@ import Sidebar from "@/components/sidebar"
 import { EnquiriesProvider } from "@/context/enquiries"
 import NavigationLoader from "@/components/navigation-loader"
 import { EstimatePrefillProvider } from "@/context/estimate-prefill"
+import { EventPrefillProvider } from "@/context/event-prefill"
 import ProtectedRoute from "@/components/protected-route"
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
@@ -11,9 +12,11 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
                 <NavigationLoader />
                 <Sidebar />
                 <main className="flex-1 min-h-screen p-6 md:p-0">
-                    <EstimatePrefillProvider>
-                        <EnquiriesProvider>{children}</EnquiriesProvider>
-                    </EstimatePrefillProvider>
+                    <EventPrefillProvider>
+                        <EstimatePrefillProvider>
+                            <EnquiriesProvider>{children}</EnquiriesProvider>
+                        </EstimatePrefillProvider>
+                    </EventPrefillProvider>
                 </main>
             </div>
         </ProtectedRoute>

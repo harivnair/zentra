@@ -624,6 +624,10 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
     const handleSubmit = async (values: typeof initialForm, helpers: FormikHelpers<typeof initialForm>) => {
         setIsSaving(true)
         helpers.setStatus(null)
+
+        // Check if we're editing an existing estimate
+        const isEditing = prefillData?.id ? true : false
+
         try {
             const activeEnquiryId = selectedEnquiryId ?? prefillData?.enquiryId
             if (!activeEnquiryId || !prefillData) {
@@ -708,8 +712,15 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                 enquiryId: activeEnquiryId,
             }
 
-            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
-                method: "POST",
+            // Check if we're editing an existing estimate (has an id)
+            const isEditing = prefillData.id ? true : false
+            const endpoint = isEditing
+                ? API_ENDPOINTS.estimates.detail(prefillData.id!)
+                : API_ENDPOINTS.estimates.list
+            const method = isEditing ? "PUT" : "POST"
+
+            const res = await apiRequest(endpoint, {
+                method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             })
@@ -741,11 +752,13 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                 items: uiItemsForFallback,
             }
 
+            toast.success(isEditing ? "Estimate updated successfully" : "Estimate created successfully")
             onSaved(fallback)
             onClose()
         } catch (error) {
             console.error("Failed to save estimate", error)
             helpers.setStatus("Failed to save estimate. Please try again.")
+            toast.error(isEditing ? "Failed to update estimate" : "Failed to create estimate")
         } finally {
             setIsSaving(false)
         }
@@ -760,9 +773,28 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                     {({ values, setFieldValue, status }) => (
                         <Form>
                             <header className="px-6 py-4 border-b flex items-start justify-between gap-4 sticky top-0 bg-white">
-                                <div>
-                                    <h2 className="text-xl font-semibold">Create Estimate</h2>
-                                    <p className="text-sm text-muted-foreground">Choose an enquiry to instantly prefill the estimate details.</p>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3">
+                                        <h2 className="text-xl font-semibold">
+                                            {initialData?.id ? 'Edit Estimate' : 'Create Estimate'}
+                                        </h2>
+                                        {initialData?.version && (
+                                            <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                                {initialData.version}
+                                            </span>
+                                        )}
+                                        {initialData?.estimateStatus && (
+                                            <span className={`text-xs font-medium px-2 py-1 rounded ${initialData.estimateStatus === 'FINAL' ? 'bg-green-100 text-green-800' :
+                                                initialData.estimateStatus === 'UNDER_CLIENT_REVIEW' ? 'bg-blue-100 text-blue-800' :
+                                                    'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                {initialData.estimateStatus.replace(/_/g, ' ')}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        {initialData?.id ? 'Update estimate details below.' : 'Choose an enquiry to instantly prefill the estimate details.'}
+                                    </p>
                                 </div>
                                 <button type="button" className="text-gray-400 hover:text-gray-600 text-xl" onClick={onClose} disabled={isSaving}>×</button>
                             </header>
@@ -1076,8 +1108,17 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
 
                             <footer className="px-6 py-4 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
                                 <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
-                                <Button type="submit" disabled={isSaving || isFetchingEnquiry} className="bg-blue-600 hover:bg-blue-700">
-                                    {isSaving ? "Saving..." : isFetchingEnquiry ? "Loading enquiry..." : "Save Estimate"}
+                                <Button
+                                    type="submit"
+                                    disabled={isSaving || isFetchingEnquiry}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    {isSaving
+                                        ? (initialData?.id ? "Updating..." : "Saving...")
+                                        : isFetchingEnquiry
+                                            ? "Loading enquiry..."
+                                            : (initialData?.id ? "Update Estimate" : "Save Estimate")
+                                    }
                                 </Button>
                             </footer>
                         </Form>

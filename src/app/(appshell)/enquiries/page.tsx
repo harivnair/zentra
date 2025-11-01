@@ -12,6 +12,8 @@ import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader"
 import { showConfirmation } from "@/components/confirmation-toast"
 import { toast } from "sonner"
 import { apiRequest } from "@/lib/api-client"
+import { useAuth } from "@/context/auth"
+import { FileText } from "lucide-react"
 
 type Enquiry = {
     id: number | string
@@ -48,6 +50,7 @@ export default function EnquiriesPage() {
 
     const { enquiries, loading, error, refresh } = useEnquiries()
     const { clients, refresh: refreshClients, loading: clientsLoading } = useClients()
+    const { user } = useAuth()
 
     // Create a map of client ID to client name
     const clientMap = useMemo(() => {
@@ -66,6 +69,14 @@ export default function EnquiriesPage() {
             else if (s === 'closed') c.closed++
         }
         return c
+    }, [enquiries])
+
+    // Count all open enquiries
+    const openEnquiriesCount = useMemo(() => {
+        return enquiries.filter((e) => {
+            const s = String(e.status ?? '').trim().toLowerCase()
+            return s === 'open'
+        }).length
     }, [enquiries])
 
     const filtered = useMemo(() => enquiries.filter((e) => {
@@ -247,10 +258,16 @@ export default function EnquiriesPage() {
         <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-md bg-yellow-100 flex items-center justify-center">📨</div>
+                    <div className="h-14 w-14 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-blue-600" />
+                    </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Hi, Arun!</h2>
-                        <p className="text-muted-foreground">You have 1 Open Enquiry this week</p>
+                        <h2 className="text-2xl font-bold">
+                            Hi, {user?.name || user?.uid || 'User'}!
+                        </h2>
+                        <p className="text-muted-foreground">
+                            You have {openEnquiriesCount} Open {openEnquiriesCount === 1 ? 'Enquiry' : 'Enquiries'}
+                        </p>
                     </div>
                 </div>
 

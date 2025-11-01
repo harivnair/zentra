@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import DropdownMenu from "@/components/ui/dropdown-menu"
 import CreateEstimateModal from "@/components/create-estimate-modal"
+import { EstimateVersionsView } from "@/components/estimate-versions-view"
 import { API_ENDPOINTS } from "@/lib/endpoint"
 import { EstimateDto, EstimateItem } from "@/types/estimate"
 import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader"
@@ -11,6 +12,8 @@ import { useEstimatePrefill } from "@/context/estimate-prefill"
 import { showConfirmation } from "@/components/confirmation-toast"
 import { toast } from "sonner"
 import { apiRequest } from "@/lib/api-client"
+import { useAuth } from "@/context/auth"
+import { DollarSign } from "lucide-react"
 
 type EstimateRecord = EstimateDto & {
     clientName?: string
@@ -90,6 +93,7 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
     return {
         id: get<string | undefined>(["id", "estimateId"], undefined),
         enquiryId: get<string | undefined>(["enquiryId", "enquiry_id"], undefined),
+        title: get<string | undefined>(["title", "eventName", "eventTitle"], undefined),
         highlvelRequirement: get<string>(["highlvelRequirement", "summary", "title"], ""),
         enquiryDate: get<string | undefined>(["enquiryDate", "createdAt"], undefined),
         fromDate: get<string | undefined>(["fromDate", "eventStart"], undefined),
@@ -104,11 +108,18 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
         items,
         clientName: clientName ?? String(get<string | undefined>(["clientName"], clientId ?? "")),
         assignee: get<string | undefined>(["assignee", "owner", "assignedTo"], undefined),
+        // Versioning fields
+        version: get<string | undefined>(["version"], undefined),
+        estimateStatus: get<"DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL" | undefined>(["estimateStatus"], undefined),
+        clonedFromEstimateId: get<string | null | undefined>(["clonedFromEstimateId"], undefined),
+        createdAt: get<string | undefined>(["createdAt"], undefined),
+        updatedAt: get<string | undefined>(["updatedAt"], undefined),
     }
 }
 
 export default function EstimatesPage() {
     const { prefill: contextPrefill, clearPrefill } = useEstimatePrefill()
+    const { user } = useAuth()
 
     const [tab, setTab] = useState<StatusTab>("open")
     const [estimates, setEstimates] = useState<EstimateRecord[]>([])
@@ -116,6 +127,7 @@ export default function EstimatesPage() {
     const [error, setError] = useState<string | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [prefill, setPrefill] = useState<(Partial<EstimateDto> & { enquiryId?: string }) | undefined>(undefined)
+    const [versionsViewEnquiryId, setVersionsViewEnquiryId] = useState<string | null>(null)
 
     const refreshEstimates = useCallback(async () => {
         setLoading(true)
@@ -193,17 +205,60 @@ export default function EstimatesPage() {
         })
     }, [estimates, tab])
 
+    // Group estimates by enquiryId and select representative version
+    const groupedEstimates = useMemo(() => {
+        const groups = new Map<string, EstimateRecord[]>()
+
+        // Group by enquiryId
+        for (const est of filtered) {
+            const enquiryId = est.enquiryId || est.id || 'unknown'
+            if (!groups.has(enquiryId)) {
+                groups.set(enquiryId, [])
+            }
+            groups.get(enquiryId)!.push(est)
+        }
+
+        // For each group, select the representative estimate
+        const representatives: EstimateRecord[] = []
+        for (const [, versions] of groups.entries()) {
+            // Sort versions by version number (v1, v2, v3...)
+            const sorted = versions.sort((a, b) => {
+                const versionA = parseInt(a.version?.replace('v', '') || '0')
+                const versionB = parseInt(b.version?.replace('v', '') || '0')
+                return versionB - versionA // Descending order (latest first)
+            })
+
+            // Find FINAL version if exists
+            const finalVersion = sorted.find(v => v.estimateStatus === 'FINAL')
+
+            // Use FINAL if exists, otherwise use latest (first in sorted array)
+            const representative = finalVersion || sorted[0]
+
+            // Add metadata about versions count
+            const representativeWithMeta = {
+                ...representative,
+                _versionsCount: versions.length,
+                _hasFinal: !!finalVersion
+            }
+
+            representatives.push(representativeWithMeta)
+        }
+
+        return representatives
+    }, [filtered])
+
     const openCreateModal = () => {
         clearPrefill()
         setPrefill(undefined)
         setIsModalOpen(true)
     }
 
-    const handleSavedEstimate = (estimate: EstimateDto) => {
-        setEstimates(prev => [{ ...estimate, clientName: estimate.client?.name }, ...prev])
+    const handleSavedEstimate = async () => {
         setIsModalOpen(false)
         setPrefill(undefined)
-        refreshEstimates().catch((err) => console.warn("Failed to refresh estimates after save", err))
+        // Refresh the estimates list from server to get the latest data
+        await refreshEstimates().catch((err) => console.warn("Failed to refresh estimates after save", err))
+        toast.success('Estimate saved successfully')
     }
 
     const handleDeleteEstimate = async (id: string | undefined) => {
@@ -233,32 +288,56 @@ export default function EstimatesPage() {
         })
     }
 
-    const getDropdownItems = (estimate: EstimateRecord) => [
-        {
-            label: "View",
-            icon: "👁️",
-            action: () => alert(`View estimate ${estimate.id ?? "N/A"}`)
-        },
-        {
-            label: "Duplicate",
-            icon: "📄",
-            action: () => alert(`Duplicate estimate ${estimate.id ?? "N/A"}`)
-        },
-        {
+    const getDropdownItems = (estimate: EstimateRecord): Array<{
+        label: string
+        icon: string
+        action: () => void
+        variant?: "default" | "danger"
+    }> => {
+        const items: Array<{
+            label: string
+            icon: string
+            action: () => void
+            variant?: "default" | "danger"
+        }> = [
+                {
+                    label: "Edit",
+                    icon: "✏️",
+                    action: () => {
+                        setPrefill(estimate)
+                        setIsModalOpen(true)
+                    }
+                }
+            ]
+
+        // Add "View Versions" if estimate has an enquiryId
+        if (estimate.enquiryId) {
+            items.push({
+                label: "View Versions",
+                icon: "�",
+                action: () => setVersionsViewEnquiryId(estimate.enquiryId || null)
+            })
+        }
+
+        items.push({
             label: "Delete",
             icon: "🗑️",
-            variant: "danger" as const,
+            variant: "danger",
             action: () => handleDeleteEstimate(estimate.id)
-        }
-    ]
+        })
+
+        return items
+    }
 
     return (
         <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-md bg-purple-100 flex items-center justify-center text-2xl">📊</div>
+                    <div className="h-14 w-14 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <DollarSign className="h-8 w-8 text-purple-600" />
+                    </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Hi, Arun!</h2>
+                        <h2 className="text-2xl font-bold">Hi, {user?.name || user?.uid || 'User'}!</h2>
                         <p className="text-muted-foreground">You have {counts.open} Open {counts.open === 1 ? "Estimate" : "Estimates"} this week</p>
                     </div>
                 </div>
@@ -292,21 +371,45 @@ export default function EstimatesPage() {
                     <div className="flex flex-col gap-4 md:hidden">
                         {(loading) && <ListSkeleton type="cards" items={4} />}
                         {error && <div className="p-4 text-red-600 bg-red-50 border border-red-100 rounded">{error}</div>}
-                        {!loading && !error && filtered.length === 0 && (
+                        {!loading && !error && groupedEstimates.length === 0 && (
                             <div className="p-4 text-muted-foreground">No estimates found.</div>
                         )}
 
-                        {!loading && !error && filtered.map((estimate) => (
-                            <div key={estimate.id ?? estimate.highlvelRequirement} className="border rounded-md p-4 space-y-2 bg-gray-50">
+                        {!loading && !error && groupedEstimates.map((estimate) => (
+                            <div
+                                key={estimate.id ?? estimate.highlvelRequirement}
+                                className="border rounded-md p-4 space-y-2 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                                onClick={() => estimate.enquiryId && setVersionsViewEnquiryId(estimate.enquiryId)}
+                            >
                                 <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="font-medium text-gray-900">{estimate.highlvelRequirement || "Untitled Estimate"}</div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="font-medium text-gray-900">{estimate.highlvelRequirement || "Untitled Estimate"}</div>
+                                            {estimate.version && (
+                                                <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                                                    {estimate.version}
+                                                </span>
+                                            )}
+                                            {(estimate as EstimateRecord & { _versionsCount?: number })._versionsCount && (estimate as EstimateRecord & { _versionsCount?: number })._versionsCount! > 1 && (
+                                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                                    {(estimate as EstimateRecord & { _versionsCount?: number })._versionsCount} versions
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="text-sm text-muted-foreground">{estimate.clientName ?? estimate.client?.name ?? "Unknown Client"}</div>
                                     </div>
                                     <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusPillColor(estimate.status)}`}>
                                         {(estimate.status ?? "Draft").replace(/_/g, " ")}
                                     </span>
                                 </div>
+                                {estimate.estimateStatus && (
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${estimate.estimateStatus === 'FINAL' ? 'bg-green-100 text-green-800' :
+                                        estimate.estimateStatus === 'UNDER_CLIENT_REVIEW' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-gray-100 text-gray-700'
+                                        }`}>
+                                        {estimate.estimateStatus.replace(/_/g, ' ')}
+                                    </span>
+                                )}
                                 <div className="text-xs text-muted-foreground">
                                     {estimate.enquiryDate ? new Date(estimate.enquiryDate).toLocaleString() : "No enquiry date"}
                                 </div>
@@ -335,26 +438,53 @@ export default function EstimatesPage() {
                                         <td colSpan={6} className="py-8 text-center text-red-600">{error}</td>
                                     </tr>
                                 )}
-                                {!loading && !error && filtered.length === 0 && (
+                                {!loading && !error && groupedEstimates.length === 0 && (
                                     <tr>
                                         <td colSpan={6} className="py-8 text-center text-muted-foreground">No estimates found.</td>
                                     </tr>
                                 )}
-                                {!loading && !error && filtered.map((estimate, index) => (
-                                    <tr key={estimate.id ?? `${estimate.highlvelRequirement}-${index}`} className={`border-t ${index === 0 ? "bg-blue-50/50" : "hover:bg-gray-50"}`}>
-                                        <td className="py-4">
-                                            <div className="font-medium text-gray-900">{estimate.highlvelRequirement || "Untitled Estimate"}</div>
-                                            <div className="text-xs text-muted-foreground">{estimate.clientName ?? estimate.client?.name ?? "Unknown client"}</div>
+                                {!loading && !error && groupedEstimates.map((estimate, index) => (
+                                    <tr
+                                        key={estimate.id ?? `${estimate.highlvelRequirement}-${index}`}
+                                        className={`border-t ${index === 0 ? "bg-blue-50/50" : "hover:bg-gray-50"} cursor-pointer`}
+                                    >
+                                        <td className="py-4" onClick={() => estimate.enquiryId && setVersionsViewEnquiryId(estimate.enquiryId)}>
+                                            <div className="flex items-center gap-2">
+                                                <div>
+                                                    <div className="font-medium text-gray-900">{estimate.highlvelRequirement || "Untitled Estimate"}</div>
+                                                    <div className="text-xs text-muted-foreground">{estimate.clientName ?? estimate.client?.name ?? "Unknown client"}</div>
+                                                </div>
+                                                {estimate.version && (
+                                                    <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                                                        {estimate.version}
+                                                    </span>
+                                                )}
+                                                {(estimate as EstimateRecord & { _versionsCount?: number })._versionsCount && (estimate as EstimateRecord & { _versionsCount?: number })._versionsCount! > 1 && (
+                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                                        {(estimate as EstimateRecord & { _versionsCount?: number })._versionsCount} versions
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="py-4">{estimate.enquiryDate ? new Date(estimate.enquiryDate).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : "—"}</td>
-                                        <td className="py-4">{estimate.clientPoC || "—"}</td>
-                                        <td className="py-4">
-                                            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusPillColor(estimate.status)}`}>
-                                                {(estimate.status ?? "Draft").replace(/_/g, " ")}
-                                            </span>
+                                        <td className="py-4" onClick={() => estimate.enquiryId && setVersionsViewEnquiryId(estimate.enquiryId)}>{estimate.enquiryDate ? new Date(estimate.enquiryDate).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : "—"}</td>
+                                        <td className="py-4" onClick={() => estimate.enquiryId && setVersionsViewEnquiryId(estimate.enquiryId)}>{estimate.clientPoC || "—"}</td>
+                                        <td className="py-4" onClick={() => estimate.enquiryId && setVersionsViewEnquiryId(estimate.enquiryId)}>
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusPillColor(estimate.status)}`}>
+                                                    {(estimate.status ?? "Draft").replace(/_/g, " ")}
+                                                </span>
+                                                {estimate.estimateStatus && (
+                                                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${estimate.estimateStatus === 'FINAL' ? 'bg-green-100 text-green-800' :
+                                                        estimate.estimateStatus === 'UNDER_CLIENT_REVIEW' ? 'bg-blue-100 text-blue-800' :
+                                                            'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {estimate.estimateStatus.replace(/_/g, ' ')}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="py-4">{estimate.assignee ?? "Unassigned"}</td>
-                                        <td className="py-4 text-right">
+                                        <td className="py-4" onClick={() => estimate.enquiryId && setVersionsViewEnquiryId(estimate.enquiryId)}>{estimate.assignee ?? "Unassigned"}</td>
+                                        <td className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                             <DropdownMenu items={getDropdownItems(estimate)} />
                                         </td>
                                     </tr>
@@ -367,14 +497,32 @@ export default function EstimatesPage() {
 
             <CreateEstimateModal
                 isOpen={isModalOpen}
-                onClose={() => {
+                onClose={async () => {
                     setIsModalOpen(false)
                     setPrefill(undefined)
                     clearPrefill()
+                    // Refresh estimates list when modal closes to ensure latest data is shown
+                    await refreshEstimates().catch((err) => console.warn("Failed to refresh estimates on close", err))
                 }}
                 initialData={prefill}
                 onSaved={handleSavedEstimate}
             />
+
+            {versionsViewEnquiryId && (
+                <EstimateVersionsView
+                    enquiryId={versionsViewEnquiryId}
+                    onVersionSelect={(estimate) => {
+                        setPrefill(estimate)
+                        setIsModalOpen(true)
+                        setVersionsViewEnquiryId(null)
+                    }}
+                    onClose={async () => {
+                        setVersionsViewEnquiryId(null)
+                        // Refresh estimates list when versions view closes
+                        await refreshEstimates().catch((err) => console.warn("Failed to refresh estimates on versions close", err))
+                    }}
+                />
+            )}
         </div>
     )
 }

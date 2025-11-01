@@ -1,5 +1,8 @@
 export type EstimateStatus = "OPEN" | "CLOSED" | "CANCELLED"
 
+// Estimate versioning status
+export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL"
+
 export interface EstimateItem {
     id: string
     description: string
@@ -30,6 +33,13 @@ export interface EstimateDto {
         name?: string
     }
     items?: Record<string, EstimateItem[]>
+    // Versioning fields
+    enquiryId?: string
+    version?: string
+    estimateStatus?: EstimateVersionStatus
+    clonedFromEstimateId?: string | null
+    createdAt?: string
+    updatedAt?: string
 }
 
 export interface EstimateLineItemPayload {

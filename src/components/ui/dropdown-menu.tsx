@@ -7,6 +7,7 @@ interface DropdownMenuItem {
   icon: string
   action: () => void
   variant?: "default" | "danger"
+  disabled?: boolean
 }
 
 interface DropdownMenuProps {
@@ -77,10 +78,13 @@ export default function DropdownMenu({ items, className = "" }: DropdownMenuProp
             {items.map((item, index) => (
               <button
                 key={index}
-                onClick={() => handleItemClick(item)}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3 transition-colors ${item.variant === "danger"
-                  ? "text-red-600 hover:bg-red-50 hover:text-red-700"
-                  : "text-gray-700 hover:text-gray-900"
+                onClick={() => !item.disabled && handleItemClick(item)}
+                disabled={item.disabled}
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3 transition-colors ${item.disabled
+                    ? "opacity-50 cursor-not-allowed bg-gray-50"
+                    : item.variant === "danger"
+                      ? "text-red-600 hover:bg-red-50 hover:text-red-700"
+                      : "text-gray-700 hover:text-gray-900"
                   }`}
               >
                 <span className="text-base flex-shrink-0 w-4 text-center">{item.icon}</span>
