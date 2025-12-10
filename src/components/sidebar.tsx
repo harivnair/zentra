@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -12,6 +12,7 @@ export default function Sidebar() {
     const pathname = usePathname() || "/"
     const router = useRouter()
     const { logout } = useAuth()
+    const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
 
     const handleLogout = () => {
         logout()
@@ -22,7 +23,7 @@ export default function Sidebar() {
     // Render immediately; Next.js hydration mismatch is not an issue for this sidebar
 
     // hide sidebar on login route (and its subroutes)
-    if (pathname === "/login" || pathname.startsWith("/login/")) return null
+    // (render decision is made after hooks to avoid violating the Rules of Hooks)
 
     type NavItem = { href: string; label: string; Icon?: React.ComponentType<React.SVGProps<SVGSVGElement>> }
 
@@ -50,6 +51,14 @@ export default function Sidebar() {
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
+    useEffect(() => {
+        // clear navigating indicator when route actually changes
+        setNavigatingTo(null)
+    }, [pathname])
+
+    // hide sidebar on login route (and its subroutes)
+    if (pathname === "/login" || pathname.startsWith("/login/")) return null
+
     return (
         <aside className="hidden md:flex w-64 flex-col bg-gray-700 text-white py-8 px-6 rounded-tr-3xl rounded-br-3xl min-h-screen">
             <div className="mb-8 flex items-center gap-3">
@@ -63,40 +72,64 @@ export default function Sidebar() {
             <div className="flex-1 overflow-y-auto hide-scrollbar">
                 <nav className="flex flex-col gap-2 text-sm">
                     {topItems.map((it) => (
-                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))}>
+                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))} onClick={() => setNavigatingTo(it.href)}>
                             <div className="flex items-center gap-2">
                                 {it.Icon && <it.Icon className="w-4 h-4 opacity-90" />}
                                 <span>{it.label}</span>
+                                {navigatingTo === it.href && (
+                                    <svg className="animate-spin h-4 w-4 ml-2 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                )}
                             </div>
                         </Link>
                     ))}
 
                     <div className="mt-4 text-xs text-white/60 uppercase">Operations</div>
                     {operations.map((it) => (
-                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))}>
+                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))} onClick={() => setNavigatingTo(it.href)}>
                             <div className="flex items-center gap-2">
                                 {it.Icon && <it.Icon className="w-4 h-4 opacity-90" />}
                                 <span>{it.label}</span>
+                                {navigatingTo === it.href && (
+                                    <svg className="animate-spin h-4 w-4 ml-2 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                )}
                             </div>
                         </Link>
                     ))}
 
                     <div className="mt-4 text-xs text-white/60 uppercase">Finance</div>
                     {finance.map((it) => (
-                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))}>
+                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))} onClick={() => setNavigatingTo(it.href)}>
                             <div className="flex items-center gap-2">
                                 {it.Icon && <it.Icon className="w-4 h-4 opacity-90" />}
                                 <span>{it.label}</span>
+                                {navigatingTo === it.href && (
+                                    <svg className="animate-spin h-4 w-4 ml-2 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                )}
                             </div>
                         </Link>
                     ))}
 
                     <div className="mt-4 text-xs text-white/60 uppercase">Stakeholders</div>
                     {stakeholders.map((it) => (
-                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))}>
+                        <Link key={it.href} href={it.href} className={linkClass(isActive(it.href))} onClick={() => setNavigatingTo(it.href)}>
                             <div className="flex items-center gap-2">
                                 {it.Icon && <it.Icon className="w-4 h-4 opacity-90" />}
                                 <span>{it.label}</span>
+                                {navigatingTo === it.href && (
+                                    <svg className="animate-spin h-4 w-4 ml-2 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                )}
                             </div>
                         </Link>
                     ))}

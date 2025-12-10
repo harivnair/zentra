@@ -57,6 +57,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
     const submitIntentRef = useRef<'save' | 'estimate'>('save')
     const [estimateProcessing, setEstimateProcessing] = useState(false)
     const [saveProcessing, setSaveProcessing] = useState(false)
+    const [isRedirecting, setIsRedirecting] = useState(false)
 
     // Helper function to normalize dates for datetime-local inputs (YYYY-MM-DDTHH:mm)
     const normalizeDateForForm = (dateStr: string) => {
@@ -274,6 +275,10 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                 }
 
                 setEstimatePrefill(estimatePrefill)
+                setIsRedirecting(true)
+                toast.success('Enquiry saved! Redirecting to estimates...', {
+                    duration: 2000,
+                })
                 onClose()
                 router.push('/estimates')
                 return
@@ -315,6 +320,23 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
     }, [isOpen, clientsLoading, editData?.client, clients])
 
     if (!isOpen) return null
+
+    // Show redirecting overlay when navigating to estimates
+    if (isRedirecting) {
+        return (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
+                    <div className="relative">
+                        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                    </div>
+                    <div className="text-center">
+                        <h3 className="text-lg font-semibold text-gray-900">Redirecting to Estimates</h3>
+                        <p className="text-sm text-gray-600 mt-1">Please wait while we prepare your estimate...</p>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50" onClick={e => e.target === e.currentTarget && onClose()}>

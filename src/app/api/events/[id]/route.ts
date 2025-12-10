@@ -1,22 +1,38 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getBackendUrl, getBackendHeaders } from "@/lib/api-server"
 
-export async function DELETE(request: NextRequest) {
-    const upstream = process.env.BACKEND_URL || "http://localhost:8080"
+export async function GET(request: NextRequest) {
+    const upstream = getBackendUrl()
     try {
-        const pathname = request.nextUrl?.pathname ?? ''
-        const parts = pathname.split('/')
+        const pathname = request.nextUrl?.pathname ?? ""
+        const parts = pathname.split("/")
         const id = parts[parts.length - 1]
         if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
-        // Extract auth token from request header
-        const authToken = request.headers.get('X-Auth-Token')
+        const headers = getBackendHeaders(request)
+        const res = await fetch(`${upstream}/events/${encodeURIComponent(id)}`, { headers })
+        const body = await res.text()
+        const responseHeaders: Record<string, string> = {}
+        const contentType = res.headers.get("content-type")
+        if (contentType) responseHeaders["content-type"] = contentType
+        return new NextResponse(body, { status: res.status, headers: responseHeaders })
+    } catch (err) {
+        console.error('Error proxying GET /events/:id:', err)
+        return NextResponse.json({ error: 'Failed to proxy request' }, { status: 502 })
+    }
+}
 
-        const headers: HeadersInit = {}
-        if (authToken) {
-            headers['Authorization'] = authToken
-        }
+export async function DELETE(request: NextRequest) {
+    const upstream = getBackendUrl()
+    try {
+        const pathname = request.nextUrl?.pathname ?? ""
+        const parts = pathname.split("/")
+        const id = parts[parts.length - 1]
+        if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
-        const res = await fetch(`${upstream}/events/${id}`, { method: 'DELETE', headers })
+        const headers = getBackendHeaders(request)
+
+        const res = await fetch(`${upstream}/events/${encodeURIComponent(id)}`, { method: 'DELETE', headers })
         const body = await res.text()
         const responseHeaders: Record<string, string> = {}
         const contentType = res.headers.get('content-type')
@@ -29,23 +45,17 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const upstream = process.env.BACKEND_URL || "http://localhost:8080"
+    const upstream = getBackendUrl()
     try {
-        const pathname = request.nextUrl?.pathname ?? ''
-        const parts = pathname.split('/')
+        const pathname = request.nextUrl?.pathname ?? ""
+        const parts = pathname.split("/")
         const id = parts[parts.length - 1]
         if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
-        // Extract auth token from request header
-        const authToken = request.headers.get('X-Auth-Token')
-
         const body = await request.text()
-        const headers: HeadersInit = { 'Content-Type': 'application/json' }
-        if (authToken) {
-            headers['Authorization'] = authToken
-        }
+        const headers = { ...getBackendHeaders(request), 'Content-Type': 'application/json' } as HeadersInit
 
-        const res = await fetch(`${upstream}/events/${id}`, {
+        const res = await fetch(`${upstream}/events/${encodeURIComponent(id)}`, {
             method: 'PUT',
             headers,
             body

@@ -3,6 +3,22 @@ export interface ClientRef {
     name?: string
 }
 
+export interface VendorRef {
+    id?: string
+    name?: string
+}
+
+export interface EventItem {
+    category?: string
+    item?: string
+    description?: string
+    count?: number
+    pricePerItem?: number
+    days?: number
+    vendor?: VendorRef
+    serialNumber?: number
+}
+
 export interface EstimateDropdownItem {
     id: string
     name: string

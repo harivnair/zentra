@@ -27,6 +27,12 @@ type EstimateLine = {
     days: number
     sqft: number
     rate: number
+    vendor: string
+}
+
+type VendorName = {
+    id: string
+    name: string
 }
 
 type ClientEnquirySummary = {
@@ -172,6 +178,8 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
     const [isFetchingEnquiry, setIsFetchingEnquiry] = useState(false)
     const [lines, setLines] = useState<EstimateLine[]>([])
     const [isSaving, setIsSaving] = useState(false)
+    const [vendorNames, setVendorNames] = useState<VendorName[]>([])
+    const [vendorNamesLoading, setVendorNamesLoading] = useState(false)
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(initialData ? { clientName: initialData.client?.name, title: initialData.title } : null)
     const requestRef = useRef(0)
     const enquiryPrefillCache = useRef(new Map<string, { prefill: (Partial<EstimateDto> & { enquiryId?: string }) | undefined; id?: string }>())
@@ -239,6 +247,41 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
         }
 
         void loadSummaries()
+
+        return () => {
+            cancelled = true
+        }
+    }, [isOpen])
+
+    // Fetch vendor names for dropdown
+    useEffect(() => {
+        if (!isOpen) return
+
+        let cancelled = false
+        const loadVendorNames = async () => {
+            setVendorNamesLoading(true)
+            try {
+                const res = await apiRequest("/api/vendors/names")
+                if (!res.ok) {
+                    throw new Error(`Unable to load vendor names. (${res.status})`)
+                }
+                const data = await res.json()
+                if (!cancelled) {
+                    setVendorNames(Array.isArray(data) ? data : [])
+                }
+            } catch (error) {
+                console.error("Failed to load vendor names", error)
+                if (!cancelled) {
+                    setVendorNames([])
+                }
+            } finally {
+                if (!cancelled) {
+                    setVendorNamesLoading(false)
+                }
+            }
+        }
+
+        void loadVendorNames()
 
         return () => {
             cancelled = true
@@ -499,6 +542,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                     const days = Number.isFinite(rawDays) && rawDays > 0 ? rawDays : 1
                     const sqft = Number.isFinite(rawSqft) && rawSqft > 0 ? rawSqft : (Number.isFinite(rawQuantity) ? rawQuantity : 1)
                     const rate = Number.isFinite(rawRate) ? rawRate : rawUnitCost
+                    const vendor = typeof item.vendor === "string" ? item.vendor : ""
 
                     fromItems.push({
                         id: derivedId,
@@ -508,6 +552,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                         days,
                         sqft,
                         rate,
+                        vendor,
                     })
                 })
             })
@@ -521,6 +566,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                 days: 1,
                 sqft: 1,
                 rate: 0,
+                vendor: "",
             })
         }
         setLines(fromItems)
@@ -665,7 +711,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                     count,
                     pricePerItem,
                     description: line.specification && line.specification.trim() ? line.specification : line.item,
-                    vendor: "",
+                    vendor: line.vendor || "",
                     checkList: "",
                     days,
                 }
@@ -690,6 +736,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                     quantity: line.sqft,
                     unitCost: line.rate,
                     total,
+                    vendor: line.vendor || "",
                 })
                 acc[category] = bucket
                 return acc
@@ -1004,6 +1051,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                                                             days: 1,
                                                             sqft: 1,
                                                             rate: 0,
+                                                            vendor: "",
                                                         },
                                                     ]
                                                 })}
@@ -1020,6 +1068,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                                                         <th className="py-3 pr-3 font-medium">Category</th>
                                                         <th className="py-3 pr-3 font-medium">Item</th>
                                                         <th className="py-3 pr-3 font-medium">Specification</th>
+                                                        <th className="py-3 pr-3 font-medium">Vendor</th>
                                                         <th className="py-3 pr-3 font-medium">Days</th>
                                                         <th className="py-3 pr-3 font-medium">SqFt No</th>
                                                         <th className="py-3 pr-3 font-medium">Rate</th>
@@ -1048,6 +1097,22 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
                                                                     const value = event.target.value
                                                                     setLines(prev => prev.map((l, idx) => idx === index ? { ...l, specification: value } : l))
                                                                 }} />
+                                                            </td>
+                                                            <td className="py-3 pr-3 align-middle">
+                                                                <select
+                                                                    value={line.vendor}
+                                                                    onChange={(event) => {
+                                                                        const value = event.target.value
+                                                                        setLines(prev => prev.map((l, idx) => idx === index ? { ...l, vendor: value } : l))
+                                                                    }}
+                                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    disabled={vendorNamesLoading}
+                                                                >
+                                                                    <option value="">Select vendor...</option>
+                                                                    {vendorNames.map((v) => (
+                                                                        <option key={v.id} value={v.name}>{v.name}</option>
+                                                                    ))}
+                                                                </select>
                                                             </td>
                                                             <td className="py-3 pr-3 align-middle">
                                                                 <Input

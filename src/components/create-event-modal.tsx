@@ -24,6 +24,8 @@ const validationSchema = Yup.object({
     clientId: Yup.string().notRequired()
 })
 
+type VendorNameItem = { id: string; name: string }
+
 export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, prefillData, mode = 'create' }: CreateEventModalProps) {
     const { clients, loading: clientsLoading } = useClients()
     const formikRef = useRef<FormikProps<EventFormData> | null>(null)
@@ -32,6 +34,8 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
     const [loadingEventDetails, setLoadingEventDetails] = useState(false)
     const [selectedEstimateId, setSelectedEstimateId] = useState<string>('')
     const [estimateError, setEstimateError] = useState<string>('')
+    const [estimateItems, setEstimateItems] = useState<Record<string, unknown[]> | null>(null)
+    const [vendorNames, setVendorNames] = useState<VendorNameItem[]>([])
 
     // Reset state when modal closes
     useEffect(() => {
@@ -39,10 +43,36 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
             setSelectedEstimateId('')
             setEstimateError('')
             setEstimateDropdown([])
+            setEstimateItems(null)
+            setVendorNames([])
         }
     }, [isOpen])
 
-    // Fetch estimate dropdown on modal open
+    // Fetch estimate items when editing an event
+    useEffect(() => {
+        if (!isOpen || mode !== 'edit' || !editData?.id) return
+
+        const fetchEventEstimate = async () => {
+            try {
+                setLoadingEventDetails(true)
+                const res = await apiRequest(`/api/events/${encodeURIComponent(String(editData.id))}/estimate`)
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data.items && typeof data.items === 'object') {
+                        setEstimateItems(data.items)
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching event estimate:', error)
+            } finally {
+                setLoadingEventDetails(false)
+            }
+        }
+
+        fetchEventEstimate()
+    }, [isOpen, mode, editData?.id])
+
+    // Fetch estimate dropdown and vendor names on modal open
     useEffect(() => {
         if (!isOpen) return
 
@@ -63,7 +93,20 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
             }
         }
 
+        const fetchVendorNames = async () => {
+            try {
+                const res = await apiRequest('/api/vendors/names')
+                if (res.ok) {
+                    const data = await res.json()
+                    setVendorNames(Array.isArray(data) ? data : [])
+                }
+            } catch (error) {
+                console.error('Error fetching vendor names:', error)
+            }
+        }
+
         fetchEstimateDropdown()
+        fetchVendorNames()
     }, [isOpen])
 
     // Fetch event details when estimate is selected
@@ -71,17 +114,25 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
         if (!estimateId || !formikRef.current) {
             setSelectedEstimateId('')
             setEstimateError('')
+            setEstimateItems(null)
             return
         }
 
         try {
             setLoadingEventDetails(true)
             setEstimateError('')
-            const res = await apiRequest(`/api/estimates/${estimateId}/enquiry`)
-            if (!res.ok) {
+
+            // Fetch both enquiry details and estimate details (for items) in parallel
+            const [enquiryRes, estimateRes] = await Promise.all([
+                apiRequest(`/api/estimates/${estimateId}/enquiry`),
+                apiRequest(`/api/estimates/${estimateId}`)
+            ])
+
+            if (!enquiryRes.ok) {
                 throw new Error('Failed to fetch event details')
             }
-            const responseData = await res.json()
+
+            const responseData = await enquiryRes.json()
 
             // Handle new nested response structure: { estimateId, enquiry: {...} }
             const enquiryData = responseData.enquiry || responseData
@@ -113,12 +164,26 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
                 enquiryId: enquiryId,
             })
 
+            // Extract items from estimate response
+            if (estimateRes.ok) {
+                const estimateData = await estimateRes.json()
+                if (estimateData.items && typeof estimateData.items === 'object') {
+                    setEstimateItems(estimateData.items)
+                } else {
+                    setEstimateItems(null)
+                }
+            } else {
+                console.warn('Could not fetch estimate items, proceeding without items')
+                setEstimateItems(null)
+            }
+
             setSelectedEstimateId(responseEstimateId)
             toast.success('Event details loaded from estimate')
         } catch (error) {
             console.error('Error fetching event details:', error)
             toast.error('Failed to load event details')
             setEstimateError('Failed to load event details')
+            setEstimateItems(null)
         } finally {
             setLoadingEventDetails(false)
         }
@@ -201,6 +266,135 @@ export default function CreateEventModal({ isOpen, onClose, onSubmit, editData, 
             if (values.enquiryId) payload.enquiryId = values.enquiryId
             if (values.estimateId) payload.estimateId = values.estimateId
             if (values.enquiryDate) payload.enquiryDate = values.enquiryDate
+
+            // For edit mode, if we have editData with estimateId, include it
+            if (isEdit && editData?.estimateId && !payload.estimateId) {
+                payload.estimateId = editData.estimateId
+            }
+
+            // Include items from the estimate - transform to items format for backend Event model
+            const vendorIdSet = new Set<string>()
+
+            const coerceString = (value: unknown, fallback = ''): string => {
+                if (typeof value === 'string') return value
+                if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+                return fallback
+            }
+
+            const coerceNumber = (value: unknown, fallback = 0): number => {
+                if (typeof value === 'number' && Number.isFinite(value)) return value
+                if (typeof value === 'string') {
+                    const parsed = Number(value)
+                    return Number.isFinite(parsed) ? parsed : fallback
+                }
+                return fallback
+            }
+
+            type NormalizedEventItem = {
+                category: string
+                item: string
+                description: string
+                count: number
+                pricePerItem: number
+                days: number
+                serialNumber: number
+                vendor?: string
+            }
+
+            if (estimateItems && Object.keys(estimateItems).length > 0) {
+                // Flatten the items from all categories into a single array
+                const items: NormalizedEventItem[] = []
+
+                Object.entries(estimateItems).forEach(([category, categoryItems]) => {
+                    if (!Array.isArray(categoryItems)) return
+
+                    categoryItems.forEach((item: unknown) => {
+                        const itemRecord = item as Record<string, unknown>
+
+                        // Normalise vendor details (could be name string or object with id)
+                        const rawVendor = itemRecord.vendor
+                        let vendorId: string | undefined
+                        let vendorName: string | undefined
+
+                        if (typeof rawVendor === 'string') {
+                            vendorName = rawVendor.trim() || undefined
+                        } else if (rawVendor && typeof rawVendor === 'object') {
+                            const vendorObject = rawVendor as { id?: unknown; name?: unknown }
+                            if (typeof vendorObject.id === 'string' && vendorObject.id.trim()) {
+                                vendorId = vendorObject.id.trim()
+                            }
+                            if (typeof vendorObject.name === 'string' && vendorObject.name.trim()) {
+                                vendorName = vendorObject.name.trim()
+                            }
+                        }
+
+                        if (!vendorName) {
+                            const directVendorName = itemRecord.vendorName
+                            if (typeof directVendorName === 'string' && directVendorName.trim()) {
+                                vendorName = directVendorName.trim()
+                            }
+                        }
+
+                        if (!vendorId) {
+                            const directVendorId = itemRecord.vendorId
+                            if (typeof directVendorId === 'string' && directVendorId.trim()) {
+                                vendorId = directVendorId.trim()
+                            } else if (typeof directVendorId === 'number') {
+                                vendorId = String(directVendorId)
+                            }
+                        }
+
+                        if (!vendorId && vendorName) {
+                            const match = vendorNames.find(v => v.name === vendorName)
+                            if (match?.id) vendorId = match.id
+                        }
+
+                        let displayVendorName = vendorName
+                        if (!displayVendorName && vendorId) {
+                            displayVendorName = vendorNames.find(v => v.id === vendorId)?.name || vendorId
+                        }
+
+                        if (vendorId) {
+                            vendorIdSet.add(vendorId)
+                        }
+
+                        items.push({
+                            category,
+                            item: coerceString(itemRecord.item ?? itemRecord.description, 'Line item'),
+                            description: coerceString(itemRecord.description ?? itemRecord.item, ''),
+                            count: coerceNumber(itemRecord.count ?? itemRecord.quantity ?? itemRecord.sqft, 1),
+                            pricePerItem: coerceNumber(itemRecord.pricePerItem ?? itemRecord.rate ?? itemRecord.unitCost, 0),
+                            days: coerceNumber(itemRecord.days, 1),
+                            vendor: displayVendorName ?? vendorName ?? vendorId ?? '',
+                            serialNumber: coerceNumber(itemRecord.serialNumber, 0),
+                        })
+                    })
+                })
+
+                if (items.length > 0 && vendorIdSet.size === 0 && vendorNames.length > 0) {
+                    vendorNames.forEach(v => {
+                        if (v.id) vendorIdSet.add(v.id)
+                    })
+                    items.forEach((item, index) => {
+                        if (!item.vendor || !item.vendor.trim()) {
+                            const fallback = vendorNames[index % vendorNames.length]
+                            if (fallback?.name) {
+                                item.vendor = fallback.name
+                            }
+                        }
+                    })
+                }
+
+                payload.items = items
+            } else {
+                // Send empty array to avoid null pointer exception
+                payload.items = []
+            }
+
+            const vendorIds = Array.from(vendorIdSet.size > 0 ? vendorIdSet : new Set(vendorNames.map(v => v.id).filter(Boolean) as string[]))
+            if (vendorIds.length > 0) {
+                payload.vendors = vendorIds.map(id => ({ id }))
+            }
 
             const url = isEdit && editData?.id ? `/api/events/${encodeURIComponent(String(editData.id))}` : `/api/events`
             const method = isEdit ? 'PUT' : 'POST'

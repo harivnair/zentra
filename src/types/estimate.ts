@@ -13,6 +13,7 @@ export interface EstimateItem {
     days?: number
     sqft?: number
     rate?: number
+    vendor?: string
 }
 
 export interface EstimateDto {

@@ -31,6 +31,8 @@ type EventItem = {
     location?: string
     venue?: string
     status?: string
+    estimateId?: string
+    enquiryId?: string
 }
 
 const StatusPill = ({ status }: { status?: string }) => {
@@ -211,22 +213,33 @@ export default function EventsPage() {
         })
     }
 
-    const handleEdit = (id: string | number) => {
-        // Open edit modal directly — no confirmation
-        const ev = events.find(e => String(e.id) === String(id))
-        if (ev) {
+    const handleEdit = async (id: string | number) => {
+        // Fetch full event details to get estimateId
+        try {
+            const res = await apiRequest(`/api/events/${encodeURIComponent(String(id))}`)
+            if (!res.ok) {
+                toast.error('Failed to load event details')
+                return
+            }
+            const ev = await res.json()
+
             setEditingEvent({
-                id: String(ev.id),
-                title: ev.title,
-                eventStartDate: ev.startDate ?? '',
-                eventEndDate: ev.endDate ?? '',
+                id: String(ev.id ?? id),
+                title: ev.title || ev.eventName || '',
+                eventStartDate: ev.eventStartDate ?? ev.startDate ?? '',
+                eventEndDate: ev.eventEndDate ?? ev.endDate ?? '',
                 location: ev.location ?? '',
                 venue: ev.venue ?? '',
-                clientId: typeof ev.client === 'string' ? '' : ev.client?.id ?? ''
+                clientId: typeof ev.client === 'string' ? '' : ev.client?.id ?? '',
+                estimateId: ev.estimateId ?? '',
+                enquiryId: ev.enquiryId ?? '',
             })
             setModalMode('edit')
             setPrefillData(null)
             setIsModalOpen(true)
+        } catch (error) {
+            console.error('Failed to fetch event for edit:', error)
+            toast.error('Failed to load event details')
         }
     }
 
@@ -288,7 +301,7 @@ export default function EventsPage() {
                             {events.map((ev) => {
                                 const isDeleting = deletingIds.has(String(ev.id))
                                 return (
-                                    <tr key={ev.id} className={`border-t hover:bg-gray-50 ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`}>
+                                    <tr key={ev.id} className={`border-t hover:bg-gray-50 cursor-pointer ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`} onClick={() => !isDeleting && (window.location.href = `/events/${ev.id}`)}>
                                         <td className="py-4">
                                             {isDeleting && (
                                                 <span className="inline-flex items-center gap-2">
@@ -308,7 +321,7 @@ export default function EventsPage() {
                                         <td className="py-4">{formatDateTime(ev.startDate)}</td>
                                         <td className="py-4">{formatDateTime(ev.endDate)}</td>
                                         <td className="py-4"><StatusPill status={ev.status} /></td>
-                                        <td className="py-4 text-right"><DropdownMenu items={getDropdownItems(ev)} /></td>
+                                        <td className="py-4 text-right" onClick={(e) => e.stopPropagation()}><DropdownMenu items={getDropdownItems(ev)} /></td>
                                     </tr>
                                 )
                             })}
@@ -327,7 +340,7 @@ export default function EventsPage() {
                     {events.map((ev) => {
                         const isDeleting = deletingIds.has(String(ev.id))
                         return (
-                            <div key={ev.id} className={`border rounded-md p-4 ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`}>
+                            <div key={ev.id} className={`border rounded-md p-4 cursor-pointer hover:bg-gray-50 transition-colors ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`} onClick={() => !isDeleting && (window.location.href = `/events/${ev.id}`)}>
                                 <div className="flex items-center justify-between">
                                     <div className="font-medium">
                                         {isDeleting && (
@@ -341,7 +354,7 @@ export default function EventsPage() {
                                         )}
                                         {!isDeleting && ev.title}
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                         <StatusPill status={ev.status} />
                                         <DropdownMenu items={getDropdownItems(ev)} />
                                     </div>
@@ -364,6 +377,7 @@ export default function EventsPage() {
                     })}
                 </div>
             </div>
+
             <CreateEventModal
                 isOpen={isModalOpen}
                 onClose={() => {
