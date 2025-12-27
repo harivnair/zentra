@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth"
 import { Home } from "lucide-react"
+import ShortcutTile from "@/components/dashboard-shortcut-tile"
 
 const StatCard = ({ color, value, label }: { color: string; value: string; label: string }) => (
-    <div className={`rounded-lg p-6 text-gray-800 ${color} shadow-md border border-gray-200`}>
-        <div className="text-2xl font-bold">{value}</div>
-        <div className="mt-2 text-sm opacity-75">{label}</div>
+    <div className={`rounded-lg p-4 text-gray-800 ${color} shadow-sm border border-gray-200`}>
+        <div className="text-xl font-bold">{value}</div>
+        <div className="mt-1 text-xs opacity-75">{label}</div>
     </div>
 )
 
@@ -45,7 +46,8 @@ export default function DashboardPage() {
     return (
         <div className="min-h-screen flex bg-gray-50">
             <main className="flex-1 p-6 md:p-8">
-                <div className="flex items-center gap-4">
+                {/* Header */}
+                <div className="flex items-center gap-4 mb-8">
                     <div className="h-14 w-14 rounded-lg bg-blue-100 flex items-center justify-center">
                         <Home className="h-8 w-8 text-blue-600" />
                     </div>
@@ -55,29 +57,76 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                    {loading ? (
-                        <>
-                            {/* Show a skeleton card for each stat */}
-                            {[...Array(5)].map((_, i) => (
-                                <div key={i} className="rounded-lg p-6 border border-gray-200 shadow-md animate-pulse">
-                                    <div className="h-8 w-12 mb-2 bg-gray-200 rounded" />
-                                    <div className="h-4 w-24 bg-gray-200 rounded" />
-                                </div>
-                            ))}
-                        </>
-                    ) : (
-                        <>
-                            <StatCard color="bg-purple-200" value="12" label="Upcoming Events" />
-                            <StatCard color="bg-green-200" value="16" label="Pending Estimates" />
-                            <StatCard color="bg-indigo-200" value="05" label="Pending Enquiries" />
-                            <StatCard color="bg-emerald-200" value="12" label="Pending Client Bills" />
-                            <StatCard color="bg-rose-200" value="16" label="Pending Vendor Bills" />
-                        </>
-                    )}
+                {/* Speed Dials / Shortcuts */}
+                <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-800">Quick Access</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
+                        <ShortcutTile
+                            label=""
+                            href="/enquiries"
+                            color="bg-blue-50"
+                            image="enquiries_sd.png"
+                        />
+                        <ShortcutTile
+                            label=""
+                            href="/estimates"
+                            color="bg-green-50"
+                            image="estimates_sd.png"
+                        />
+                        <ShortcutTile
+                            label=""
+                            href="/events"
+                            color="bg-purple-50"
+                            image="events_sd.png"
+                        />
+                        <ShortcutTile
+                            label=""
+                            href="/clients"
+                            color="bg-orange-50"
+                            image="clients_sd.png"
+                        />
+                        <ShortcutTile
+                            label=""
+                            href="/expenses"
+                            color="bg-red-50"
+                            image="expenses_sd.png"
+                        />
+                        <ShortcutTile
+                            label=""
+                            href="/bills"
+                            color="bg-indigo-50"
+                            image="bills_sd.png"
+                        />
+                    </div>
                 </div>
 
-                <div className="mt-6 bg-white rounded-lg p-6 shadow-sm">
+                {/* Analytics Summary */}
+                <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-800">Key Metrics</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        {loading ? (
+                            <>
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="rounded-lg p-4 border border-gray-200 shadow-sm animate-pulse">
+                                        <div className="h-6 w-10 mb-2 bg-gray-200 rounded" />
+                                        <div className="h-3 w-20 bg-gray-200 rounded" />
+                                    </div>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                <StatCard color="bg-purple-100" value="12" label="Upcoming Events" />
+                                <StatCard color="bg-green-100" value="16" label="Pending Estimates" />
+                                <StatCard color="bg-indigo-100" value="05" label="Pending Enquiries" />
+                                <StatCard color="bg-emerald-100" value="12" label="Client Bills" />
+                                <StatCard color="bg-rose-100" value="16" label="Vendor Bills" />
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="bg-white rounded-lg p-6 shadow-sm">
                     <h3 className="text-lg font-medium">Recent Activity</h3>
                     <div className="mt-4 overflow-x-auto">
                         <table className="w-full text-sm">

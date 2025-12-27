@@ -1,75 +1,60 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Input } from "@/components/ui/input"
 import { apiRequest } from "@/lib/api-client"
 
 type EventResponse = {
-    eventName?: string
+    id?: string
     title?: string
     eventStartDate?: string
     eventEndDate?: string
-    startDate?: string
-    endDate?: string
-    venue?: string
     location?: string
-    vendor?: {
+    venue?: string
+    status?: string
+    client?: {
         id?: string
         name?: string
-        vendorName?: string
-        items?: Array<{
-            item?: string
-            name?: string
-            description?: string
-            count?: number
-            quantity?: number
-            dateTime?: string
-            details?: string
-        }>
-        advancePaid?: number
-        balance?: number
-        status?: string
+        email?: string
+        phone?: string
+        address?: string
+        poc?: string
     }
+    items?: Array<{
+        item?: string
+        description?: string
+        count?: number
+        pricePerItem?: number
+        vendor?: string
+        days?: number
+        serialNumber?: number
+    }>
     purchaseOrders?: Array<{
-        id?: string
-        vendorId?: string
-        vendor?: { name?: string }
-        vendorName?: string
-        name?: string
+        vendor?: string
         items?: Array<{
             item?: string
-            name?: string
             description?: string
             count?: number
-            quantity?: number
-            dateTime?: string
-            details?: string
+            pricePerItem?: number
+            vendor?: string
+            days?: number
+            serialNumber?: number
         }>
-        advancePaid?: number
+        gst?: number
+        tds?: number
+        totalAmount?: number
+        advanceAmount?: number
+        adjustedAmt?: number
         balance?: number
-        status?: string
     }>
+    estimateId?: string
+    enquiryId?: string
     [key: string]: unknown
 }
 
-type VendorRow = {
-    id: string
-    name: string
-    items: number
-    advancePaid?: number
-    balance?: number
-    status?: string
-    details?: Array<{ sn: number; elements: string; details: string; nos: number; dateTime?: string }>
-}
-
-export default function EventDetailsPage({ params }: { params: { id: string } }) {
-    const { id } = params
-    const [activeTab, setActiveTab] = useState<string>("overview")
+export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = React.use(params)
     const [eventTitle, setEventTitle] = useState<string>("Event Details")
     const [eventData, setEventData] = useState<EventResponse | null>(null)
-    const [vendors, setVendors] = useState<VendorRow[]>([])
-    const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-    const [search, setSearch] = useState("")
 
     useEffect(() => {
         const load = async () => {
@@ -82,71 +67,8 @@ export default function EventDetailsPage({ params }: { params: { id: string } })
                 setEventData(data)
 
                 // Set event title
-                const title = data.eventName ?? data.title ?? `Event ${id}`
+                const title = data.title ?? `Event ${id}`
                 setEventTitle(String(title))
-
-                // Extract and normalize vendor data from API response
-                const vendorList: VendorRow[] = []
-
-                // Handle vendor object (single vendor)
-                if (data.vendor && typeof data.vendor === 'object') {
-                    const v = data.vendor
-
-                    // Process items - filter out entries that are completely empty
-                    const validItems = Array.isArray(v.items) ? v.items.filter(item =>
-                        item.item !== null ||
-                        item.description !== null ||
-                        (item.count !== null && item.count !== 0)
-                    ) : []
-
-                    const vendorRow: VendorRow = {
-                        id: v.id ?? 'vendor-1',
-                        name: v.name ?? v.vendorName ?? 'Unknown Vendor',
-                        items: validItems.length,
-                        advancePaid: v.advancePaid,
-                        balance: v.balance,
-                        status: v.status ?? 'Payment Pending',
-                        details: validItems.length > 0 ? validItems.map((item, idx) => ({
-                            sn: idx + 1,
-                            elements: item.item ?? item.description ?? '-',
-                            details: item.description ?? '-',
-                            nos: item.count ?? 0,
-                            dateTime: item.dateTime ?? '-'
-                        })) : []
-                    }
-                    vendorList.push(vendorRow)
-                }
-
-                // Handle purchaseOrders array (multiple vendors)
-                if (Array.isArray(data.purchaseOrders)) {
-                    data.purchaseOrders.forEach((po) => {
-                        // Process items - filter out entries that are completely empty
-                        const validItems = Array.isArray(po.items) ? po.items.filter(item =>
-                            item.item !== null ||
-                            item.description !== null ||
-                            (item.count !== null && item.count !== 0)
-                        ) : []
-
-                        const vendorRow: VendorRow = {
-                            id: po.id ?? po.vendorId ?? `po-${Math.random()}`,
-                            name: po.vendor?.name ?? po.vendorName ?? po.name ?? 'Unknown Vendor',
-                            items: validItems.length,
-                            advancePaid: po.advancePaid,
-                            balance: po.balance,
-                            status: po.status ?? 'Payment Pending',
-                            details: validItems.length > 0 ? validItems.map((item, idx) => ({
-                                sn: idx + 1,
-                                elements: item.item ?? item.description ?? '-',
-                                details: item.description ?? '-',
-                                nos: item.count ?? 0,
-                                dateTime: item.dateTime ?? '-'
-                            })) : []
-                        }
-                        vendorList.push(vendorRow)
-                    })
-                }
-
-                setVendors(vendorList)
             } catch {
                 // ignore
             }
@@ -154,159 +76,237 @@ export default function EventDetailsPage({ params }: { params: { id: string } })
         void load()
     }, [id])
 
-    const filtered = vendors.filter(v => v.name.toLowerCase().includes(search.toLowerCase()))
+    // Calculate totals
+    let totalEstimatedCost = 0
+    const totalExpense = 0
+    const totalIncome = 0
+    let totalPendingAmount = 0
+    let totalBalance = 0
+
+    if (Array.isArray(eventData?.purchaseOrders)) {
+        eventData.purchaseOrders.forEach(po => {
+            totalEstimatedCost += po.totalAmount || 0
+            totalPendingAmount += po.advanceAmount || 0
+            totalBalance += po.balance || 0
+        })
+    }
 
     return (
-        <div className="w-full p-4 sm:p-6 lg:p-8">
-            <div className="mb-6">
-                <nav className="text-sm text-muted-foreground mb-3">Events &gt; <span className="font-medium">Event Details</span></nav>
-                {/* Compact header above tabs */}
-                <div className="flex items-center justify-between mb-3">
-                    <div className="text-lg font-semibold">{eventTitle}</div>
+        <div className="w-full p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
+            {/* Breadcrumb */}
+            <nav className="text-sm text-muted-foreground mb-6">Project &gt; <span className="font-medium">{eventTitle}</span></nav>
+
+            {/* Top Section: Event Info (Primary) + Client Details (Secondary) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Left: Event Primary Details */}
+                <div className="lg:col-span-1">
+                    {/* Event Name and Details Card */}
+                    <div className="bg-white rounded-lg shadow-sm p-6">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-6">{eventTitle}</h2>
+
+                        {/* Event Details List */}
+                        <div className="space-y-5">
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Event Name</label>
+                                <p className="text-sm font-medium text-gray-900">{eventTitle}</p>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Start Date</label>
+                                <p className="text-sm font-medium text-gray-900">
+                                    {eventData?.eventStartDate
+                                        ? new Date(eventData.eventStartDate).toLocaleDateString('en-IN', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })
+                                        : '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">End Date</label>
+                                <p className="text-sm font-medium text-gray-900">
+                                    {eventData?.eventEndDate
+                                        ? new Date(eventData.eventEndDate).toLocaleDateString('en-IN', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })
+                                        : '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Location</label>
+                                <p className="text-sm font-medium text-gray-900">{eventData?.location ?? eventData?.venue ?? '-'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: Client Details (Secondary) */}
+                <div className="lg:col-span-2">
+                    {eventData?.client && (
+                        <div className="bg-white rounded-lg shadow-sm p-6">
+                            <div className="flex items-start gap-4 mb-6">
+                                {/* Avatar */}
+                                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white flex-shrink-0">
+                                    <span className="text-3xl font-bold">{(eventData.client.name ?? 'C')[0].toUpperCase()}</span>
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-bold text-gray-900">{eventData.client.name}</h3>
+                                    <p className="text-sm text-gray-600">Client Details</p>
+                                </div>
+                            </div>
+
+                            {/* Client Info Grid */}
+                            <div className="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Name</label>
+                                    <p className="text-sm font-medium text-gray-900">{eventData.client.name ?? '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Client Name</label>
+                                    <p className="text-sm font-medium text-gray-900">{eventData.client.name ?? '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Contact Person</label>
+                                    <p className="text-sm font-medium text-gray-900">{eventData.client.poc ?? '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Phone</label>
+                                    <p className="text-sm font-medium text-gray-900">{eventData.client.phone ?? '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Status</label>
+                                    <p className="text-sm font-medium text-gray-900">{eventData.status ?? 'Pending'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Address</label>
+                                    <p className="text-sm font-medium text-gray-900">{eventData.client.address ?? eventData.venue ?? '-'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="rounded-lg bg-white p-4 sm:p-6 shadow-sm">
-                <div className="border-b mb-4">
-                    <ul className="flex gap-6 text-sm">
-                        <li>
-                            <button className={`pb-3 ${activeTab === 'overview' ? 'border-b-2 border-black font-medium' : 'text-muted-foreground'}`} onClick={() => setActiveTab('overview')}>Overview</button>
-                        </li>
-                        <li>
-                            <button className={`pb-3 ${activeTab === 'checklist' ? 'border-b-2 border-black font-medium' : 'text-muted-foreground'}`} onClick={() => setActiveTab('checklist')}>Checklist</button>
-                        </li>
-                        <li>
-                            <button className={`pb-3 ${activeTab === 'purchase-order' ? 'border-b-2 border-black font-medium' : 'text-muted-foreground'}`} onClick={() => setActiveTab('purchase-order')}>Purchase Order</button>
-                        </li>
-                        <li>
-                            <button className={`pb-3 ${activeTab === 'client-bills' ? 'border-b-2 border-black font-medium' : 'text-muted-foreground'}`} onClick={() => setActiveTab('client-bills')}>Client Bills</button>
-                        </li>
-                        <li>
-                            <button className={`pb-3 ${activeTab === 'vendor-bills' ? 'border-b-2 border-black font-medium' : 'text-muted-foreground'}`} onClick={() => setActiveTab('vendor-bills')}>Vendor Bills</button>
-                        </li>
-                        <li>
-                            <button className={`pb-3 ${activeTab === 'expenses' ? 'border-b-2 border-black font-medium' : 'text-muted-foreground'}`} onClick={() => setActiveTab('expenses')}>Expenses</button>
-                        </li>
-                    </ul>
+            {/* Stats Section */}
+            <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Stats</h3>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {/* Estimated Cost */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Estimated Cost</label>
+                        <p className="text-2xl font-bold text-gray-900">₹{totalEstimatedCost.toLocaleString()}</p>
+                    </div>
+
+                    {/* Income */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Income</label>
+                        <p className="text-2xl font-bold text-gray-900">{totalIncome}</p>
+                    </div>
+
+                    {/* Expense */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-500">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Expense</label>
+                        <p className="text-2xl font-bold text-gray-900">{totalExpense}</p>
+                    </div>
+
+                    {/* Pending Amount */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-orange-500">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Pending Amount</label>
+                        <p className="text-2xl font-bold text-gray-900">₹{totalPendingAmount.toLocaleString()}</p>
+                    </div>
+
+                    {/* Pending Amount (To Pay) */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-red-500">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Pending Amount (To Pay)</label>
+                        <p className="text-2xl font-bold text-red-600">₹{totalBalance.toLocaleString()}</p>
+                    </div>
+
+                    {/* Balance Cash In hand */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-teal-500">
+                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Balance Cash In hand</label>
+                        <p className="text-2xl font-bold text-teal-600">₹{Math.max(0, totalIncome - totalEstimatedCost).toLocaleString()}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Report Cards Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 mb-8">
+                {/* Project Planning */}
+                <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Project Planning</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
                 </div>
 
-                {/* Tab content */}
-                {activeTab === 'overview' && (
-                    <div className="mb-4">
-                        {/* Full banner as in wireframe */}
-                        <div className="rounded-lg bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 mb-4">
-                            <div>
-                                <h1 className="text-2xl font-bold">{eventTitle}</h1>
-                                <p className="text-sm text-gray-200 mt-1">Overview and summary information for this event.</p>
-                            </div>
-                        </div>
+                {/* Income */}
+                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Income</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
+                </div>
 
-                        {eventData && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="p-4 border rounded">
-                                    <div className="text-xs text-muted-foreground mb-1">Start Date</div>
-                                    <div className="font-medium">{eventData.eventStartDate ? new Date(eventData.eventStartDate).toLocaleString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                    }) : 'N/A'}</div>
-                                </div>
-                                <div className="p-4 border rounded">
-                                    <div className="text-xs text-muted-foreground mb-1">End Date</div>
-                                    <div className="font-medium">{eventData.eventEndDate ? new Date(eventData.eventEndDate).toLocaleString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                    }) : 'N/A'}</div>
-                                </div>
-                                <div className="p-4 border rounded">
-                                    <div className="text-xs text-muted-foreground mb-1">Venue</div>
-                                    <div className="font-medium">{eventData.venue ?? eventData.location ?? 'N/A'}</div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                {/* Expense */}
+                <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Expense</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
+                </div>
 
-                {activeTab === 'purchase-order' && (
-                    <div>
-                        <div className="mb-4 flex items-center gap-4">
-                            <Input placeholder="Search Vendor" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
-                        </div>
+                {/* Cash Book */}
+                <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Cash Book</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
+                </div>
 
-                        <div className="rounded-lg border border-gray-100 bg-white p-4">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-left text-xs text-muted-foreground">
-                                            <th className="py-3">Vendor</th>
-                                            <th className="py-3">Items</th>
-                                            <th className="py-3">Advance Paid</th>
-                                            <th className="py-3">Balance</th>
-                                            <th className="py-3">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filtered.map(v => (
-                                            <React.Fragment key={v.id}>
-                                                <tr className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => setExpanded(prev => ({ ...prev, [v.id]: !prev[v.id] }))}>
-                                                    <td className="py-4 font-medium">{v.name}</td>
-                                                    <td className="py-4">{v.items}</td>
-                                                    <td className="py-4">₹{v.advancePaid?.toLocaleString() ?? '-'}</td>
-                                                    <td className="py-4">₹{v.balance?.toLocaleString() ?? '-'}</td>
-                                                    <td className="py-4"><span className="inline-block rounded-full px-3 py-1 text-sm font-medium bg-yellow-100 text-yellow-800">{v.status}</span></td>
-                                                </tr>
-                                                {expanded[v.id] && v.details && v.details.length > 0 && (
-                                                    <tr>
-                                                        <td colSpan={5} className="bg-gray-50">
-                                                            <div className="p-4 border-l-2 border-gray-200">
-                                                                <table className="w-full text-sm">
-                                                                    <thead>
-                                                                        <tr className="text-left text-xs text-muted-foreground">
-                                                                            <th className="py-2">Sl No.</th>
-                                                                            <th className="py-2">Elements</th>
-                                                                            <th className="py-2">Details</th>
-                                                                            <th className="py-2">Nos</th>
-                                                                            <th className="py-2">Date & Time</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {v.details.map(d => (
-                                                                            <tr key={d.sn} className="border-t last:border-0">
-                                                                                <td className="py-2 align-middle text-xs text-muted-foreground">{d.sn}</td>
-                                                                                <td className="py-2 align-middle">{d.elements}</td>
-                                                                                <td className="py-2 align-middle">{d.details}</td>
-                                                                                <td className="py-2 align-middle">{d.nos}</td>
-                                                                                <td className="py-2 align-middle">{d.dateTime}</td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </React.Fragment>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {/* Purchase */}
+                <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Purchase</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
+                </div>
 
-                {/* Placeholder content for other tabs */}
-                {activeTab === 'checklist' && <div className="py-6 text-sm text-muted-foreground">Checklist content (coming soon)</div>}
-                {activeTab === 'client-bills' && <div className="py-6 text-sm text-muted-foreground">Client bills (coming soon)</div>}
-                {activeTab === 'vendor-bills' && <div className="py-6 text-sm text-muted-foreground">Vendor bills (coming soon)</div>}
-                {activeTab === 'expenses' && <div className="py-6 text-sm text-muted-foreground">Expenses (coming soon)</div>}
+                {/* Purchase Order */}
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Purchase Order</h4>
+                    <p className="text-xs opacity-90 mb-3">List</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                </div>
+
+                {/* Inventory */}
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Inventory</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                </div>
+
+                {/* Inventory List */}
+                <div className="bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Inventory List</h4>
+                    <p className="text-xs opacity-90 mb-3">Report</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                </div>
+
+                {/* Task */}
+                <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Task</h4>
+                    <p className="text-xs opacity-90 mb-3">List</p>
+                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                </div>
+            </div>
+
+            {/* Documents Section */}
+            <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4 mb-8">
+                <h4 className="font-semibold text-sm mb-2">Documents</h4>
+                <p className="text-xs opacity-90 mb-3">List</p>
+                <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
             </div>
         </div>
     )

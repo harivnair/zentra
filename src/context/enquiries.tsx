@@ -67,6 +67,7 @@ export function EnquiriesProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 const idVal = get(["id", "_id", "enquiryId", "id_enquiry"]) ?? JSON.stringify(it)
+                const eventIDVal = get(["eventID", "eventId", "event_id"])
                 const clientRaw = get(["client", "clientName", "name", "customer", "customer_name"])
                 const dateRaw = get(["date", "enquiryDate", "createdAt", "created_date", "dateCreated"])
                 // prefer explicit client POC fields; also accept nested client.poc
@@ -91,6 +92,7 @@ export function EnquiriesProvider({ children }: { children: React.ReactNode }) {
                     // spread raw item first, then override with normalized primitives
                     ...it,
                     id: idVal as string | number,
+                    eventID: eventIDVal as string | undefined,
                     client: clientVal ?? clientNameFromObj ?? "",
                     date: dateVal ?? "",
                     poc: pocVal ?? "",

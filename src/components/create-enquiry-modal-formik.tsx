@@ -36,7 +36,8 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
     } : {
         highlvelRequirement: "", fromDate: "", toDate: "",
         location: "", venue: "", clientPoC: "", enquiryPoCNumber: "", client: "",
-        eventType: 'CORPORATE'
+        eventType: 'CORPORATE',
+        eventPoCNumber: "", eventPoC: "", enquiryPoC: "", assignedTo: ""
     }
 
     const validationSchema = Yup.object({
@@ -52,8 +53,11 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
         venue: Yup.string().required("Venue is required"),
         highlvelRequirement: Yup.string().required("High level requirements are required").min(10, "Please provide more detailed requirements (at least 10 characters)"),
         clientPoC: Yup.string().optional(),
-        enquiryPoCNumber: Yup.string().required("Client POC contact number is required").matches(/^\d{10}$/, "Phone number must be exactly 10 digits"),
+        enquiryPoCNumber: Yup.string().optional().matches(/^\d{10}$/, { message: "Phone number must be exactly 10 digits", excludeEmptyString: true }),
+        eventPoCNumber: Yup.string().optional().matches(/^\d{10}$/, { message: "Phone number must be exactly 10 digits", excludeEmptyString: true }),
         eventPoC: Yup.string().optional(),
+        enquiryPoC: Yup.string().optional(),
+        assignedTo: Yup.string().optional(),
     })
 
     const handleSubmit = async () => {
@@ -168,11 +172,37 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                                     <ErrorMessage name="enquiryPoCNumber" component="div" className="mt-1 text-sm text-red-600" />
                                 </div>
 
+                                {/* Enquiry POC */}
+                                <div className="mt-4">
+                                    <Label htmlFor="enquiryPoC">Enquiry POC</Label>
+                                    <Field as={Input} id="enquiryPoC" name="enquiryPoC" type="text" placeholder="Enter enquiry POC name" className="mt-1" />
+                                    <ErrorMessage name="enquiryPoC" component="div" className="mt-1 text-sm text-red-600" />
+                                </div>
+
                                 {/* Event POC */}
                                 <div className="mt-4">
                                     <Label htmlFor="eventPoC">Event POC</Label>
                                     <Field as={Input} id="eventPoC" name="eventPoC" type="text" placeholder="Enter event POC name" className={`mt-1 ${errors.eventPoC && touched.eventPoC ? 'border-red-500' : ''}`} />
                                     <ErrorMessage name="eventPoC" component="div" className="mt-1 text-sm text-red-600" />
+                                </div>
+
+                                {/* Event POC Number */}
+                                <div className="mt-4">
+                                    <Label htmlFor="eventPoCNumber">Event POC Number</Label>
+                                    <Field name="eventPoCNumber" render={({ field, form }: FieldProps) => (
+                                        <Input {...field} id="eventPoCNumber" type="tel" placeholder="1234567890 (10 digits)" maxLength={10} onChange={(e) => {
+                                            const value = e.target.value.replace(/\D/g, '').slice(0, 10)
+                                            form.setFieldValue('eventPoCNumber', value)
+                                        }} className="mt-1" />
+                                    )} />
+                                    <ErrorMessage name="eventPoCNumber" component="div" className="mt-1 text-sm text-red-600" />
+                                </div>
+
+                                {/* Assigned To */}
+                                <div className="mt-4">
+                                    <Label htmlFor="assignedTo">Assigned To</Label>
+                                    <Field as={Input} id="assignedTo" name="assignedTo" type="text" placeholder="Enter assigned staff name" className="mt-1" />
+                                    <ErrorMessage name="assignedTo" component="div" className="mt-1 text-sm text-red-600" />
                                 </div>
                             </div>
                         </div>

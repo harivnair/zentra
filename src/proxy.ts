@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-export function middleware() {
+export function proxy() {
     const response = NextResponse.next()
 
     // Content Security Policy - Prevent XSS
@@ -32,9 +32,7 @@ export function middleware() {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except static files and images
-         */
+        // Match all request paths except static files and images
         '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 }

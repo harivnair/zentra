@@ -14,6 +14,8 @@ export interface EnquiryFormData {
     enquiryPoCNumber: string
     eventPoCNumber?: string
     eventPoC?: string
+    enquiryPoC?: string
+    assignedTo?: string
     client: string // Client ID
     clientName?: string // For new client creation upon submit
     eventType?: 'PERSONAL' | 'CORPORATE' | 'OTHER'

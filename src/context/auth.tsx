@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { setSecureItem, getSecureItem, removeSecureItem } from '@/lib/secure-storage'
+import { API_ENDPOINTS } from '@/lib/endpoint'
 
 export interface User {
     id: string
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (userID: string, password: string) => {
         try {
             // Call Next.js API route instead of backend directly to avoid CORS
-            const response = await fetch('/api/login', {
+            const response = await fetch(API_ENDPOINTS.auth.login, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

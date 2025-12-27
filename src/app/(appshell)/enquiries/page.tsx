@@ -17,6 +17,7 @@ import { FileText } from "lucide-react"
 
 type Enquiry = {
     id: number | string
+    eventID?: string
     client: string
     date: string
     poc: string
@@ -31,6 +32,11 @@ type Enquiry = {
     clientType?: 'corporate' | 'individual'
     eventType?: 'CORPORATE' | 'INDIVIDUAL'
     eventPoC?: string
+    eventName?: string
+    enquiryPoC?: string
+    eventPoCNumber?: string
+    assignedTo?: string
+    location?: string
     [k: string]: unknown
 }
 
@@ -116,7 +122,11 @@ export default function EnquiriesPage() {
             enquiryPoCNumber: enquiry.enquiryPoCNumber || '',
             client: enquiry.client,
             eventType: (enquiry.eventType as 'PERSONAL' | 'CORPORATE' | 'OTHER' | undefined) || 'CORPORATE',
-            eventPoC: enquiry.eventPoC || ''
+            eventPoC: enquiry.eventPoC || '',
+            title: enquiry.eventName || '',
+            enquiryPoC: enquiry.enquiryPoC || '',
+            eventPoCNumber: enquiry.eventPoCNumber || '',
+            assignedTo: enquiry.assignedTo || ''
         }
 
         setEditingEnquiry(editData)
@@ -349,42 +359,108 @@ export default function EnquiriesPage() {
                     </div>
 
                     {/* Desktop: table view */}
-                    <div className="hidden md:block">
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="text-left text-xs text-muted-foreground">
-                                    <th className="py-3">Client Name</th>
-                                    <th className="py-3">Enquiry Date</th>
-                                    <th className="py-3">Client POC</th>
-                                    <th className="py-3">Status</th>
-                                    <th className="py-3">Assignee</th>
-                                    <th className="py-3 text-right">&nbsp;</th>
+                                <tr className="text-left text-xs text-muted-foreground border-b">
+                                    <th className="py-3 px-4">Event Details</th>
+                                    <th className="py-3 px-4">Client</th>
+                                    <th className="py-3 px-4">Schedule</th>
+                                    <th className="py-3 px-4">Location</th>
+                                    <th className="py-3 px-4">Team</th>
+                                    <th className="py-3 px-4 max-w-xs">Requirements</th>
+                                    <th className="py-3 px-4 text-right sticky right-0 bg-white">&nbsp;</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {(loading || clientsLoading) && <TableRowSkeleton rows={8} />}
                                 {error && (
                                     <tr>
-                                        <td colSpan={6} className="py-8 text-center text-red-600">
+                                        <td colSpan={7} className="py-8 text-center text-red-600">
                                             {error}
                                         </td>
                                     </tr>
                                 )}
                                 {!loading && !clientsLoading && !error && filtered.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                        <td colSpan={7} className="py-8 text-center text-muted-foreground">
                                             No enquiries found.
                                         </td>
                                     </tr>
                                 )}
                                 {!loading && !clientsLoading && !error && filtered.map((e) => (
-                                    <tr key={e.id} className="border-t hover:bg-gray-50">
-                                        <td className="py-4">{clientMap.get(e.client) || e.client}</td>
-                                        <td className="py-4">{e.date}</td>
-                                        <td className="py-4">{e.poc}</td>
-                                        <td className="py-4"><MemoStatusPill status={e.status} /></td>
-                                        <td className="py-4">{e.assignee}</td>
-                                        <td className="py-4 text-right">
+                                    <tr key={e.id} className="border-b hover:bg-gray-50 align-top">
+                                        {/* Event Details */}
+                                        <td className="py-4 px-4">
+                                            <div className="font-medium text-gray-900">{e.eventName || '-'}</div>
+                                            <div className="text-xs text-gray-500 mt-1">ID: {e.eventID || e.id}</div>
+                                            <div className="mt-1">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {e.eventType || 'Unknown'}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        {/* Client */}
+                                        <td className="py-4 px-4">
+                                            <div className="font-medium text-gray-900">{clientMap.get(e.client) || e.client}</div>
+                                            {(e.poc || e.enquiryPoCNumber) && (
+                                                <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                                    {e.poc && <div>POC: {e.poc}</div>}
+                                                    {e.enquiryPoCNumber && <div>Ph: {e.enquiryPoCNumber}</div>}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* Schedule */}
+                                        <td className="py-4 px-4">
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <div className="text-xs text-gray-500">Created</div>
+                                                    <div className="text-sm">{e.date ? new Date(e.date).toLocaleDateString() : '-'}</div>
+                                                </div>
+                                                {(e.fromDate || e.toDate) && (
+                                                    <div>
+                                                        <div className="text-xs text-gray-500">Event</div>
+                                                        <div className="text-xs">
+                                                            {e.fromDate ? new Date(e.fromDate).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'TBD'}
+                                                            <br />to<br />
+                                                            {e.toDate ? new Date(e.toDate).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'TBD'}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+
+                                        {/* Location */}
+                                        <td className="py-4 px-4">
+                                            <div className="text-sm font-medium">{e.venue || '-'}</div>
+                                            {e.location && <div className="text-xs text-gray-500 mt-1">{e.location}</div>}
+                                        </td>
+
+                                        {/* Team */}
+                                        <td className="py-4 px-4">
+                                            <div className="space-y-1 text-xs">
+                                                <div><span className="text-gray-500">Assigned:</span> {e.assignee || '-'}</div>
+                                                {e.enquiryPoC && <div><span className="text-gray-500">Enq POC:</span> {e.enquiryPoC}</div>}
+                                                {e.eventPoC && (
+                                                    <div>
+                                                        <span className="text-gray-500">Evt POC:</span> {e.eventPoC}
+                                                        {e.eventPoCNumber && <span className="text-gray-400"> ({e.eventPoCNumber})</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+
+                                        {/* Requirements */}
+                                        <td className="py-4 px-4 max-w-xs">
+                                            <div className="truncate text-sm text-gray-600" title={e.highlvelRequirement}>
+                                                {e.highlvelRequirement || '-'}
+                                            </div>
+                                        </td>
+
+                                        {/* Actions */}
+                                        <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm">
                                             <DropdownMenu items={getDropdownItems(e)} />
                                         </td>
                                     </tr>

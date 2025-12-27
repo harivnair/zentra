@@ -33,7 +33,7 @@ export default function LoginPage() {
 
         try {
             await login(userID, password)
-            toast.success('Login successful!')
+            toast.success('Login successful! Redirecting to dashboard...')
             router.push('/dashboard')
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.'

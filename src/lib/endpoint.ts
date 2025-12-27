@@ -17,5 +17,8 @@ export const API_ENDPOINTS = {
         list: '/api/estimates',
         detail: (id: string | number) => `/api/estimates/${id}`,
     },
+    auth: {
+        login: '/api/login',
+    },
     // Add other endpoints as needed
 }
