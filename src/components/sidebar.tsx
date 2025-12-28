@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, FileText, Calendar, Grid, DollarSign, BookOpen, CreditCard, BarChart2, Users, Truck, LogOut } from 'lucide-react'
+import { Home, FileText, Calendar, Grid, DollarSign, BookOpen, CreditCard, BarChart2, Users, Truck, LogOut, Package } from 'lucide-react'
 import { useAuth } from "@/context/auth"
 import { toast } from "sonner"
 
@@ -28,7 +28,7 @@ export default function Sidebar() {
     type NavItem = { href: string; label: string; Icon?: React.ComponentType<React.SVGProps<SVGSVGElement>> }
 
     const topItems: NavItem[] = [{ href: "/dashboard", label: "Dashboard", Icon: Home }]
-    
+
     const salesAndMarketing: NavItem[] = [
         { href: "/enquiries", label: "Enquiries", Icon: FileText },
         { href: "/clients", label: "Clients", Icon: Users },
@@ -39,6 +39,7 @@ export default function Sidebar() {
         { href: "/events", label: "Events", Icon: Calendar },
         { href: "/schedules", label: "Schedules", Icon: Grid },
         { href: "/checklists", label: "Checklists", Icon: Grid },
+        { href: "/inventory", label: "Inventory", Icon: Package },
     ]
     const finance: NavItem[] = [
         { href: "/estimates", label: "Estimates", Icon: DollarSign },

@@ -13,6 +13,11 @@ export const API_ENDPOINTS = {
     clients: {
         list: '/api/clients',
     },
+    inventory: {
+        list: '/api/inventory',
+        detail: (id: string | number) => `/api/inventory/${id}`,
+        checkUsage: (id: string | number) => `/api/inventory/check-usage/${id}`,
+    },
     estimates: {
         list: '/api/estimates',
         detail: (id: string | number) => `/api/estimates/${id}`,
