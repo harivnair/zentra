@@ -11,7 +11,7 @@ export async function GET(request: Request) {
             headers['Authorization'] = authToken
         }
 
-        const res = await fetch(`${upstream}/events`, { headers })
+        const res = await fetch(`${upstream}/events/all-descending`, { headers })
         const body = await res.text()
         const responseHeaders: Record<string, string> = {}
         const contentType = res.headers.get("content-type")

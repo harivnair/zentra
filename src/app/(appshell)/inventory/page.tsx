@@ -1,17 +1,18 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
+import InventoryUsageModal from "@/components/inventory-usage-modal"
+import { API_ENDPOINTS } from "@/lib/endpoint"
 import { Button } from "@/components/ui/button"
 import DropdownMenu from "@/components/ui/dropdown-menu"
 import CreateInventoryModal from "@/components/create-inventory-modal"
-import { Inventory, InventoryFormData } from "@/types/inventory"
+import { Inventory, InventoryFormData, InventoryUsage } from "@/types/inventory"
 import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader"
 import { showConfirmation } from "@/components/confirmation-toast"
 import { toast } from "sonner"
 import { apiRequest } from "@/lib/api-client"
-import { useAuth } from "@/context/auth"
 import { Package } from "lucide-react"
-import { API_ENDPOINTS } from "@/lib/endpoint"
+
 
 export default function InventoryPage() {
     const [inventory, setInventory] = useState<Inventory[]>([])
@@ -20,7 +21,26 @@ export default function InventoryPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingItem, setEditingItem] = useState<InventoryFormData | null>(null)
     const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
-    const { user } = useAuth()
+    // Usage modal state
+    const [usageModalOpen, setUsageModalOpen] = useState(false)
+    const [usageLoading, setUsageLoading] = useState(false)
+    const [usageData, setUsageData] = useState<InventoryUsage[] | null>(null)
+    const handleTrackUsage = async (inventoryId: string) => {
+        setUsageModalOpen(true)
+        setUsageLoading(true)
+        setUsageData(null)
+        try {
+            const res = await apiRequest(API_ENDPOINTS.inventory.checkUsage(inventoryId))
+            if (!res.ok) throw new Error('Failed to fetch usage')
+            const data = await res.json()
+            setUsageData(Array.isArray(data) ? data : [])
+        } catch {
+            setUsageData([])
+        } finally {
+            setUsageLoading(false)
+        }
+    }
+    // const { user } = useAuth() // user not used
 
     const fetchInventory = useCallback(async () => {
         setLoading(true)
@@ -170,6 +190,7 @@ export default function InventoryPage() {
                                 <th className="py-3 px-4">Dimensions</th>
                                 <th className="py-3 px-4">Quantity</th>
                                 <th className="py-3 px-4">Price</th>
+                                <th className="py-3 px-4">Track Usage</th>
                                 <th className="py-3 px-4 text-right sticky right-0 bg-white">&nbsp;</th>
                             </tr>
                         </thead>
@@ -197,6 +218,15 @@ export default function InventoryPage() {
                                     <td className="py-4 px-4">{item.dimensions || '-'}</td>
                                     <td className="py-4 px-4">{item.quantity}</td>
                                     <td className="py-4 px-4">${item.price}</td>
+                                    <td className="py-4 px-4">
+                                        <button
+                                            className="text-blue-600 underline hover:text-blue-800"
+                                            onClick={() => handleTrackUsage(item.id!)}
+                                            type="button"
+                                        >
+                                            Track Usage
+                                        </button>
+                                    </td>
                                     <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm">
                                         <DropdownMenu items={getDropdownItems(item)} />
                                     </td>
@@ -206,6 +236,13 @@ export default function InventoryPage() {
                     </table>
                 </div>
             </div>
+
+            <InventoryUsageModal
+                open={usageModalOpen}
+                onClose={() => setUsageModalOpen(false)}
+                usage={usageData}
+                loading={usageLoading}
+            />
 
             <CreateInventoryModal
                 isOpen={isModalOpen}

@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
         if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
         const headers = getBackendHeaders(request)
-        const res = await fetch(`${upstream}/events/${encodeURIComponent(id)}`, { headers })
+        const encodedId = encodeURIComponent(id)
+        // Backend changed to query-based endpoint: /events/by-eventid?eventID=<id>
+        const url = `${upstream}/events/by-eventid?eventID=${encodedId}`
+        console.log('[API] Proxy GET event detail ->', url)
+        const res = await fetch(url, { headers })
         const body = await res.text()
         const responseHeaders: Record<string, string> = {}
         const contentType = res.headers.get("content-type")
@@ -32,7 +36,11 @@ export async function DELETE(request: NextRequest) {
 
         const headers = getBackendHeaders(request)
 
-        const res = await fetch(`${upstream}/events/${encodeURIComponent(id)}`, { method: 'DELETE', headers })
+        const encodedId = encodeURIComponent(id)
+        // DELETE remains path-based: /events/{eventId}
+        const url = `${upstream}/events/${encodedId}`
+        console.log('[API] Proxy DELETE event ->', url)
+        const res = await fetch(url, { method: 'DELETE', headers })
         const body = await res.text()
         const responseHeaders: Record<string, string> = {}
         const contentType = res.headers.get('content-type')
@@ -55,7 +63,10 @@ export async function PUT(request: NextRequest) {
         const body = await request.text()
         const headers = { ...getBackendHeaders(request), 'Content-Type': 'application/json' } as HeadersInit
 
-        const res = await fetch(`${upstream}/events/${encodeURIComponent(id)}`, {
+        const encodedId = encodeURIComponent(id)
+        const url = `${upstream}/events/${encodedId}?eventID=${encodedId}`
+        console.log('[API] Proxy PUT event ->', url)
+        const res = await fetch(url, {
             method: 'PUT',
             headers,
             body

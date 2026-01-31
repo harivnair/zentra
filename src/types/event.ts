@@ -19,6 +19,34 @@ export interface EventItem {
     serialNumber?: number
 }
 
+export interface AdditionalCost {
+    item: string;
+    amount: number;
+    remarks: string;
+}
+
+export interface Event {
+    id?: string;
+    eventID?: string;
+    title: string;
+    enquiryDate?: string;
+    eventStartDate: string;
+    eventEndDate: string;
+    location?: string;
+    venue?: string;
+    discounts?: number;
+    status?: string;
+    gst?: number;
+    tds?: number;
+    serviceCharge?: number;
+    advanceAmt?: number;
+    client: ClientRef;
+    address?: string;
+    pan?: string;
+    items?: EventItem[];
+    additionalCostEstimate?: AdditionalCost[];
+}
+
 export interface EstimateDropdownItem {
     id: string
     name: string
@@ -26,7 +54,7 @@ export interface EstimateDropdownItem {
 }
 
 export interface EstimateEventDetails {
-    id: string
+    id:string
     enquiryId: string
     title: string
     eventName?: string
@@ -57,6 +85,7 @@ export interface EventFormData {
     clientId?: string
     estimateId?: string
     enquiryId?: string
+    additionalCostEstimate?: AdditionalCost[]
 }
 
 export interface CreateEventModalProps {

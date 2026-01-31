@@ -16,6 +16,7 @@ import { useEventPrefill } from "@/context/event-prefill"
 
 type EventItem = {
     id: number | string
+    eventID?: string
     title: string
     client?: {
         id?: string
@@ -246,7 +247,7 @@ export default function EventsPage() {
     const getDropdownItems = (ev: EventItem) => {
         const isDeleting = deletingIds.has(String(ev.id))
         return [
-            { label: 'View', icon: '🔍', action: () => window.location.href = `/events/${ev.id}`, disabled: isDeleting },
+            { label: 'View', icon: '🔍', action: () => window.location.href = `/events/${ev.eventID || ev.id}`, disabled: isDeleting },
             { label: 'Edit', icon: '✏️', action: () => handleEdit(ev.id), disabled: isDeleting },
             {
                 label: isDeleting ? 'Deleting...' : 'Delete',
@@ -301,7 +302,7 @@ export default function EventsPage() {
                             {events.map((ev) => {
                                 const isDeleting = deletingIds.has(String(ev.id))
                                 return (
-                                    <tr key={ev.id} className={`border-t hover:bg-gray-50 cursor-pointer ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`} onClick={() => !isDeleting && (window.location.href = `/events/${ev.id}`)}>
+                                    <tr key={ev.id} className={`border-t hover:bg-gray-50 cursor-pointer ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`} onClick={() => !isDeleting && (window.location.href = `/events/${ev.eventID || ev.id}`)}>
                                         <td className="py-4">
                                             {isDeleting && (
                                                 <span className="inline-flex items-center gap-2">
@@ -340,7 +341,7 @@ export default function EventsPage() {
                     {events.map((ev) => {
                         const isDeleting = deletingIds.has(String(ev.id))
                         return (
-                            <div key={ev.id} className={`border rounded-md p-4 cursor-pointer hover:bg-gray-50 transition-colors ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`} onClick={() => !isDeleting && (window.location.href = `/events/${ev.id}`)}>
+                            <div key={ev.id} className={`border rounded-md p-4 cursor-pointer hover:bg-gray-50 transition-colors ${isDeleting ? 'opacity-50 pointer-events-none bg-gray-50' : ''}`} onClick={() => !isDeleting && (window.location.href = `/events/${ev.eventID || ev.id}`)}>
                                 <div className="flex items-center justify-between">
                                     <div className="font-medium">
                                         {isDeleting && (

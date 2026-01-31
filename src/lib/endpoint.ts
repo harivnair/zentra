@@ -8,7 +8,11 @@ export const API_ENDPOINTS = {
     },
     events: {
         list: '/api/events',
-        detail: (id: string | number) => `/api/events/${id}`,
+        // Event detail now queried via /by-eventid?eventID=<id>
+        detail: (id: string | number) => `/api/events/by-eventid?eventID=${id}`,
+        update: (id: string | number) => `/api/events/${id}`,
+        versions: (eventID: string | number) => `/api/events/versions?eventID=${eventID}`,
+        updateStatus: (eventID: string | number, versionID: string | number, status: string) => `/api/events/updateStatus?eventID=${eventID}&versionID=${versionID}&status=${status}`,
     },
     clients: {
         list: '/api/clients',
@@ -17,6 +21,10 @@ export const API_ENDPOINTS = {
         list: '/api/inventory',
         detail: (id: string | number) => `/api/inventory/${id}`,
         checkUsage: (id: string | number) => `/api/inventory/check-usage/${id}`,
+        dropdown: '/api/inventory',
+    },
+    vendors: {
+        list: '/api/vendors',
     },
     estimates: {
         list: '/api/estimates',

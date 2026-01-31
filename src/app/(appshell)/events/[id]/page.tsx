@@ -1,16 +1,36 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { apiRequest } from "@/lib/api-client"
+import { API_ENDPOINTS } from "@/lib/endpoint"
+import { ProjectPlanningModal } from "@/components/project-planning-modal"
+import { EstimateHistoryModal } from "@/components/estimate-history-modal"
+import { toast } from "sonner"
+
+// Event status enum matching backend
+const EVENT_STATUS = [
+    { value: "ENQUIRY_CREATED", label: "Enquiry created" },
+    { value: "ESTIMATE_INPROGRESS", label: "Estimate in progress" },
+    { value: "ESTIMATE_UNDER_REVIEW", label: "Estimate under review" },
+    { value: "ESTIMATE_APPROVED", label: "Estimate approved" },
+    { value: "PROJECT_INPROGRESS", label: "Project in progress" },
+    { value: "PROJECT_SETTLEMENT_IN_PROGRESS", label: "Project settlement in progress" },
+    { value: "PROJECT_COMPLETED", label: "Project completed" },
+] as const
 
 type EventResponse = {
     id?: string
+    eventID?: string
     title?: string
     eventStartDate?: string
     eventEndDate?: string
     location?: string
     venue?: string
     status?: string
+    gst?: number
+    tds?: number
+    advanceAmt?: number
     client?: {
         id?: string
         name?: string
@@ -28,6 +48,16 @@ type EventResponse = {
         days?: number
         serialNumber?: number
     }>
+    categorySummary?: Array<{
+        category?: string
+        gst?: number
+        tds?: number
+        totalAmount?: number
+        advanceAmount?: number
+        adjustedAmt?: number
+        balance?: number
+    }>
+    vendorSummary?: Array<unknown>
     purchaseOrders?: Array<{
         vendor?: string
         items?: Array<{
@@ -53,41 +83,55 @@ type EventResponse = {
 
 export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = React.use(params)
+    const router = useRouter()
     const [eventTitle, setEventTitle] = useState<string>("Event Details")
     const [eventData, setEventData] = useState<EventResponse | null>(null)
+    const [isProjectPlanningModalOpen, setIsProjectPlanningModalOpen] = useState(false)
+    const [isEstimateHistoryModalOpen, setIsEstimateHistoryModalOpen] = useState(false)
+    const fetchPromiseRef = React.useRef<Promise<EventResponse | null> | null>(null)
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const res = await apiRequest(`/api/events/${encodeURIComponent(String(id))}`)
-                if (!res.ok) return
-                const data = (await res.json()) as EventResponse
+    const fetchEventData = React.useCallback(async () => {
+        try {
+            // Reset the fetch promise to force a new fetch
+            fetchPromiseRef.current = null
 
-                // Store full event data
-                setEventData(data)
+            const queryParam = String(id).includes('_') ? id : id
+            fetchPromiseRef.current = (async () => {
+                const res = await apiRequest(API_ENDPOINTS.events.detail(encodeURIComponent(String(queryParam))))
+                if (!res.ok) return null
+                return (await res.json()) as EventResponse
+            })()
 
-                // Set event title
-                const title = data.title ?? `Event ${id}`
-                setEventTitle(String(title))
-            } catch {
-                // ignore
-            }
+            const data = await fetchPromiseRef.current
+            if (!data) return
+
+            // Store full event data
+            setEventData(data)
+
+            // Set event title
+            const title = data.title ?? `Event ${data.eventID || id}`
+            setEventTitle(String(title))
+        } catch {
+            // ignore
         }
-        void load()
     }, [id])
 
-    // Calculate totals
+    useEffect(() => {
+        fetchEventData()
+    }, [fetchEventData])
+
+    // Calculate totals from categorySummary (provided by backend)
     let totalEstimatedCost = 0
     const totalExpense = 0
     const totalIncome = 0
     let totalPendingAmount = 0
     let totalBalance = 0
 
-    if (Array.isArray(eventData?.purchaseOrders)) {
-        eventData.purchaseOrders.forEach(po => {
-            totalEstimatedCost += po.totalAmount || 0
-            totalPendingAmount += po.advanceAmount || 0
-            totalBalance += po.balance || 0
+    if (Array.isArray(eventData?.categorySummary)) {
+        eventData.categorySummary.forEach(cat => {
+            totalEstimatedCost += cat.totalAmount || 0
+            totalPendingAmount += cat.advanceAmount || 0
+            totalBalance += cat.balance || 0
         })
     }
 
@@ -152,7 +196,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                         <div className="bg-white rounded-lg shadow-sm p-6">
                             <div className="flex items-start gap-4 mb-6">
                                 {/* Avatar */}
-                                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white flex-shrink-0">
+                                <div className="w-20 h-20 rounded-full bg-gray-400 flex items-center justify-center text-white flex-shrink-0">
                                     <span className="text-3xl font-bold">{(eventData.client.name ?? 'C')[0].toUpperCase()}</span>
                                 </div>
                                 <div className="flex-1">
@@ -181,7 +225,38 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Status</label>
-                                    <p className="text-sm font-medium text-gray-900">{eventData.status ?? 'Pending'}</p>
+                                    <select
+                                        value={eventData?.status ?? 'ENQUIRY_CREATED'}
+                                        onChange={async (e) => {
+                                            const newStatus = e.target.value
+                                            try {
+                                                const eventID = eventData?.eventID || id
+                                                const versionID = eventData?.version || 1
+                                                const response = await apiRequest(API_ENDPOINTS.events.updateStatus(eventID, versionID, newStatus), {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' }
+                                                })
+
+                                                if (!response.ok) {
+                                                    throw new Error('Failed to update status')
+                                                }
+
+                                                // Update local state with new status
+                                                setEventData(prevData => prevData ? { ...prevData, status: newStatus } : null)
+                                                toast.success('Status updated successfully')
+                                            } catch (error) {
+                                                console.error('Error updating status:', error)
+                                                toast.error('Failed to update status')
+                                            }
+                                        }}
+                                        className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        {EVENT_STATUS.map((status) => (
+                                            <option key={status.value} value={status.value}>
+                                                {status.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Address</label>
@@ -237,77 +312,63 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             </div>
 
             {/* Report Cards Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                 {/* Project Planning */}
                 <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4">
                     <h4 className="font-semibold text-sm mb-2">Project Planning</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
-                </div>
-
-                {/* Income */}
-                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Income</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
-                </div>
-
-                {/* Expense */}
-                <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Expense</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
-                </div>
-
-                {/* Cash Book */}
-                <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Cash Book</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
-                </div>
-
-                {/* Purchase */}
-                <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Purchase</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View Report →</button>
-                </div>
-
-                {/* Purchase Order */}
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Purchase Order</h4>
-                    <p className="text-xs opacity-90 mb-3">List</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
-                </div>
-
-                {/* Inventory */}
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Inventory</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                    <p className="text-xs opacity-90 mb-3">Inventory</p>
+                    <button
+                        onClick={() => setIsProjectPlanningModalOpen(true)}
+                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                        Add Items →
+                    </button>
                 </div>
 
                 {/* Inventory List */}
                 <div className="bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg shadow-sm p-4">
                     <h4 className="font-semibold text-sm mb-2">Inventory List</h4>
                     <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                    <button
+                        onClick={() => router.push('/inventory')}
+                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                        View List →
+                    </button>
                 </div>
 
-                {/* Task */}
-                <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Task</h4>
-                    <p className="text-xs opacity-90 mb-3">List</p>
-                    <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
+                {/* Estimate History */}
+                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Estimate History</h4>
+                    <p className="text-xs opacity-90 mb-3">Estimates</p>
+                    <button
+                        onClick={() => setIsEstimateHistoryModalOpen(true)}
+                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                        View History →
+                    </button>
                 </div>
             </div>
 
-            {/* Documents Section */}
-            <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4 mb-8">
-                <h4 className="font-semibold text-sm mb-2">Documents</h4>
-                <p className="text-xs opacity-90 mb-3">List</p>
-                <button className="text-xs font-medium hover:opacity-90 transition-opacity">View List →</button>
-            </div>
+            {/* Project Planning Modal */}
+            <ProjectPlanningModal
+                isOpen={isProjectPlanningModalOpen}
+                onClose={() => setIsProjectPlanningModalOpen(false)}
+                eventData={eventData}
+                onSave={() => {
+                    // Reload event data after save
+                    setIsProjectPlanningModalOpen(false)
+                    fetchEventData()
+                }}
+            />
+
+            {/* Estimate History Modal */}
+            <EstimateHistoryModal
+                isOpen={isEstimateHistoryModalOpen}
+                onClose={() => setIsEstimateHistoryModalOpen(false)}
+                eventTitle={eventTitle}
+                eventID={eventData?.eventID || id}
+            />
         </div>
     )
 }

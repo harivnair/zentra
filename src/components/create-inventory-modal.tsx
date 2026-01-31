@@ -87,9 +87,12 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
     return (
         <div
             className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50"
-            onClick={e => e.target === e.currentTarget && onClose()}
+            onClick={onClose}
         >
-            <div className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
+            <div
+                className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <Formik
                     initialValues={initialValues}
                     enableReinitialize

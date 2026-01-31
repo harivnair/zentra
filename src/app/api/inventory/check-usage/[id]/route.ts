@@ -32,8 +32,23 @@ export async function GET(
     const BACKEND_URL = getBackendUrl()
     try {
         const { id } = await params
-        const url = `${BACKEND_URL}/inventory/check-usage/${id}`
-        const headers = { ...getBackendHeaders(request), 'Content-Type': 'application/json' }
+        const url = `${BACKEND_URL}/inventory/check-usage?id=${encodeURIComponent(id)}`
+
+        // Build auth headers from X-Auth-Token and Authorization for compatibility
+        const backendHeaders = getBackendHeaders(request)
+        const authHeader =
+            backendHeaders['Authorization'] ||
+            request.headers.get('Authorization') ||
+            request.headers.get('authorization') ||
+            request.headers.get('x-auth-token') ||
+            request.headers.get('X-Auth-Token')
+
+        if (authHeader) {
+            backendHeaders['Authorization'] = authHeader
+            backendHeaders['X-Auth-Token'] = authHeader
+        }
+
+        const headers = { ...backendHeaders, 'Content-Type': 'application/json' }
 
         const response = await fetchWithTimeout(url, {
             method: 'GET',
@@ -41,6 +56,11 @@ export async function GET(
         })
 
         if (!response.ok) {
+            console.error(`[API] Backend responded with status: ${response.status}`)
+            // If 403, it means auth failed
+            if (response.status === 403 || response.status === 401) {
+                return NextResponse.json({ error: 'Unauthorized access to inventory usage' }, { status: response.status })
+            }
             throw new Error(`Backend responded with status: ${response.status}`)
         }
 

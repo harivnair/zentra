@@ -88,10 +88,11 @@ export async function apiRequest(
 
     const headers = new Headers(options.headers || {})
 
-    // Add authorization header to pass through to backend
+    // Add auth headers to pass through to Next API (and then backend)
     if (authHeader) {
-        headers.set('X-Auth-Token', authHeader) // Custom header for Next.js API routes
-        console.log('[API Client] Adding X-Auth-Token header:', authHeader.substring(0, 20) + '...')
+        headers.set('X-Auth-Token', authHeader) // legacy/custom
+        headers.set('Authorization', authHeader) // standard header expected by backend
+        console.log('[API Client] Adding auth headers:', authHeader.substring(0, 20) + '...')
     } else {
         console.warn('[API Client] No auth token found in secure storage')
     }

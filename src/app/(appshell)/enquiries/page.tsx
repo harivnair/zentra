@@ -12,6 +12,7 @@ import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader"
 import { showConfirmation } from "@/components/confirmation-toast"
 import { toast } from "sonner"
 import { apiRequest } from "@/lib/api-client"
+import { API_ENDPOINTS } from "@/lib/endpoint"
 import { useAuth } from "@/context/auth"
 import { FileText } from "lucide-react"
 
@@ -49,7 +50,6 @@ const StatusPill = ({ status }: { status: string }) => {
 const MemoStatusPill = React.memo(StatusPill)
 
 export default function EnquiriesPage() {
-    const [tab, setTab] = useState<"open" | "cancelled" | "closed">("open")
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingEnquiry, setEditingEnquiry] = useState<EnquiryFormData | null>(null)
     const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
@@ -57,6 +57,9 @@ export default function EnquiriesPage() {
     const { enquiries, loading, error, refresh } = useEnquiries()
     const { clients, refresh: refreshClients, loading: clientsLoading } = useClients()
     const { user } = useAuth()
+    const [viewModalOpen, setViewModalOpen] = useState(false)
+    const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null)
+    const [eventSaving, setEventSaving] = useState(false)
 
     // Create a map of client ID to client name
     const clientMap = useMemo(() => {
@@ -65,32 +68,8 @@ export default function EnquiriesPage() {
         return map
     }, [clients])
 
-    // compute counts per status and filter strictly by status
-    const counts = useMemo(() => {
-        const c = { open: 0, cancelled: 0, closed: 0 }
-        for (const e of enquiries) {
-            const s = String(e.status ?? '').trim().toLowerCase()
-            if (s === 'open') c.open++
-            else if (s === 'cancelled') c.cancelled++
-            else if (s === 'closed') c.closed++
-        }
-        return c
-    }, [enquiries])
-
-    // Count all open enquiries
-    const openEnquiriesCount = useMemo(() => {
-        return enquiries.filter((e) => {
-            const s = String(e.status ?? '').trim().toLowerCase()
-            return s === 'open'
-        }).length
-    }, [enquiries])
-
-    const filtered = useMemo(() => enquiries.filter((e) => {
-        const s = String(e.status ?? '').trim().toLowerCase()
-        if (tab === "open") return s === 'open'
-        if (tab === "cancelled") return s === 'cancelled'
-        return s === 'closed'
-    }), [enquiries, tab])
+    // Count all enquiries (no tab filtering needed)
+    const enquiriesCount = useMemo(() => enquiries.length, [enquiries])
 
     const handleCreateEnquiry = async () => {
         try {
@@ -264,6 +243,66 @@ export default function EnquiriesPage() {
         }
     }
 
+    const openViewModal = (enquiry: Enquiry) => {
+        setSelectedEnquiry(enquiry)
+        setViewModalOpen(true)
+    }
+
+    const closeViewModal = () => {
+        setViewModalOpen(false)
+        setSelectedEnquiry(null)
+    }
+
+    const handleCreateEvent = async () => {
+        if (!selectedEnquiry) return
+        setEventSaving(true)
+        try {
+            const payload = {
+                title: selectedEnquiry.eventName || selectedEnquiry.title || 'Event',
+                eventName: selectedEnquiry.eventName || selectedEnquiry.title || 'Event',
+                enquiryDate: selectedEnquiry.date || new Date().toISOString(),
+                eventStartDate: selectedEnquiry.fromDate || selectedEnquiry.date || new Date().toISOString(),
+                eventEndDate: selectedEnquiry.toDate || selectedEnquiry.date || new Date().toISOString(),
+                eventID: selectedEnquiry.eventID,
+                location: selectedEnquiry.location || '',
+                venue: selectedEnquiry.venue || '',
+                status: 'ENQUIRY_CREATED',
+                enquiryId: String(selectedEnquiry.id ?? ''),
+                client: {
+                    id: selectedEnquiry.client ? String(selectedEnquiry.client) : undefined,
+                    name: clientMap.get(selectedEnquiry.client) || undefined,
+                },
+                vendor: undefined,
+                items: [],
+                categorySummary: [],
+                vendorSummary: [],
+                gst: 0,
+                tds: 0,
+                advanceAmt: 0,
+            }
+
+            const res = await apiRequest(API_ENDPOINTS.events.list, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '')
+                throw new Error(`Failed to create event: ${res.status} ${errText}`)
+            }
+
+            toast.success('Event created from enquiry')
+            closeViewModal()
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to create event'
+            toast.error(message)
+            console.error(message)
+        } finally {
+            setEventSaving(false)
+        }
+    }
+
     return (
         <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -276,7 +315,7 @@ export default function EnquiriesPage() {
                             Hi, {user?.name || user?.uid || 'User'}!
                         </h2>
                         <p className="text-muted-foreground">
-                            You have {openEnquiriesCount} Open {openEnquiriesCount === 1 ? 'Enquiry' : 'Enquiries'}
+                            You have {enquiriesCount} {enquiriesCount === 1 ? 'Enquiry' : 'Enquiries'}
                         </p>
                     </div>
                 </div>
@@ -293,61 +332,21 @@ export default function EnquiriesPage() {
 
             <div className="mt-6">
                 {/* (debug output removed) */}
-                <nav className="flex gap-6 border-b">
-                    {(() => {
-                        const disabledOpen = counts.open === 0
-                        return (
-                            <button
-                                onClick={() => !disabledOpen && setTab("open")}
-                                aria-disabled={disabledOpen}
-                                title={disabledOpen ? 'No Open enquiries yet' : undefined}
-                                className={`pb-3 text-sm font-medium ${tab === "open" ? "border-b-2 border-black" : "text-muted-foreground"} ${disabledOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                Open
-                            </button>
-                        )
-                    })()}
-
-                    {(() => {
-                        const disabledCancelled = counts.cancelled === 0
-                        return (
-                            <button
-                                onClick={() => !disabledCancelled && setTab("cancelled")}
-                                aria-disabled={disabledCancelled}
-                                title={disabledCancelled ? 'No Cancelled enquiries yet' : undefined}
-                                className={`pb-3 text-sm font-medium ${tab === "cancelled" ? "border-b-2 border-black" : "text-muted-foreground"} ${disabledCancelled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                Cancelled
-                            </button>
-                        )
-                    })()}
-
-                    {(() => {
-                        const disabledClosed = counts.closed === 0
-                        return (
-                            <button
-                                onClick={() => !disabledClosed && setTab("closed")}
-                                aria-disabled={disabledClosed}
-                                title={disabledClosed ? 'No Closed enquiries yet' : undefined}
-                                className={`pb-3 text-sm font-medium ${tab === "closed" ? "border-b-2 border-black" : "text-muted-foreground"} ${disabledClosed ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                Closed
-                            </button>
-                        )
-                    })()}
-                </nav>
 
                 <div className="mt-6 rounded-lg bg-white p-4 sm:p-6 shadow-sm">
                     {/* Mobile / small screens: stacked cards */}
                     <div className="flex flex-col gap-4 md:hidden">
                         {(loading || clientsLoading) && <ListSkeleton type="cards" items={5} />}
                         {error && <div className="p-4 text-red-600">{error}</div>}
-                        {!loading && !clientsLoading && !error && filtered.length === 0 && (
+                        {!loading && !clientsLoading && !error && enquiries.length === 0 && (
                             <div className="p-4 text-muted-foreground">No enquiries found.</div>
                         )}
 
-                        {!loading && !clientsLoading && !error && filtered.map((e) => (
-                            <div key={e.id} className="border rounded-md p-4 cursor-pointer">
+                        {!loading && !clientsLoading && !error && enquiries.map((e) => (
+                            <div key={e.id} className="border rounded-md p-4 cursor-pointer" onClick={() => openViewModal(e)}>
                                 <div className="flex items-center justify-between">
                                     <div className="font-medium">{clientMap.get(e.client) || e.client}</div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2" onClick={(ev) => ev.stopPropagation()}>
                                         <StatusPill status={e.status} />
                                         <DropdownMenu items={getDropdownItems(e)} />
                                     </div>
@@ -381,15 +380,15 @@ export default function EnquiriesPage() {
                                         </td>
                                     </tr>
                                 )}
-                                {!loading && !clientsLoading && !error && filtered.length === 0 && (
+                                {!loading && !clientsLoading && !error && enquiries.length === 0 && (
                                     <tr>
                                         <td colSpan={7} className="py-8 text-center text-muted-foreground">
                                             No enquiries found.
                                         </td>
                                     </tr>
                                 )}
-                                {!loading && !clientsLoading && !error && filtered.map((e) => (
-                                    <tr key={e.id} className="border-b hover:bg-gray-50 align-top">
+                                {!loading && !clientsLoading && !error && enquiries.map((e) => (
+                                    <tr key={e.id} className="border-b hover:bg-gray-50 align-top cursor-pointer" onClick={() => openViewModal(e)}>
                                         {/* Event Details */}
                                         <td className="py-4 px-4">
                                             <div className="font-medium text-gray-900">{e.eventName || '-'}</div>
@@ -460,7 +459,7 @@ export default function EnquiriesPage() {
                                         </td>
 
                                         {/* Actions */}
-                                        <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm">
+                                        <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm" onClick={(ev) => ev.stopPropagation()}>
                                             <DropdownMenu items={getDropdownItems(e)} />
                                         </td>
                                     </tr>
@@ -483,6 +482,56 @@ export default function EnquiriesPage() {
                 editData={editingEnquiry}
                 mode={modalMode}
             />
+
+            {viewModalOpen && selectedEnquiry && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={closeViewModal}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6 relative" onClick={(e) => e.stopPropagation()}>
+                        <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl" onClick={closeViewModal} aria-label="Close">&times;</button>
+                        <h3 className="text-xl font-semibold mb-4">Enquiry Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+                            <div>
+                                <p className="text-gray-500">Title</p>
+                                <p className="font-medium">{selectedEnquiry.eventName || selectedEnquiry.title || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Client</p>
+                                <p className="font-medium">{clientMap.get(selectedEnquiry.client) || selectedEnquiry.client}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Enquiry Date</p>
+                                <p className="font-medium">{selectedEnquiry.date ? new Date(selectedEnquiry.date).toLocaleString() : '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Schedule</p>
+                                <p className="font-medium">{selectedEnquiry.fromDate ? new Date(selectedEnquiry.fromDate).toLocaleString() : 'TBD'} → {selectedEnquiry.toDate ? new Date(selectedEnquiry.toDate).toLocaleString() : 'TBD'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Venue</p>
+                                <p className="font-medium">{selectedEnquiry.venue || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Location</p>
+                                <p className="font-medium">{selectedEnquiry.location || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">POC</p>
+                                <p className="font-medium">{selectedEnquiry.poc || selectedEnquiry.enquiryPoC || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Assignee</p>
+                                <p className="font-medium">{selectedEnquiry.assignee || '-'}</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-col sm:flex-row justify-end gap-3">
+                            <Button variant="outline" onClick={closeViewModal} disabled={eventSaving}>Close</Button>
+                            <Button onClick={handleCreateEvent} disabled={eventSaving} className="bg-blue-600 hover:bg-blue-700">
+                                {eventSaving ? 'Creating Event...' : 'View/Create Event'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

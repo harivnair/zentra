@@ -10,10 +10,7 @@ import { Label } from "@/components/ui/label"
 import { EnquiryFormData, CreateEnquiryModalProps } from "@/types/enquiry"
 import { useClients } from "@/hooks/useClients"
 import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
-import { useEstimatePrefill, type EstimatePrefillPayload } from "@/context/estimate-prefill"
 import { toast } from "sonner"
-import type { EstimateStatus } from "@/types/estimate"
 import DatePicker from "react-datepicker"
 import { apiRequest } from "@/lib/api-client"
 const CreatableSelect = dynamic(() => import("react-select/creatable"), { ssr: false })
@@ -52,15 +49,10 @@ const validationSchema = Yup.object({
 
 export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData, mode = 'create' }: CreateEnquiryModalProps) {
     const { clients, loading: clientsLoading } = useClients()
-    const router = useRouter()
-    const { setPrefill: setEstimatePrefill } = useEstimatePrefill()
 
     // Formik ref so we can set fields from outside when clients finish loading
     const formikRef = useRef<FormikProps<EnquiryFormData> | null>(null)
-    const submitIntentRef = useRef<'save' | 'estimate'>('save')
-    const [estimateProcessing, setEstimateProcessing] = useState(false)
     const [saveProcessing, setSaveProcessing] = useState(false)
-    const [isRedirecting, setIsRedirecting] = useState(false)
 
     // Helper function to normalize dates for datetime-local inputs (YYYY-MM-DDTHH:mm)
     const normalizeDateForForm = (dateStr: string) => {
@@ -101,12 +93,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
     const isEdit = mode === 'edit' || !!editData?.id
 
     const handleSubmit = async (values: EnquiryFormData, { setSubmitting, setStatus, resetForm }: FormikHelpers<EnquiryFormData>) => {
-        const intent = submitIntentRef.current
-        if (intent === 'estimate') {
-            setEstimateProcessing(true)
-        } else {
-            setSaveProcessing(true)
-        }
+        setSaveProcessing(true)
 
         try {
             setStatus(null)
@@ -197,97 +184,10 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                 return String(raw)
             })()
 
-            const estimatePrefill: EstimatePrefillPayload | null = (() => {
-                if (intent !== 'estimate') return null
-                if (!sourceEnquiry) {
-                    throw new Error('Enquiry details are unavailable for estimate creation.')
-                }
-
-                const savedClient = pick<unknown>(sourceEnquiry, ['client'])
-                const normalisedClient = (() => {
-                    if (savedClient && typeof savedClient === 'object') {
-                        const clientRecord = savedClient as { id?: string | number; name?: string }
-                        if (clientRecord.id || clientRecord.name) {
-                            return {
-                                id: clientRecord.id ? String(clientRecord.id) : undefined,
-                                name: clientRecord.name,
-                            }
-                        }
-                    }
-                    if (clientId) {
-                        return {
-                            id: String(clientId),
-                            name: clientDisplayName || existingClient?.name,
-                        }
-                    }
-                    return undefined
-                })()
-
-                const rawItems = pick<Record<string, unknown>>(sourceEnquiry, ['items'])
-                const cleanedItems = rawItems && typeof rawItems === 'object'
-                    ? Object.entries(rawItems).reduce<Record<string, { id: string; description: string; quantity: number; unitCost: number; total: number }[]>>((acc, [category, entries]) => {
-                        if (!Array.isArray(entries)) return acc
-                        acc[category] = entries.map((item, index) => {
-                            const record = item as Record<string, unknown>
-                            const quantity = typeof record.quantity === 'number' ? record.quantity : Number(record.quantity ?? 0)
-                            const unitCost = typeof record.unitCost === 'number' ? record.unitCost : Number(record.unitCost ?? 0)
-                            const totalValue = quantity * unitCost
-                            return {
-                                id: String(record.id ?? `${category}-${index}`),
-                                description: typeof record.description === 'string' ? record.description : 'Line item',
-                                quantity: Number.isFinite(quantity) ? quantity : 0,
-                                unitCost: Number.isFinite(unitCost) ? unitCost : 0,
-                                total: Number.isFinite(totalValue) ? Number(totalValue.toFixed(2)) : 0,
-                            }
-                        })
-                        return acc
-                    }, {})
-                    : undefined
-
-                const rawStatus = pick<string>(sourceEnquiry, ['status', 'enquiryStatus'])
-                const allowedStatuses: EstimateStatus[] = ['OPEN', 'CLOSED', 'CANCELLED']
-                const normalisedStatus = rawStatus ? rawStatus.toUpperCase() : undefined
-                const status = normalisedStatus && allowedStatuses.includes(normalisedStatus as EstimateStatus)
-                    ? (normalisedStatus as EstimateStatus)
-                    : 'OPEN'
-
-                return {
-                    enquiryId: persistedEnquiryId,
-                    title: pick<string>(sourceEnquiry, ['title', 'eventName']) ?? values.title ?? '',
-                    highlvelRequirement: pick<string>(sourceEnquiry, ['highlvelRequirement', 'summary', 'title']) ?? '',
-                    enquiryDate: pick<string>(sourceEnquiry, ['enquiryDate', 'createdAt']),
-                    fromDate: pick<string>(sourceEnquiry, ['fromDate', 'eventStart']),
-                    toDate: pick<string>(sourceEnquiry, ['toDate', 'eventEnd']),
-                    status,
-                    location: pick<string>(sourceEnquiry, ['location', 'eventLocation']),
-                    venue: pick<string>(sourceEnquiry, ['venue']) ?? '',
-                    clientPoC: pick<string>(sourceEnquiry, ['clientPoC']) ?? '',
-                    pocContactNumber: pick<string>(sourceEnquiry, ['enquiryPoCNumber', 'pocContactNumber', 'clientPhone']) ?? '',
-                    enquiryPoC: pick<string>(sourceEnquiry, ['eventPoC', 'enquiryPoC']),
-                    client: normalisedClient,
-                    items: cleanedItems,
-                }
-            })()
-
             await Promise.resolve(onSubmit())
 
-            if (!isEdit && intent === 'save') {
+            if (!isEdit) {
                 resetForm({ values: { ...initialValues } })
-            }
-
-            if (intent === 'estimate') {
-                if (!estimatePrefill) {
-                    throw new Error('Failed to create estimate prefill from enquiry response.')
-                }
-
-                setEstimatePrefill(estimatePrefill)
-                setIsRedirecting(true)
-                toast.success('Enquiry saved! Redirecting to estimates...', {
-                    duration: 2000,
-                })
-                onClose()
-                router.push('/estimates')
-                return
             }
 
             onClose()
@@ -299,12 +199,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
             })
         } finally {
             setSubmitting(false)
-            submitIntentRef.current = 'save'
-            if (intent === 'estimate') {
-                setEstimateProcessing(false)
-            } else {
-                setSaveProcessing(false)
-            }
+            setSaveProcessing(false)
         }
     }
 
@@ -326,23 +221,6 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
     }, [isOpen, clientsLoading, editData?.client, clients])
 
     if (!isOpen) return null
-
-    // Show redirecting overlay when navigating to estimates
-    if (isRedirecting) {
-        return (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-sm mx-4">
-                    <div className="relative">
-                        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-                    </div>
-                    <div className="text-center">
-                        <h3 className="text-lg font-semibold text-gray-900">Redirecting to Estimates</h3>
-                        <p className="text-sm text-gray-600 mt-1">Please wait while we prepare your estimate...</p>
-                    </div>
-                </div>
-            </div>
-        )
-    }
 
     return (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -585,35 +463,17 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
                             </div>
 
                             {/* Footer */}
-                            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end mt-6 pt-4 border-t">
-                                <div className="flex gap-3 justify-end">
-                                    <Button variant="outline" onClick={onClose} type="button" disabled={isSubmitting || estimateProcessing || saveProcessing}>Cancel</Button>
-                                    <Button
-                                        type="button"
-                                        disabled={isSubmitting || saveProcessing || estimateProcessing}
-                                        onClick={() => {
-                                            submitIntentRef.current = 'save'
-                                            submitForm()
-                                        }}
-                                        className="bg-blue-600 hover:bg-blue-700"
-                                    >
-                                        {saveProcessing || (isSubmitting && submitIntentRef.current === 'save')
-                                            ? 'Saving...'
-                                            : (mode === 'edit' ? 'Save Changes' : 'Save Enquiry')}
-                                    </Button>
-                                </div>
+                            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6 pt-4 border-t">
+                                <Button variant="outline" onClick={onClose} type="button" disabled={isSubmitting || saveProcessing}>Cancel</Button>
                                 <Button
                                     type="button"
-                                    className="bg-purple-600 text-white hover:bg-purple-700"
-                                    disabled={isSubmitting || estimateProcessing}
-                                    onClick={() => {
-                                        submitIntentRef.current = 'estimate'
-                                        submitForm()
-                                    }}
+                                    disabled={isSubmitting || saveProcessing}
+                                    onClick={() => submitForm()}
+                                    className="bg-blue-600 hover:bg-blue-700"
                                 >
-                                    {estimateProcessing || (isSubmitting && submitIntentRef.current === 'estimate')
-                                        ? 'Saving & Opening Estimate...'
-                                        : 'Save & Create Estimate'}
+                                    {saveProcessing || isSubmitting
+                                        ? 'Saving...'
+                                        : 'Save Enquiry'}
                                 </Button>
                             </div>
                         </Form>

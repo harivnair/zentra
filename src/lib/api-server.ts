@@ -10,15 +10,16 @@ import { NextRequest } from 'next/server'
  * and prepare headers for forwarding to the backend
  */
 export function getBackendHeaders(request: NextRequest | Request): HeadersInit {
-    // Try different case variations of the header
-    let authToken = request.headers.get('X-Auth-Token')
-    if (!authToken) {
-        authToken = request.headers.get('x-auth-token')
-    }
+    const authToken =
+        request.headers.get('X-Auth-Token') ||
+        request.headers.get('x-auth-token') ||
+        request.headers.get('Authorization') ||
+        request.headers.get('authorization')
 
     const headers: HeadersInit = {}
     if (authToken) {
         headers['Authorization'] = authToken
+        headers['X-Auth-Token'] = authToken
     }
 
     return headers
