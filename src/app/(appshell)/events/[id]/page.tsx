@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/api-client"
 import { API_ENDPOINTS } from "@/lib/endpoint"
 import { ProjectPlanningModal } from "@/components/project-planning-modal"
 import { EstimateHistoryModal } from "@/components/estimate-history-modal"
+import { ExpensesModal } from "@/components/expenses-modal"
 import { toast } from "sonner"
 
 // Event status enum matching backend
@@ -88,6 +89,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     const [eventData, setEventData] = useState<EventResponse | null>(null)
     const [isProjectPlanningModalOpen, setIsProjectPlanningModalOpen] = useState(false)
     const [isEstimateHistoryModalOpen, setIsEstimateHistoryModalOpen] = useState(false)
+    const [isExpensesModalOpen, setIsExpensesModalOpen] = useState(false)
     const fetchPromiseRef = React.useRef<Promise<EventResponse | null> | null>(null)
 
     const fetchEventData = React.useCallback(async () => {
@@ -230,9 +232,9 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                         onChange={async (e) => {
                                             const newStatus = e.target.value
                                             try {
-                                                const eventID = eventData?.eventID || id
-                                                const versionID = eventData?.version || 1
-                                                const response = await apiRequest(API_ENDPOINTS.events.updateStatus(eventID, versionID, newStatus), {
+                                                const eventID = eventData?.eventID || id || ''
+                                                const versionID = eventData?.version ?? 1
+                                                const response = await apiRequest(API_ENDPOINTS.events.updateStatus(String(eventID), String(versionID), newStatus), {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' }
                                                 })
@@ -316,7 +318,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 {/* Project Planning */}
                 <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4">
                     <h4 className="font-semibold text-sm mb-2">Project Planning</h4>
-                    <p className="text-xs opacity-90 mb-3">Inventory</p>
+                    <p className="text-xs opacity-90 mb-3">Project Items</p>
                     <button
                         onClick={() => setIsProjectPlanningModalOpen(true)}
                         className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
@@ -348,13 +350,25 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                         View History →
                     </button>
                 </div>
+
+                {/* Expenses */}
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Expenses</h4>
+                    <p className="text-xs opacity-90 mb-3">Manage Expenses</p>
+                    <button
+                        onClick={() => setIsExpensesModalOpen(true)}
+                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                        Add Expenses →
+                    </button>
+                </div>
             </div>
 
             {/* Project Planning Modal */}
             <ProjectPlanningModal
                 isOpen={isProjectPlanningModalOpen}
                 onClose={() => setIsProjectPlanningModalOpen(false)}
-                eventData={eventData}
+                eventData={eventData || {}}
                 onSave={() => {
                     // Reload event data after save
                     setIsProjectPlanningModalOpen(false)
@@ -368,6 +382,17 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 onClose={() => setIsEstimateHistoryModalOpen(false)}
                 eventTitle={eventTitle}
                 eventID={eventData?.eventID || id}
+            />
+
+            {/* Expenses Modal */}
+            <ExpensesModal
+                isOpen={isExpensesModalOpen}
+                onClose={() => setIsExpensesModalOpen(false)}
+                eventData={eventData || {}}
+                onSave={() => {
+                    setIsExpensesModalOpen(false)
+                    fetchEventData()
+                }}
             />
         </div>
     )

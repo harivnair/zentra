@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
         update: (id: string | number) => `/api/events/${id}`,
         versions: (eventID: string | number) => `/api/events/versions?eventID=${eventID}`,
         updateStatus: (eventID: string | number, versionID: string | number, status: string) => `/api/events/updateStatus?eventID=${eventID}&versionID=${versionID}&status=${status}`,
+        sendInvoice: '/api/events/send-invoice',
     },
     clients: {
         list: '/api/clients',
@@ -34,4 +35,11 @@ export const API_ENDPOINTS = {
         login: '/api/login',
     },
     // Add other endpoints as needed
+}
+
+// Backend Endpoints - to be used by Next.js API routes to communicate with Spring Boot
+export const BACKEND_ENDPOINTS = {
+    events: {
+        sendInvoice: '/events/send-invoice',
+    }
 }

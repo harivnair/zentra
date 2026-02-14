@@ -7,10 +7,23 @@ import { toast } from "sonner"
 import { apiRequest } from "@/lib/api-client"
 import { API_ENDPOINTS } from "@/lib/endpoint"
 
+interface EstimateItem {
+    item: string
+    quantity: number
+    pricePerItem: number
+    finalAmt: number
+    category: string
+    description?: string
+    days: number
+    startDate?: string | null
+    endDate?: string | null
+}
+
 interface EstimateVersion {
     id: string
     version: number
     createdDate?: string | null
+    items?: EstimateItem[]
 }
 
 interface EstimateHistoryModalProps {
@@ -23,10 +36,12 @@ interface EstimateHistoryModalProps {
 export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: EstimateHistoryModalProps) {
     const [versions, setVersions] = useState<EstimateVersion[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null)
 
     useEffect(() => {
         if (isOpen && eventID) {
             fetchVersions()
+            setExpandedVersionId(null)
         }
     }, [isOpen, eventID])
 
@@ -47,6 +62,10 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
         } finally {
             setIsLoading(false)
         }
+    }
+
+    const toggleDetails = (id: string) => {
+        setExpandedVersionId(expandedVersionId === id ? null : id)
     }
 
     if (!isOpen) return null
@@ -83,22 +102,25 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
                             {versions.map((version) => (
                                 <div
                                     key={version.id}
-                                    className="border rounded-lg p-5 transition-all border-gray-200 bg-white hover:border-gray-300"
+                                    className={`border rounded-lg transition-all border-gray-200 bg-white hover:border-blue-300 ${expandedVersionId === version.id ? 'ring-1 ring-blue-500 border-blue-500' : ''}`}
                                 >
-                                    <div className="flex items-start justify-between">
+                                    <div className="p-5 flex items-start justify-between">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-3">
                                                 <h3 className="text-lg font-semibold text-gray-900">
                                                     Version {version.version}
                                                 </h3>
+                                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                                    {version.items?.length || 0} items
+                                                </span>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="text-xs text-gray-500 uppercase tracking-wide block mb-1">
                                                         Version ID
                                                     </label>
-                                                    <p className="text-sm font-medium text-gray-900 font-mono">
+                                                    <p className="text-sm font-medium text-gray-900 font-mono text-ellipsis overflow-hidden">
                                                         {version.id}
                                                     </p>
                                                 </div>
@@ -122,16 +144,57 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
                                         </div>
 
                                         <Button
-                                            onClick={() => {
-                                                // TODO: Implement view details functionality
-                                                toast.info('View details coming soon')
-                                            }}
+                                            onClick={() => toggleDetails(version.id)}
                                             variant="outline"
-                                            className="ml-4"
+                                            className="ml-4 flex items-center gap-2"
                                         >
-                                            View Details
+                                            {expandedVersionId === version.id ? (
+                                                'Hide Details'
+                                            ) : (
+                                                'View Details'
+                                            )}
                                         </Button>
                                     </div>
+
+                                    {/* Expanded Details Section */}
+                                    {expandedVersionId === version.id && (
+                                        <div className="border-t bg-gray-50 p-5 rounded-b-lg">
+                                            <h4 className="font-semibold text-sm mb-3">Item Details</h4>
+                                            {(!version.items || version.items.length === 0) ? (
+                                                <p className="text-sm text-gray-500 italic">No items recorded for this version.</p>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="text-xs text-gray-500 uppercase bg-gray-100 border-b">
+                                                            <tr>
+                                                                <th className="px-3 py-2">Category</th>
+                                                                <th className="px-3 py-2">Item</th>
+                                                                <th className="px-3 py-2 text-right">Qty</th>
+                                                                <th className="px-3 py-2 text-right">Price/Item</th>
+                                                                <th className="px-3 py-2 text-right">Days</th>
+                                                                <th className="px-3 py-2 text-right">Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-200">
+                                                            {version.items.map((item, idx) => (
+                                                                <tr key={idx} className="hover:bg-gray-100">
+                                                                    <td className="px-3 py-2 font-medium">{item.category}</td>
+                                                                    <td className="px-3 py-2">
+                                                                        <div>{item.item}</div>
+                                                                        {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                                    <td className="px-3 py-2 text-right">{item.pricePerItem}</td>
+                                                                    <td className="px-3 py-2 text-right">{item.days}</td>
+                                                                    <td className="px-3 py-2 text-right font-semibold">₹{(item.finalAmt || 0).toLocaleString()}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

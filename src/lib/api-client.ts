@@ -97,7 +97,7 @@ export async function apiRequest(
         console.warn('[API Client] No auth token found in secure storage')
     }
 
-    if (options.body && !headers.has('Content-Type')) {
+    if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json')
     }
 
