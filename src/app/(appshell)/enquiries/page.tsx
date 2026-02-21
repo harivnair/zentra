@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import DropdownMenu from "@/components/ui/dropdown-menu"
 import CreateEnquiryModal from "@/components/create-enquiry-modal"
@@ -43,18 +44,20 @@ type Enquiry = {
 
 const StatusPill = ({ status }: { status: string }) => {
     const base = "inline-block rounded-full px-3 py-1 text-sm font-medium"
-    if (status === "In Progress") return <span className={base + " bg-yellow-100 text-yellow-800"}>{status}</span>
-    return <span className={base + " bg-gray-200 text-gray-700"}>{status}</span>
+    if (status === "In Progress") return <span className={base + " bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"}>{status}</span>
+    return <span className={base + " bg-gray-200 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"}>{status}</span>
 }
 
 const MemoStatusPill = React.memo(StatusPill)
 
 export default function EnquiriesPage() {
+    const router = useRouter()
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingEnquiry, setEditingEnquiry] = useState<EnquiryFormData | null>(null)
     const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
 
-    const { enquiries, loading, error, refresh } = useEnquiries()
+    const { enquiries: rawEnquiries, loading, error, refresh } = useEnquiries()
+    const enquiries = rawEnquiries as unknown as Enquiry[]
     const { clients, refresh: refreshClients, loading: clientsLoading } = useClients()
     const { user } = useAuth()
     const [viewModalOpen, setViewModalOpen] = useState(false)
@@ -292,8 +295,14 @@ export default function EnquiriesPage() {
                 throw new Error(`Failed to create event: ${res.status} ${errText}`)
             }
 
+            const createdEvent = await res.json()
+
             toast.success('Event created from enquiry')
             closeViewModal()
+
+            if (createdEvent && (createdEvent.eventID || createdEvent.id)) {
+                router.push(`/events/${createdEvent.eventID || createdEvent.id}`)
+            }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to create event'
             toast.error(message)
@@ -333,9 +342,9 @@ export default function EnquiriesPage() {
             <div className="mt-6">
                 {/* (debug output removed) */}
 
-                <div className="mt-6 rounded-lg bg-white p-4 sm:p-6 shadow-sm">
+                <div className="mt-6 glass rounded-2xl p-4 sm:p-6">
                     {/* Mobile / small screens: stacked cards */}
-                    <div className="flex flex-col gap-4 md:hidden">
+                    <div className="flex flex-col gap-4 md:hidden stagger-children">
                         {(loading || clientsLoading) && <ListSkeleton type="cards" items={5} />}
                         {error && <div className="p-4 text-red-600">{error}</div>}
                         {!loading && !clientsLoading && !error && enquiries.length === 0 && (
@@ -368,10 +377,10 @@ export default function EnquiriesPage() {
                                     <th className="py-3 px-4">Location</th>
                                     <th className="py-3 px-4">Team</th>
                                     <th className="py-3 px-4 max-w-xs">Requirements</th>
-                                    <th className="py-3 px-4 text-right sticky right-0 bg-white">&nbsp;</th>
+                                    <th className="py-3 px-4 text-right">&nbsp;</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="stagger-rows">
                                 {(loading || clientsLoading) && <TableRowSkeleton rows={8} />}
                                 {error && (
                                     <tr>
@@ -459,7 +468,7 @@ export default function EnquiriesPage() {
                                         </td>
 
                                         {/* Actions */}
-                                        <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm" onClick={(ev) => ev.stopPropagation()}>
+                                        <td className="py-4 px-4 text-right" onClick={(ev) => ev.stopPropagation()}>
                                             <DropdownMenu items={getDropdownItems(e)} />
                                         </td>
                                     </tr>
@@ -491,7 +500,7 @@ export default function EnquiriesPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
                             <div>
                                 <p className="text-gray-500">Title</p>
-                                <p className="font-medium">{selectedEnquiry.eventName || selectedEnquiry.title || '-'}</p>
+                                <p className="font-medium">{selectedEnquiry.eventName || (selectedEnquiry.title as string | undefined) || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-gray-500">Client</p>

@@ -90,7 +90,7 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
             onClick={onClose}
         >
             <div
-                className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0"
+                className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0"
                 onClick={(e) => e.stopPropagation()}
             >
                 <Formik

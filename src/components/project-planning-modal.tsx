@@ -10,10 +10,12 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Inventory } from '@/types/inventory'
 import type { Vendor } from '@/types/vendor'
 
-const CATEGORIES = ['DISPLAY', 'SOUND', 'LIGHT', 'PHOTO/VIDEO', 'POWER', 'LOGISTICS']
+import dynamic from "next/dynamic"
 
+const CreatableSelect = dynamic(() => import("react-select/creatable"), { ssr: false })
 interface EventItemRow {
     category: string
+    subCategory?: string
     inventoryType: 'self' | 'external'
     item: string
     inventoryID?: string
@@ -23,6 +25,7 @@ interface EventItemRow {
     days: number
     startDate: string
     endDate: string
+    deadlineDate: string
     description: string
     finalAmt?: number
 }
@@ -61,6 +64,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
     const [rows, setRows] = useState<EventItemRow[]>([
         {
             category: '',
+            subCategory: '',
             inventoryType: 'self',
             item: '',
             quantity: 1,
@@ -68,6 +72,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
             days: 0,
             startDate: eventData?.eventStartDate || '',
             endDate: eventData?.eventEndDate || '',
+            deadlineDate: '',
             description: '',
             finalAmt: 0,
         },
@@ -105,6 +110,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
         if (Array.isArray(eventData?.items) && eventData.items.length > 0) {
             setRows(eventData.items.map((item: any) => ({
                 category: item.category || '',
+                subCategory: item.subCategory || '',
                 inventoryType: item.vendor && item.vendor !== '' ? 'external' : 'self',
                 item: item.item || '',
                 inventoryID: item.inventoryID || '',
@@ -114,6 +120,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                 days: item.days || 0,
                 startDate: item.startDate || item.starDate || eventData?.eventStartDate || '',
                 endDate: item.endDate || eventData?.eventEndDate || '',
+                deadlineDate: item.deadlineDate || '',
                 description: item.description || '',
                 finalAmt: item.finalAmt || 0,
             })));
@@ -125,6 +132,10 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
         } else {
             setAdditionalCosts([]);
         }
+
+        // Load GST and TDS if available
+        setGst(typeof eventData?.gst === 'number' ? eventData.gst : 0);
+        setTds(typeof eventData?.tds === 'number' ? eventData.tds : 0);
     }, [isOpen, eventData]);
 
     const fetchInventory = async () => {
@@ -162,6 +173,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
             ...rows,
             {
                 category: '',
+                subCategory: '',
                 inventoryType: 'self',
                 item: '',
                 quantity: 1,
@@ -169,6 +181,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                 days: 0,
                 startDate: eventData?.eventStartDate || '',
                 endDate: eventData?.eventEndDate || '',
+                deadlineDate: '',
                 description: '',
                 finalAmt: 0,
             },
@@ -249,10 +262,12 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                 inventoryID: row.inventoryID || '',
                 startDate: row.startDate,
                 endDate: row.endDate,
+                deadlineDate: row.deadlineDate || null,
                 quantity: row.quantity,
                 pricePerItem: row.pricePerItem,
-                finalAmt: row.pricePerItem * row.days,
+                finalAmt: row.pricePerItem * row.days * row.quantity,
                 category: row.category,
+                subCategory: row.subCategory || '',
                 description: row.description || '',
                 vendor: row.vendor || '',
                 days: row.days
@@ -362,7 +377,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] relative overflow-hidden flex flex-col">
+            <div className="bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] relative overflow-hidden flex flex-col">
                 {/* Main Content Wrapper - Slides Left */}
                 <div
                     className={`p-6 overflow-y-auto transition-all duration-300 ease-in-out h-full ${showPreview || showEmailDraft ? '-translate-x-full opacity-0' : 'translate-x-0 opacity-100'}`}
@@ -374,343 +389,290 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                     {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                        className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
                         aria-label="Close modal"
                     >
-                        <svg
-                            className="w-6 h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                            />
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
 
-                    <h2 className="text-2xl font-bold mb-4">Project Planning</h2>
+                    <div className="mb-6">
+                        <h2 className="text-xl font-semibold text-gray-900">Estimate Builder</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">Add items, costs, and set GST to generate an estimate.</p>
+                    </div>
 
                     {/* Inventory Items Section (Expandable) */}
-                    <div className="mb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold">Add Project Items</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)}>
-                                {isInventoryOpen ? 'Collapse' : 'Expand'}
-                            </Button>
+                    <div className="mb-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-800">Project Items</h3>
+                                <p className="text-xs text-muted-foreground">Inventory items grouped by category</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded hover:bg-indigo-50"
+                            >
+                                {isInventoryOpen ? '↑ Collapse' : '↓ Expand'}
+                            </button>
                         </div>
                         {isInventoryOpen && (
                             <>
-                                {/* Check if there are any items with categories */}
-                                {(() => {
-                                    const categorizedItems = rows.filter(r => r.category);
-                                    const hasItems = categorizedItems.length > 0;
-
-                                    // If no items or only uncategorized items provided initially, show full form
-                                    // Also show form if we are editing the single first item (fresh start) and haven't saved yet
-                                    const showForm = !hasItems || (rows.length === 1 && isDirty);
-
-                                    if (showForm) {
-                                        return (
-                                            <div className="border rounded p-4 bg-gray-50 mb-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Category *</Label>
-                                                        <select
-                                                            value={rows[0]?.category || ''}
-                                                            onChange={e => handleRowChange(0, 'category', e.target.value)}
-                                                            className="w-full px-3 py-2 border rounded text-sm"
-                                                        >
-                                                            <option value="">Select Category</option>
-                                                            {CATEGORIES.map(cat => (
-                                                                <option key={cat} value={cat}>{cat}</option>
-                                                            ))}
-                                                            <option value="custom">+ Add Custom</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Source</Label>
-                                                        <div className="flex gap-2 mt-2">
-                                                            <label className="flex items-center gap-1">
-                                                                <input
-                                                                    type="radio"
-                                                                    name="inventoryType-0"
-                                                                    value="self"
-                                                                    checked={rows[0]?.inventoryType === 'self'}
-                                                                    onChange={() => handleRowChange(0, 'inventoryType', 'self')}
-                                                                />
-                                                                <span className="text-xs">Self</span>
-                                                            </label>
-                                                            <label className="flex items-center gap-1">
-                                                                <input
-                                                                    type="radio"
-                                                                    name="inventoryType-0"
-                                                                    value="external"
-                                                                    checked={rows[0]?.inventoryType === 'external'}
-                                                                    onChange={() => handleRowChange(0, 'inventoryType', 'external')}
-                                                                />
-                                                                <span className="text-xs">Vendor</span>
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                    {rows[0]?.inventoryType === 'self' ? (
-                                                        <div>
-                                                            <Label className="text-sm font-medium">Inventory Item *</Label>
-                                                            <select
-                                                                value={rows[0]?.inventoryID || ''}
-                                                                onChange={e => {
-                                                                    const selected = inventoryList.find(i => String(i.id) === e.target.value)
-                                                                    if (selected) {
-                                                                        const newRows = [...rows]
-                                                                        newRows[0] = {
-                                                                            ...newRows[0],
-                                                                            inventoryID: String(selected.id || ''),
-                                                                            item: selected.itemName || '',
-                                                                            pricePerItem: selected.price || 0
-                                                                        }
-                                                                        setRows(newRows)
-                                                                    }
-                                                                }}
-                                                                className="w-full px-3 py-2 border rounded text-sm"
-                                                                disabled={!rows[0]?.category}
-                                                            >
-                                                                <option value="">
-                                                                    {!rows[0]?.category
-                                                                        ? 'Select category first'
-                                                                        : loadingInventory
-                                                                            ? 'Loading...'
-                                                                            : 'Select Inventory'}
-                                                                </option>
-                                                                {inventoryList
-                                                                    .filter(inv => !rows[0]?.category || inv.category === rows[0].category)
-                                                                    .map(inv => (
-                                                                        <option key={inv.id} value={inv.id || ''}>
-                                                                            {inv.itemName} ({inv.category})
-                                                                        </option>
-                                                                    ))}
-                                                            </select>
-                                                        </div>
-                                                    ) : (
-                                                        <div>
-                                                            <Label className="text-sm font-medium">Vendor *</Label>
-                                                            <select
-                                                                value={rows[0]?.vendor || ''}
-                                                                onChange={e => handleRowChange(0, 'vendor', e.target.value)}
-                                                                className="w-full px-3 py-2 border rounded text-sm"
-                                                            >
-                                                                <option value="">
-                                                                    {loadingVendors ? 'Loading...' : 'Select Vendor'}
-                                                                </option>
-                                                                {vendorList.map(v => (
-                                                                    <option key={v.id} value={v.id || ''}>
-                                                                        {v.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Item Name *</Label>
-                                                        <Input
-                                                            type="text"
-                                                            value={rows[0]?.item || ''}
-                                                            onChange={e => handleRowChange(0, 'item', e.target.value)}
-                                                            placeholder="Item name"
-                                                            className="text-sm"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Quantity</Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={rows[0]?.quantity || 1}
-                                                            onChange={e => handleRowChange(0, 'quantity', parseInt(e.target.value) || 0)}
-                                                            min="1"
-                                                            className="text-sm"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Price per Item</Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={rows[0]?.pricePerItem || 0}
-                                                            onChange={e => handleRowChange(0, 'pricePerItem', parseFloat(e.target.value) || 0)}
-                                                            min="0"
-                                                            step="0.01"
-                                                            className="text-sm"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Days/Hours</Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={rows[0]?.days || 0}
-                                                            onChange={e => handleRowChange(0, 'days', parseFloat(e.target.value) || 0)}
-                                                            min="0"
-                                                            step="0.5"
-                                                            className="text-sm"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Start Date</Label>
-                                                        <Input
-                                                            type="datetime-local"
-                                                            value={rows[0]?.startDate || ''}
-                                                            onChange={e => handleRowChange(0, 'startDate', e.target.value)}
-                                                            className="text-sm"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-sm font-medium">End Date</Label>
-                                                        <Input
-                                                            type="datetime-local"
-                                                            value={rows[0]?.endDate || ''}
-                                                            onChange={e => handleRowChange(0, 'endDate', e.target.value)}
-                                                            className="text-sm"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="mb-3">
-                                                    <Label className="text-sm font-medium">Description</Label>
-                                                    <Input
-                                                        type="text"
-                                                        value={rows[0]?.description || ''}
-                                                        onChange={e => handleRowChange(0, 'description', e.target.value)}
-                                                        placeholder="Description"
-                                                        className="text-sm"
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-
-                                    // If items exist, show grouped category view
-                                    return null;
-                                })()}
-
-                                {/* Group items by category - only shown when items exist AND not in initial edit mode */}
-                                {!(rows.length === 1 && isDirty) && Object.entries(rows.reduce((acc, row, idx) => {
-                                    if (!row.category) return acc;
-                                    if (!acc[row.category]) acc[row.category] = [];
-                                    acc[row.category].push({ ...row, _idx: idx });
+                                {Object.entries(rows.reduce((acc, row, idx) => {
+                                    const cat = row.category || 'Uncategorized';
+                                    if (!acc[cat]) acc[cat] = [];
+                                    acc[cat].push({ ...row, _idx: idx });
                                     return acc;
                                 }, {} as Record<string, (EventItemRow & { _idx: number })[]>)).map(([category, items]) => (
-                                    <div key={category} className="mb-2 border rounded">
+                                    <div key={category} className="mb-3 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
                                         <div
-                                            className="flex items-center justify-between bg-gray-100 px-4 py-2 cursor-pointer select-none"
-                                            onClick={() => setOpenCategories(prev => ({ ...prev, [category]: !prev[category] }))}
+                                            className="flex items-center justify-between bg-gray-50 px-4 py-3 cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                                            onClick={() => setOpenCategories(prev => ({ ...prev, [category]: prev[category] === undefined ? true : !prev[category] }))}
                                         >
-                                            <span className="font-semibold">{category}</span>
-                                            <span>{openCategories[category] ? '▲' : '▼'}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-sm text-gray-800">{category}</span>
+                                                <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{items.length} item{items.length !== 1 && 's'}</span>
+                                            </div>
+                                            <span className="text-gray-400 text-xs">{openCategories[category] ? '▲' : '▼'}</span>
                                         </div>
                                         {openCategories[category] && (
-                                            <div className="p-4 space-y-2">
-                                                {/* Table header */}
-                                                <div className="grid grid-cols-9 gap-2 font-semibold text-xs text-gray-700 border-b pb-1">
-                                                    <div>Item Name</div>
-                                                    <div>Source</div>
-                                                    <div>Inventory/Vendor</div>
-                                                    <div>Qty</div>
-                                                    <div>Price</div>
-                                                    <div>Days</div>
-                                                    <div>Start Date</div>
-                                                    <div>End Date</div>
-                                                    <div>Description</div>
-                                                    <div></div>
-                                                </div>
-                                                {items.map((row, index) => (
-                                                    <div key={row._idx} className="grid grid-cols-9 gap-2 items-center border-b py-1 last:border-b-0">
-                                                        {editIndex === row._idx ? (
-                                                            <>
-                                                                <Input type="text" value={row.item} onChange={e => handleRowChange(row._idx, 'item', e.target.value)} className="text-xs" />
-                                                                <select value={row.inventoryType} onChange={e => handleRowChange(row._idx, 'inventoryType', e.target.value as 'self' | 'external')} className="text-xs border rounded px-1 py-0.5">
-                                                                    <option value="self">Self</option>
-                                                                    <option value="external">Vendor</option>
-                                                                </select>
-                                                                {row.inventoryType === 'self' ? (
-                                                                    <select value={row.inventoryID || ''} onChange={e => {
-                                                                        const selected = inventoryList.find(i => String(i.id) === e.target.value)
-                                                                        if (selected) {
-                                                                            handleRowChange(row._idx, 'inventoryID', String(selected.id || ''));
-                                                                            handleRowChange(row._idx, 'item', selected.itemName || '');
-                                                                            handleRowChange(row._idx, 'pricePerItem', selected.price || 0);
-                                                                        }
-                                                                    }} className="text-xs border rounded px-1 py-0.5">
-                                                                        <option value="">Select Inventory</option>
-                                                                        {inventoryList.filter(inv => !row.category || inv.category === row.category).map(inv => (
-                                                                            <option key={inv.id} value={inv.id || ''}>{inv.itemName} ({inv.category})</option>
-                                                                        ))}
-                                                                    </select>
-                                                                ) : (
-                                                                    <select value={row.vendor || ''} onChange={e => handleRowChange(row._idx, 'vendor', e.target.value)} className="text-xs border rounded px-1 py-0.5">
-                                                                        <option value="">Select Vendor</option>
-                                                                        {vendorList.map(v => (
-                                                                            <option key={v.id} value={v.id || ''}>{v.name}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                )}
-                                                                <Input type="number" value={row.quantity} onChange={e => handleRowChange(row._idx, 'quantity', parseInt(e.target.value) || 0)} className="text-xs" />
-                                                                <Input type="number" value={row.pricePerItem} onChange={e => handleRowChange(row._idx, 'pricePerItem', parseFloat(e.target.value) || 0)} className="text-xs" />
-                                                                <Input type="number" value={row.days} onChange={e => handleRowChange(row._idx, 'days', parseFloat(e.target.value) || 0)} className="text-xs" />
-                                                                <Input type="datetime-local" value={row.startDate} onChange={e => handleRowChange(row._idx, 'startDate', e.target.value)} className="text-xs" />
-                                                                <Input type="datetime-local" value={row.endDate} onChange={e => handleRowChange(row._idx, 'endDate', e.target.value)} className="text-xs" />
-                                                                <Input type="text" value={row.description} onChange={e => handleRowChange(row._idx, 'description', e.target.value)} className="text-xs" />
-                                                                <Button size="sm" onClick={() => setEditIndex(null)} className="ml-2">Save</Button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <span className="truncate">{row.item}</span>
-                                                                <span>{row.inventoryType === 'self' ? 'Self' : 'Vendor'}</span>
-                                                                <span>{row.inventoryType === 'self' ? (inventoryList.find(i => String(i.id) === row.inventoryID)?.itemName || '-') : (vendorList.find(v => String(v.id) === row.vendor)?.name || '-')}</span>
-                                                                <span>{row.quantity}</span>
-                                                                <span>₹{row.pricePerItem}</span>
-                                                                <span>{row.days}</span>
-                                                                <span>{row.startDate ? new Date(row.startDate).toLocaleString() : '-'}</span>
-                                                                <span>{row.endDate ? new Date(row.endDate).toLocaleString() : '-'}</span>
-                                                                <span className="truncate">{row.description}</span>
-                                                                <Button size="sm" variant="outline" onClick={() => setEditIndex(row._idx)} className="ml-2">Edit</Button>
-                                                            </>
-                                                        )}
+                                            <div className="p-4 space-y-4">
+                                                {items.map((row) => (
+                                                    <div key={row._idx} className="border border-gray-200 rounded p-4 bg-gray-50 relative group transition-all hover:bg-white hover:shadow-md">
+                                                        <button
+                                                            onClick={() => handleDeleteRow(row._idx)}
+                                                            className="absolute top-4 right-4 text-xs font-semibold text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded shadow-sm border border-red-100"
+                                                            title="Delete Item"
+                                                            type="button"
+                                                        >
+                                                            &times; Remove
+                                                        </button>
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3 pr-16">
+                                                            <div className="flex-1">
+                                                                <Label className="text-sm font-medium">Category *</Label>
+                                                                <CreatableSelect
+                                                                    options={Array.from(new Set(inventoryList.map(i => i.category).filter(Boolean))).map(c => ({ value: c, label: c as string }))}
+                                                                    value={row.category ? { value: row.category, label: row.category } : null}
+                                                                    onChange={(selected: any) => handleRowChange(row._idx, 'category', selected ? selected.value : '')}
+                                                                    placeholder="Select or Create..."
+                                                                    className="text-sm mt-1"
+                                                                    classNamePrefix="react-select"
+                                                                    isClearable
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <Label className="text-sm font-medium">Sub Category</Label>
+                                                                <CreatableSelect
+                                                                    options={Array.from(new Set(inventoryList.map(i => i.subCategory).filter(Boolean))).map(c => ({ value: c, label: c as string }))}
+                                                                    value={row.subCategory ? { value: row.subCategory, label: row.subCategory } : null}
+                                                                    onChange={(selected: any) => handleRowChange(row._idx, 'subCategory', selected ? selected.value : '')}
+                                                                    placeholder="Optional..."
+                                                                    className="text-sm mt-1"
+                                                                    classNamePrefix="react-select"
+                                                                    isClearable
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Source</Label>
+                                                                <div className="flex gap-2 mt-2">
+                                                                    <label className="flex items-center gap-1">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`inventoryType-${row._idx}`}
+                                                                            value="self"
+                                                                            checked={row.inventoryType === 'self'}
+                                                                            onChange={() => handleRowChange(row._idx, 'inventoryType', 'self')}
+                                                                        />
+                                                                        <span className="text-xs">Self</span>
+                                                                    </label>
+                                                                    <label className="flex items-center gap-1">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`inventoryType-${row._idx}`}
+                                                                            value="external"
+                                                                            checked={row.inventoryType === 'external'}
+                                                                            onChange={() => handleRowChange(row._idx, 'inventoryType', 'external')}
+                                                                        />
+                                                                        <span className="text-xs">Vendor</span>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            {row.inventoryType === 'self' ? (
+                                                                <div>
+                                                                    <Label className="text-sm font-medium">Inventory Item</Label>
+                                                                    <CreatableSelect
+                                                                        options={inventoryList
+                                                                            .filter(inv => !row.category || inv.category === row.category)
+                                                                            .map(inv => ({ value: String(inv.id || ''), label: `${inv.itemName} ${inv.category ? `(${inv.category})` : ''}`, data: inv }))}
+                                                                        value={row.inventoryID
+                                                                            ? { value: row.inventoryID, label: inventoryList.find(i => String(i.id) === row.inventoryID)?.itemName || row.item }
+                                                                            : (row.item ? { value: row.item, label: row.item } : null)}
+                                                                        onChange={(selected: any) => {
+                                                                            const newRows = [...rows]
+                                                                            if (selected && selected.__isNew__) {
+                                                                                newRows[row._idx] = {
+                                                                                    ...newRows[row._idx],
+                                                                                    inventoryID: '',
+                                                                                    item: selected.value
+                                                                                }
+                                                                            } else if (selected && selected.data) {
+                                                                                newRows[row._idx] = {
+                                                                                    ...newRows[row._idx],
+                                                                                    inventoryID: String(selected.data.id || ''),
+                                                                                    item: selected.data.itemName || '',
+                                                                                    pricePerItem: selected.data.price || 0
+                                                                                }
+                                                                            } else {
+                                                                                newRows[row._idx] = {
+                                                                                    ...newRows[row._idx],
+                                                                                    inventoryID: '',
+                                                                                    item: ''
+                                                                                }
+                                                                            }
+                                                                            setRows(newRows)
+                                                                        }}
+                                                                        placeholder={loadingInventory ? "Loading..." : "Select or Create..."}
+                                                                        className="text-sm mt-1"
+                                                                        classNamePrefix="react-select"
+                                                                        isClearable
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div>
+                                                                    <Label className="text-sm font-medium">Vendor</Label>
+                                                                    <CreatableSelect
+                                                                        options={vendorList.map(v => ({ value: String(v.id || ''), label: v.name as string }))}
+                                                                        value={row.vendor
+                                                                            ? { value: row.vendor, label: vendorList.find(v => String(v.id) === row.vendor)?.name || row.vendor }
+                                                                            : null}
+                                                                        onChange={(selected: any) => handleRowChange(row._idx, 'vendor', selected ? selected.value : '')}
+                                                                        placeholder={loadingVendors ? "Loading..." : "Select or Create..."}
+                                                                        className="text-sm mt-1"
+                                                                        classNamePrefix="react-select"
+                                                                        isClearable
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Item Name *</Label>
+                                                                <Input
+                                                                    type="text"
+                                                                    value={row.item || ''}
+                                                                    onChange={e => handleRowChange(row._idx, 'item', e.target.value)}
+                                                                    placeholder="Item name"
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Quantity</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    value={row.quantity || 1}
+                                                                    onChange={e => handleRowChange(row._idx, 'quantity', parseInt(e.target.value) || 0)}
+                                                                    min="1"
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Price per Item</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    value={row.pricePerItem || 0}
+                                                                    onChange={e => handleRowChange(row._idx, 'pricePerItem', parseFloat(e.target.value) || 0)}
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Days/Hours</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    value={row.days || 0}
+                                                                    onChange={e => handleRowChange(row._idx, 'days', parseFloat(e.target.value) || 0)}
+                                                                    min="0"
+                                                                    step="0.5"
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Start Date</Label>
+                                                                <Input
+                                                                    type="datetime-local"
+                                                                    value={row.startDate || ''}
+                                                                    onChange={e => handleRowChange(row._idx, 'startDate', e.target.value)}
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-medium">End Date</Label>
+                                                                <Input
+                                                                    type="datetime-local"
+                                                                    value={row.endDate || ''}
+                                                                    onChange={e => handleRowChange(row._idx, 'endDate', e.target.value)}
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-medium">Deadline Date</Label>
+                                                                <Input
+                                                                    type="datetime-local"
+                                                                    value={row.deadlineDate || ''}
+                                                                    onChange={e => handleRowChange(row._idx, 'deadlineDate', e.target.value)}
+                                                                    className="text-sm mt-1"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="mb-1">
+                                                            <Label className="text-sm font-medium">Description</Label>
+                                                            <Input
+                                                                type="text"
+                                                                value={row.description || ''}
+                                                                onChange={e => handleRowChange(row._idx, 'description', e.target.value)}
+                                                                placeholder="Description"
+                                                                className="text-sm mt-1"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
                                 ))}
-                                <Button
+                                <button
                                     type="button"
-                                    variant="outline"
                                     onClick={handleAddRow}
-                                    className="mt-4 w-full"
+                                    className="mt-3 w-full border-2 border-dashed border-indigo-200 text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium py-2.5 rounded-xl transition-all"
                                 >
-                                    + Add Another Item
-                                </Button>
+                                    + Add Item
+                                </button>
                             </>
                         )}
                     </div>
 
-                    {/* Additional Costs Section (Expandable) */}
-                    <div className="mb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold">Additional Costs</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setIsAdditionalCostsOpen(!isAdditionalCostsOpen)}>
-                                {isAdditionalCostsOpen ? 'Collapse' : 'Expand'}
-                            </Button>
+                    {/* Additional Costs Section */}
+                    <div className="mb-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-800">Additional Costs</h3>
+                                <p className="text-xs text-muted-foreground">Permits, security, logistics, etc.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsAdditionalCostsOpen(!isAdditionalCostsOpen)}
+                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded hover:bg-indigo-50"
+                            >
+                                {isAdditionalCostsOpen ? '↑ Collapse' : '↓ Expand'}
+                            </button>
                         </div>
                         {isAdditionalCostsOpen && (
                             <>
-                                {additionalCosts.length === 0 && (
-                                    <div className="mb-4 text-red-600 text-sm font-medium">Please add additional cost items to continue.</div>
-                                )}
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {additionalCosts.map((cost, index) => (
                                         <div key={index} className="border rounded p-4 bg-gray-50">
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
@@ -747,30 +709,89 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                                     />
                                                 </div>
                                             </div>
-                                            <Button
+                                            <button
                                                 type="button"
-                                                variant="outline"
-                                                size="sm"
                                                 onClick={() => handleRemoveAdditionalCostRow(index)}
-                                                className="text-red-600"
+                                                className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors mt-1"
                                             >
-                                                Remove Cost
-                                            </Button>
+                                                Remove
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
-                                <Button
+                                <button
                                     type="button"
-                                    variant="outline"
                                     onClick={handleAddAdditionalCostRow}
-                                    className="mt-4 w-full"
+                                    className="mt-3 w-full border-2 border-dashed border-indigo-200 text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium py-2.5 rounded-xl transition-all"
                                 >
-                                    + Add Additional Cost
-                                </Button>
+                                    + Add Cost Entry
+                                </button>
                             </>
                         )}
                     </div>
 
+                    {/* Total Cost Calculation Section */}
+                    {(() => {
+                        const totalItemsAmount = rows.reduce((sum, row) => {
+                            if (!row.category || !row.item) return sum;
+                            return sum + (row.pricePerItem * row.days * row.quantity || 0);
+                        }, 0);
+                        const totalAdditionalCosts = additionalCosts.reduce((sum, cost) => {
+                            if (!cost.item) return sum;
+                            return sum + (cost.amount || 0);
+                        }, 0);
+                        const totalBaseAmount = totalItemsAmount + totalAdditionalCosts;
+                        const gstAmount = (totalBaseAmount * (gst || 0)) / 100;
+                        const grandTotal = totalBaseAmount + gstAmount;
+
+                        return (
+                            <div className="mb-6 p-4 bg-gray-50 border rounded-lg shadow-sm">
+                                <h3 className="text-lg font-semibold mb-4">Estimated Total</h3>
+                                <div className="space-y-2 text-sm text-gray-700">
+                                    <div className="flex justify-between items-center">
+                                        <span>Total Items Cost:</span>
+                                        <span className="font-medium">₹ {totalItemsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    {additionalCosts.length > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span>Total Additional Costs:</span>
+                                            <span className="font-medium">₹ {totalAdditionalCosts.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center py-2 border-y mt-2">
+                                        <span className="font-semibold">Subtotal:</span>
+                                        <span className="font-semibold text-gray-900">₹ {totalBaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row justify-between sm:items-center pt-2 gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Label htmlFor="gst-input" className="font-medium">GST (%)</Label>
+                                            <Input
+                                                id="gst-input"
+                                                type="number"
+                                                value={gst === 0 ? '' : gst}
+                                                onChange={(e) => {
+                                                    setGst(parseFloat(e.target.value) || 0)
+                                                    setIsDirty(true)
+                                                }}
+                                                className="w-24 text-sm h-8"
+                                                min="0"
+                                                max="100"
+                                                step="0.1"
+                                                placeholder="e.g. 18"
+                                            />
+                                        </div>
+                                        <span className="font-medium self-end sm:self-auto">₹ {gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-3 mt-3 border-t-2 text-lg">
+                                        <span className="font-bold text-gray-900">Grand Total:</span>
+                                        <span className="font-bold text-blue-700">₹ {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Action Buttons */}
                     <div className="flex justify-end gap-3 mt-6 border-t pt-4">
@@ -802,7 +823,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                     {/* Version Confirmation Overlay */}
                     {showVersionPrompt && (
                         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                            <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all scale-100 border border-gray-100">
+                            <div className="bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all scale-100 border border-gray-100">
                                 <h3 className="text-xl font-bold mb-4">Save Configuration</h3>
                                 <p className="mb-6 text-gray-600">Do you want to save this as a new version?</p>
 
@@ -845,7 +866,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
 
                 {/* Event Preview Slide-over */}
                 <div
-                    className={`absolute inset-0 bg-white z-20 flex flex-col transition-all duration-300 ease-in-out ${showPreview ? 'translate-x-0' : 'translate-x-full'}`}
+                    className={`absolute inset-0 bg-white dark:!bg-gray-900 z-20 flex flex-col transition-all duration-300 ease-in-out ${showPreview ? 'translate-x-0' : 'translate-x-full'}`}
                     style={{
                         transform: showPreview ? 'translateX(0)' : 'translateX(100%)',
                         visibility: showPreview ? 'visible' : 'hidden'
@@ -975,7 +996,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
 
                 {/* Email Draft Slide-over (Gmail Style) - z-30 to stack ON TOP of preview */}
                 <div
-                    className={`absolute inset-0 bg-white z-30 flex flex-col transition-all duration-300 ease-in-out ${showEmailDraft ? 'translate-x-0' : 'translate-x-full'}`}
+                    className={`absolute inset-0 bg-white dark:!bg-gray-900 z-30 flex flex-col transition-all duration-300 ease-in-out ${showEmailDraft ? 'translate-x-0' : 'translate-x-full'}`}
                     style={{
                         transform: showEmailDraft ? 'translateX(0)' : 'translateX(100%)',
                         visibility: showEmailDraft ? 'visible' : 'hidden'

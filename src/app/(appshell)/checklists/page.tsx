@@ -26,9 +26,9 @@ const INITIAL_DATA: ChecklistRow[] = [
 const StatusPill = ({ status }: { status?: string }) => {
     const s = String(status ?? '').toLowerCase()
     const base = "inline-block rounded-full px-3 py-1 text-sm font-medium"
-    if (s === 'in progress' || s === 'in_progress' || s === 'ongoing') return <span className={base + " bg-yellow-100 text-yellow-800"}>{status}</span>
-    if (s === 'completed' || s === 'done') return <span className={base + " bg-green-100 text-green-800"}>{status}</span>
-    return <span className={base + " bg-gray-200 text-gray-700"}>{status ?? 'Not Started'}</span>
+    if (s === 'in progress' || s === 'in_progress' || s === 'ongoing') return <span className={base + " bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"}>{status}</span>
+    if (s === 'completed' || s === 'done') return <span className={base + " bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400"}>{status}</span>
+    return <span className={base + " bg-gray-200 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"}>{status ?? 'Not Started'}</span>
 }
 
 export default function ChecklistsPage() {

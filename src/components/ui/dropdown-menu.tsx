@@ -91,7 +91,7 @@ export default function DropdownMenu({ items, className = "" }: DropdownMenuProp
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div
-            className="fixed mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+            className="fixed mt-1 w-48 glass border border-black/5 rounded-xl shadow-lg z-50 py-1 overflow-hidden"
             style={{ top: position.top, right: position.right }}
           >
             {items.map((item, index) => (
@@ -99,11 +99,11 @@ export default function DropdownMenu({ items, className = "" }: DropdownMenuProp
                 key={index}
                 onClick={() => !item.disabled && handleItemClick(item)}
                 disabled={item.disabled}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3 transition-colors ${item.disabled
-                  ? "opacity-50 cursor-not-allowed bg-gray-50"
+                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors ${item.disabled
+                  ? "opacity-50 cursor-not-allowed"
                   : item.variant === "danger"
-                    ? "text-red-600 hover:bg-red-50 hover:text-red-700"
-                    : "text-gray-700 hover:text-gray-900"
+                    ? "text-red-500 hover:bg-black/5 hover:text-red-600"
+                    : "text-slate-700 hover:text-slate-900 hover:bg-black/5"
                   }`}
               >
                 <span className="text-base flex-shrink-0 w-4 text-center">{item.icon}</span>

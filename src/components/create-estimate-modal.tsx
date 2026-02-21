@@ -815,7 +815,7 @@ export default function CreateEstimateModal({ isOpen, onClose, initialData, onSa
 
     return (
         <div className="fixed inset-0 bg-black/30 flex items-start md:items-center justify-center z-50" onClick={(event) => event.target === event.currentTarget && !isSaving && onClose()}>
-            <div className="mt-12 md:mt-0 bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-y-auto">
+            <div className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-y-auto">
                 <Formik initialValues={initialForm} enableReinitialize validationSchema={validationSchema} onSubmit={handleSubmit}>
                     {({ values, setFieldValue, status }) => (
                         <Form>

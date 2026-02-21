@@ -9,16 +9,26 @@ import { EstimateHistoryModal } from "@/components/estimate-history-modal"
 import { ExpensesModal } from "@/components/expenses-modal"
 import { toast } from "sonner"
 
-// Event status enum matching backend
-const EVENT_STATUS = [
-    { value: "ENQUIRY_CREATED", label: "Enquiry created" },
-    { value: "ESTIMATE_INPROGRESS", label: "Estimate in progress" },
-    { value: "ESTIMATE_UNDER_REVIEW", label: "Estimate under review" },
-    { value: "ESTIMATE_APPROVED", label: "Estimate approved" },
-    { value: "PROJECT_INPROGRESS", label: "Project in progress" },
-    { value: "PROJECT_SETTLEMENT_IN_PROGRESS", label: "Project settlement in progress" },
-    { value: "PROJECT_COMPLETED", label: "Project completed" },
-] as const
+// Event status label mapping (read-only)
+const STATUS_LABELS: Record<string, string> = {
+    ENQUIRY_CREATED: "Enquiry Created",
+    ESTIMATE_INPROGRESS: "Estimate In Progress",
+    ESTIMATE_UNDER_REVIEW: "Estimate Under Review",
+    ESTIMATE_APPROVED: "Estimate Approved",
+    PROJECT_INPROGRESS: "Project In Progress",
+    PROJECT_SETTLEMENT_IN_PROGRESS: "Project Settlement In Progress",
+    PROJECT_COMPLETED: "Project Completed",
+}
+
+const STATUS_COLORS: Record<string, string> = {
+    ENQUIRY_CREATED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    ESTIMATE_INPROGRESS: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    ESTIMATE_UNDER_REVIEW: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    ESTIMATE_APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    PROJECT_INPROGRESS: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    PROJECT_SETTLEMENT_IN_PROGRESS: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    PROJECT_COMPLETED: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
+}
 
 type EventResponse = {
     id?: string
@@ -138,27 +148,27 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     }
 
     return (
-        <div className="w-full p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
+        <div className="w-full p-4 sm:p-6 lg:p-8 min-h-screen">
             {/* Breadcrumb */}
-            <nav className="text-sm text-muted-foreground mb-6">Project &gt; <span className="font-medium">{eventTitle}</span></nav>
+            <nav className="text-sm text-muted-foreground mb-6">Project &gt; <span className="font-medium text-foreground">{eventTitle}</span></nav>
 
             {/* Top Section: Event Info (Primary) + Client Details (Secondary) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 {/* Left: Event Primary Details */}
                 <div className="lg:col-span-1">
                     {/* Event Name and Details Card */}
-                    <div className="bg-white rounded-lg shadow-sm p-6">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6">{eventTitle}</h2>
+                    <div className="surface p-6 h-full">
+                        <h2 className="text-2xl font-bold mb-6 pb-4 border-b border-border/50">{eventTitle}</h2>
 
                         {/* Event Details List */}
-                        <div className="space-y-5">
-                            <div>
-                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Event Name</label>
-                                <p className="text-sm font-medium text-gray-900">{eventTitle}</p>
+                        <div className="space-y-6">
+                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Event Name</label>
+                                <p className="text-[15px] font-medium leading-tight">{eventTitle}</p>
                             </div>
-                            <div>
-                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Start Date</label>
-                                <p className="text-sm font-medium text-gray-900">
+                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Start Date</label>
+                                <p className="text-[15px] font-medium leading-tight">
                                     {eventData?.eventStartDate
                                         ? new Date(eventData.eventStartDate).toLocaleDateString('en-IN', {
                                             year: 'numeric',
@@ -170,9 +180,9 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                         : '-'}
                                 </p>
                             </div>
-                            <div>
-                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">End Date</label>
-                                <p className="text-sm font-medium text-gray-900">
+                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">End Date</label>
+                                <p className="text-[15px] font-medium leading-tight">
                                     {eventData?.eventEndDate
                                         ? new Date(eventData.eventEndDate).toLocaleDateString('en-IN', {
                                             year: 'numeric',
@@ -184,9 +194,9 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                         : '-'}
                                 </p>
                             </div>
-                            <div>
-                                <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Location</label>
-                                <p className="text-sm font-medium text-gray-900">{eventData?.location ?? eventData?.venue ?? '-'}</p>
+                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Location</label>
+                                <p className="text-[15px] font-medium leading-tight">{eventData?.location ?? eventData?.venue ?? '-'}</p>
                             </div>
                         </div>
                     </div>
@@ -195,74 +205,48 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 {/* Right: Client Details (Secondary) */}
                 <div className="lg:col-span-2">
                     {eventData?.client && (
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <div className="flex items-start gap-4 mb-6">
+                        <div className="surface p-6 h-full flex flex-col">
+                            <div className="flex items-start gap-4 mb-6 pb-4 border-b border-border/50">
                                 {/* Avatar */}
-                                <div className="w-20 h-20 rounded-full bg-gray-400 flex items-center justify-center text-white flex-shrink-0">
-                                    <span className="text-3xl font-bold">{(eventData.client.name ?? 'C')[0].toUpperCase()}</span>
+                                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 border border-primary/20">
+                                    <span className="text-2xl font-bold">{(eventData.client.name ?? 'C')[0].toUpperCase()}</span>
                                 </div>
-                                <div className="flex-1">
-                                    <h3 className="text-lg font-bold text-gray-900">{eventData.client.name}</h3>
-                                    <p className="text-sm text-gray-600">Client Details</p>
+                                <div className="flex-1 mt-1">
+                                    <h3 className="text-xl font-bold">{eventData.client.name}</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Client Details</p>
                                 </div>
                             </div>
 
                             {/* Client Info Grid */}
-                            <div className="grid grid-cols-2 gap-5">
-                                <div>
-                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Name</label>
-                                    <p className="text-sm font-medium text-gray-900">{eventData.client.name ?? '-'}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 flex-1">
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Name</label>
+                                    <p className="text-[15px] font-medium leading-tight">{eventData.client.name ?? '-'}</p>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Client Name</label>
-                                    <p className="text-sm font-medium text-gray-900">{eventData.client.name ?? '-'}</p>
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Client Name</label>
+                                    <p className="text-[15px] font-medium leading-tight">{eventData.client.name ?? '-'}</p>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Contact Person</label>
-                                    <p className="text-sm font-medium text-gray-900">{eventData.client.poc ?? '-'}</p>
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Contact Person</label>
+                                    <p className="text-[15px] font-medium leading-tight">{eventData.client.poc ?? '-'}</p>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Phone</label>
-                                    <p className="text-sm font-medium text-gray-900">{eventData.client.phone ?? '-'}</p>
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Phone</label>
+                                    <p className="text-[15px] font-medium leading-tight">{eventData.client.phone ?? '-'}</p>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Status</label>
-                                    <select
-                                        value={eventData?.status ?? 'ENQUIRY_CREATED'}
-                                        onChange={async (e) => {
-                                            const newStatus = e.target.value
-                                            try {
-                                                const eventID = eventData?.eventID || id || ''
-                                                const versionID = eventData?.version ?? 1
-                                                const response = await apiRequest(API_ENDPOINTS.events.updateStatus(String(eventID), String(versionID), newStatus), {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' }
-                                                })
-
-                                                if (!response.ok) {
-                                                    throw new Error('Failed to update status')
-                                                }
-
-                                                // Update local state with new status
-                                                setEventData(prevData => prevData ? { ...prevData, status: newStatus } : null)
-                                                toast.success('Status updated successfully')
-                                            } catch (error) {
-                                                console.error('Error updating status:', error)
-                                                toast.error('Failed to update status')
-                                            }
-                                        }}
-                                        className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                    >
-                                        {EVENT_STATUS.map((status) => (
-                                            <option key={status.value} value={status.value}>
-                                                {status.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Status</label>
+                                    <div className="mt-1">
+                                        <span className={`inline-block text-[11px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-md ${STATUS_COLORS[eventData?.status ?? ''] ?? 'bg-muted text-muted-foreground border border-border/50'
+                                            }`}>
+                                            {STATUS_LABELS[eventData?.status ?? ''] ?? eventData?.status ?? '—'}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">Address</label>
-                                    <p className="text-sm font-medium text-gray-900">{eventData.client.address ?? eventData.venue ?? '-'}</p>
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
+                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">Address</label>
+                                    <p className="text-[15px] font-medium leading-tight">{eventData.client.address ?? eventData.venue ?? '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -317,7 +301,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                 {/* Project Planning */}
                 <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Project Planning</h4>
+                    <h4 className="font-semibold text-sm mb-2">Estimate creation</h4>
                     <p className="text-xs opacity-90 mb-3">Project Items</p>
                     <button
                         onClick={() => setIsProjectPlanningModalOpen(true)}

@@ -224,7 +224,7 @@ export default function CreateEnquiryModal({ isOpen, onClose, onSubmit, editData
 
     return (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="mt-12 md:mt-0 bg-white rounded-xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
+            <div className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
                 <Formik innerRef={formikRef} initialValues={initialValues} enableReinitialize validationSchema={validationSchema} onSubmit={handleSubmit}>
                     {({ errors, touched, isSubmitting, status, values, setFieldValue, submitForm }) => (
                         <Form>

@@ -2,6 +2,7 @@ export interface Inventory {
     id?: string
     itemName: string
     category: string
+    subCategory?: string
     spec: string
     dimensions: string
     quantity: number
@@ -12,6 +13,7 @@ export interface InventoryFormData {
     id?: string
     itemName: string
     category: string
+    subCategory?: string
     spec: string
     dimensions: string
     quantity: number | string

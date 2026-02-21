@@ -35,7 +35,7 @@ export async function GET(
         const url = `${BACKEND_URL}/inventory/check-usage?id=${encodeURIComponent(id)}`
 
         // Build auth headers from X-Auth-Token and Authorization for compatibility
-        const backendHeaders = getBackendHeaders(request)
+        const backendHeaders = getBackendHeaders(request) as Record<string, string>
         const authHeader =
             backendHeaders['Authorization'] ||
             request.headers.get('Authorization') ||

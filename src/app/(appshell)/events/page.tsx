@@ -39,9 +39,9 @@ type EventItem = {
 const StatusPill = ({ status }: { status?: string }) => {
     const s = String(status ?? '').toLowerCase()
     const base = "inline-block rounded-full px-3 py-1 text-sm font-medium"
-    if (s === 'in progress' || s === 'in_progress' || s === 'ongoing') return <span className={base + " bg-yellow-100 text-yellow-800"}>{status}</span>
-    if (s === 'cancelled' || s === 'canceled') return <span className={base + " bg-red-100 text-red-800"}>{status}</span>
-    return <span className={base + " bg-gray-200 text-gray-700"}>{status ?? 'Not Started'}</span>
+    if (s === 'in progress' || s === 'in_progress' || s === 'ongoing') return <span className={base + " bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"}>{status}</span>
+    if (s === 'cancelled' || s === 'canceled') return <span className={base + " bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400"}>{status}</span>
+    return <span className={base + " bg-gray-200 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"}>{status ?? 'Not Started'}</span>
 }
 
 // Helper function to format dates using native JavaScript Date
@@ -132,9 +132,7 @@ export default function EventsPage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
     const [editingEvent, setEditingEvent] = useState<EventFormData | null>(null)
-    const [prefillData, setPrefillData] = useState<Partial<EventFormData> | null>(null)
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
     const { user } = useAuth()
     const { prefill: contextPrefill, clearPrefill } = useEventPrefill()
@@ -142,8 +140,7 @@ export default function EventsPage() {
     // Handle prefill from context (coming from estimates page)
     useEffect(() => {
         if (contextPrefill) {
-            setPrefillData(contextPrefill)
-            setModalMode('create')
+            setEditingEvent(null)
             setIsModalOpen(true)
             clearPrefill()
         }
@@ -235,8 +232,6 @@ export default function EventsPage() {
                 estimateId: ev.estimateId ?? '',
                 enquiryId: ev.enquiryId ?? '',
             })
-            setModalMode('edit')
-            setPrefillData(null)
             setIsModalOpen(true)
         } catch (error) {
             console.error('Failed to fetch event for edit:', error)
@@ -267,17 +262,13 @@ export default function EventsPage() {
                         <Calendar className="h-8 w-8 text-green-600" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Hi, {user?.name || user?.uid || 'User'}!</h2>
+                        <h2 className="text-2xl font-bold">Events</h2>
                         <p className="text-muted-foreground">All scheduled events and their status</p>
                     </div>
                 </div>
-
-                <div className="ml-auto w-full sm:w-auto">
-                    <Button className="w-full sm:w-auto" onClick={() => { setModalMode('create'); setEditingEvent(null); setPrefillData(null); setIsModalOpen(true) }}>+ Create Event</Button>
-                </div>
             </div>
 
-            <div className="rounded-lg bg-white p-4 sm:p-6 shadow-sm">
+            <div className="glass rounded-2xl p-4 sm:p-6">
                 <div className="hidden md:block">
                     {error && <div className="p-4 text-red-600">{error}</div>}
 
@@ -292,7 +283,7 @@ export default function EventsPage() {
                                 <th className="py-3 text-right">&nbsp;</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="stagger-rows">
                             {loading && <TableRowSkeleton rows={8} />}
                             {!loading && !error && events.length === 0 && (
                                 <tr>
@@ -331,7 +322,7 @@ export default function EventsPage() {
                 </div>
 
                 {/* Mobile stacked cards */}
-                <div className="flex flex-col gap-4 md:hidden">
+                <div className="flex flex-col gap-4 md:hidden stagger-children">
                     {loading && <ListSkeleton type="cards" items={5} />}
                     {error && <div className="p-4 text-red-600">{error}</div>}
                     {!loading && !error && events.length === 0 && (
@@ -384,17 +375,14 @@ export default function EventsPage() {
                 onClose={() => {
                     setIsModalOpen(false)
                     setEditingEvent(null)
-                    setPrefillData(null)
-                    setModalMode('create')
                 }}
                 onSubmit={async () => {
-                    // Refresh events list after create/update
                     setLoading(true)
                     try {
                         const res = await apiRequest('/api/events')
                         const data = await res.json()
                         setEvents(Array.isArray(data) ? data : [])
-                        toast.success(`Event ${modalMode === 'edit' ? 'updated' : 'created'} successfully`)
+                        toast.success('Event updated successfully')
                     } catch (err) {
                         console.error('Failed to refresh events', err)
                     } finally {
@@ -402,8 +390,8 @@ export default function EventsPage() {
                     }
                 }}
                 editData={editingEvent}
-                prefillData={prefillData}
-                mode={modalMode}
+                prefillData={contextPrefill ?? null}
+                mode="edit"
             />
         </div>
     )

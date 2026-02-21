@@ -19,7 +19,7 @@ const InventoryUsageModal: React.FC<InventoryUsageModalProps> = ({ open, onClose
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-8 relative max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl shadow-2xl max-w-4xl w-full p-8 relative max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <button
