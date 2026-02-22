@@ -534,9 +534,21 @@ export default function EnquiriesPage() {
 
                         <div className="mt-6 flex flex-col sm:flex-row justify-end gap-3">
                             <Button variant="outline" onClick={closeViewModal} disabled={eventSaving}>Close</Button>
-                            <Button onClick={handleCreateEvent} disabled={eventSaving} className="bg-blue-600 hover:bg-blue-700">
-                                {eventSaving ? 'Creating Event...' : 'View/Create Event'}
-                            </Button>
+                            {selectedEnquiry.eventID ? (
+                                <Button
+                                    onClick={() => {
+                                        closeViewModal();
+                                        router.push(`/events/${selectedEnquiry.eventID}`);
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    View Event
+                                </Button>
+                            ) : (
+                                <Button onClick={handleCreateEvent} disabled={eventSaving} className="bg-blue-600 hover:bg-blue-700">
+                                    {eventSaving ? 'Creating Event...' : 'Create Event'}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

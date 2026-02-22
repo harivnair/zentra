@@ -295,9 +295,9 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                 setShowVersionPrompt(false)
                 setVersionDescription('')
                 setIsDirty(false) // Mark as saved
-                toast.success('Event saved successfully')
+                toast.success('Estimate saved successfully')
             } else {
-                toast.error('Failed to save event')
+                toast.error('Failed to save estimate')
             }
         } catch (err) {
             console.error('Error saving event:', err)
@@ -406,13 +406,13 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                     <div className="mb-5">
                         <div className="flex items-center justify-between mb-3">
                             <div>
-                                <h3 className="text-sm font-semibold text-gray-800">Project Items</h3>
+                                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Project Items</h3>
                                 <p className="text-xs text-muted-foreground">Inventory items grouped by category</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setIsInventoryOpen(!isInventoryOpen)}
-                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded hover:bg-indigo-50"
+                                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                             >
                                 {isInventoryOpen ? '↑ Collapse' : '↓ Expand'}
                             </button>
@@ -425,21 +425,27 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                     acc[cat].push({ ...row, _idx: idx });
                                     return acc;
                                 }, {} as Record<string, (EventItemRow & { _idx: number })[]>)).map(([category, items]) => (
-                                    <div key={category} className="mb-3 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                    <div key={category} className="mb-2 border border-gray-300 dark:border-gray-600 rounded-none overflow-hidden bg-white dark:!bg-gray-800 shadow-sm border-l-4 border-l-indigo-500 dark:border-l-indigo-400">
                                         <div
-                                            className="flex items-center justify-between bg-gray-50 px-4 py-3 cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                                            className="flex items-center justify-between bg-gray-100 dark:!bg-gray-700 px-4 py-3 cursor-pointer select-none hover:bg-gray-200 dark:hover:!bg-gray-600 transition-colors border-b border-gray-200 dark:border-gray-600"
                                             onClick={() => setOpenCategories(prev => ({ ...prev, [category]: prev[category] === undefined ? true : !prev[category] }))}
                                         >
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium text-sm text-gray-800">{category}</span>
-                                                <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{items.length} item{items.length !== 1 && 's'}</span>
+                                            <div className="flex items-center gap-2.5">
+                                                <svg
+                                                    className={`w-4 h-4 text-gray-500 dark:text-gray-300 transition-transform duration-200 ${openCategories[category] ? 'rotate-90' : 'rotate-0'}`}
+                                                    fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"
+                                                >
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                                <span className="font-semibold text-sm text-gray-800 dark:text-gray-100">{category}</span>
+                                                <span className="text-xs font-medium bg-indigo-100 dark:!bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded">{items.length} item{items.length !== 1 && 's'}</span>
                                             </div>
-                                            <span className="text-gray-400 text-xs">{openCategories[category] ? '▲' : '▼'}</span>
+                                            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-400">{openCategories[category] ? 'Collapse' : 'Expand'}</span>
                                         </div>
                                         {openCategories[category] && (
-                                            <div className="p-4 space-y-4">
+                                            <div className="p-4 space-y-4 bg-white dark:!bg-gray-800">
                                                 {items.map((row) => (
-                                                    <div key={row._idx} className="border border-gray-200 rounded p-4 bg-gray-50 relative group transition-all hover:bg-white hover:shadow-md">
+                                                    <div key={row._idx} className="border border-gray-200 dark:border-gray-600 rounded p-4 bg-gray-50 dark:!bg-[#2a2f3a] relative group transition-all hover:bg-white dark:hover:!bg-gray-600 hover:shadow-md">
                                                         <button
                                                             onClick={() => handleDeleteRow(row._idx)}
                                                             className="absolute top-4 right-4 text-xs font-semibold text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded shadow-sm border border-red-100"
@@ -599,7 +605,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                                                        <div className={`grid grid-cols-1 ${row.inventoryType === 'external' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 mb-3`}>
                                                             <div>
                                                                 <Label className="text-sm font-medium">Start Date</Label>
                                                                 <Input
@@ -618,15 +624,17 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                                                     className="text-sm mt-1"
                                                                 />
                                                             </div>
-                                                            <div>
-                                                                <Label className="text-sm font-medium">Deadline Date</Label>
-                                                                <Input
-                                                                    type="datetime-local"
-                                                                    value={row.deadlineDate || ''}
-                                                                    onChange={e => handleRowChange(row._idx, 'deadlineDate', e.target.value)}
-                                                                    className="text-sm mt-1"
-                                                                />
-                                                            </div>
+                                                            {row.inventoryType === 'external' && (
+                                                                <div>
+                                                                    <Label className="text-sm font-medium">Deadline Date</Label>
+                                                                    <Input
+                                                                        type="datetime-local"
+                                                                        value={row.deadlineDate || ''}
+                                                                        onChange={e => handleRowChange(row._idx, 'deadlineDate', e.target.value)}
+                                                                        className="text-sm mt-1"
+                                                                    />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="mb-1">
                                                             <Label className="text-sm font-medium">Description</Label>
@@ -647,7 +655,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                 <button
                                     type="button"
                                     onClick={handleAddRow}
-                                    className="mt-3 w-full border-2 border-dashed border-indigo-200 text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium py-2.5 rounded-xl transition-all"
+                                    className="mt-3 w-full border-2 border-dashed border-indigo-200 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-sm font-medium py-2.5 rounded-xl transition-all"
                                 >
                                     + Add Item
                                 </button>
@@ -659,13 +667,13 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                     <div className="mb-5">
                         <div className="flex items-center justify-between mb-3">
                             <div>
-                                <h3 className="text-sm font-semibold text-gray-800">Additional Costs</h3>
+                                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Additional Costs</h3>
                                 <p className="text-xs text-muted-foreground">Permits, security, logistics, etc.</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setIsAdditionalCostsOpen(!isAdditionalCostsOpen)}
-                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-1 rounded hover:bg-indigo-50"
+                                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                             >
                                 {isAdditionalCostsOpen ? '↑ Collapse' : '↓ Expand'}
                             </button>
@@ -674,7 +682,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                             <>
                                 <div className="space-y-3">
                                     {additionalCosts.map((cost, index) => (
-                                        <div key={index} className="border rounded p-4 bg-gray-50">
+                                        <div key={index} className="border dark:border-gray-600 rounded p-4 bg-gray-50 dark:!bg-[#2a2f3a]">
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                                                 <div>
                                                     <Label className="text-sm font-medium">Item Name</Label>
@@ -816,7 +824,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                             onClick={handleSaveClick}
                             className="bg-blue-600 text-white hover:bg-blue-700"
                         >
-                            Save Event
+                            Save Estimate
                         </Button>
                     </div>
 
@@ -873,13 +881,189 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                     }}
                 >
                     <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-                        <h2 className="text-xl font-bold">Event Preview</h2>
-                        <Button variant="ghost" onClick={() => setShowPreview(false)}>
-                            Back to Edit
-                        </Button>
+                        <h2 className="text-xl font-bold">Estimate Preview</h2>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    const previewContent = document.getElementById('estimate-preview-content')
+                                    if (!previewContent) return
+                                    const printWindow = window.open('', '_blank')
+                                    if (!printWindow) return
+                                    printWindow.document.write(`
+                                        <!DOCTYPE html>
+                                        <html>
+                                        <head>
+                                            <title>Estimate - ${eventData.title || 'Event'}</title>
+                                            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+                                            <style>
+                                                @page { margin: 20mm; }
+                                                body { 
+                                                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+                                                    padding: 0; 
+                                                    color: #333; 
+                                                    line-height: 1.6;
+                                                }
+                                                .header-section {
+                                                    display: flex;
+                                                    justify-content: space-between;
+                                                    align-items: flex-start;
+                                                    border-bottom: 2px solid #2563eb;
+                                                    padding-bottom: 20px;
+                                                    margin-bottom: 30px;
+                                                }
+                                                .header-info h1 {
+                                                    margin: 0 0 5px 0;
+                                                    font-size: 32px;
+                                                    color: #1f2937;
+                                                    text-transform: uppercase;
+                                                    letter-spacing: 1px;
+                                                }
+                                                .header-info p {
+                                                    margin: 0;
+                                                    color: #4b5563;
+                                                    font-size: 14px;
+                                                }
+                                                .logo-container img {
+                                                    max-height: 80px;
+                                                    object-fit: contain;
+                                                }
+                                                
+                                                /* Reset tailwind classes to render nicely without Tailwind */
+                                                .grid { display: flex; flex-wrap: wrap; gap: 20px; }
+                                                .grid > div { flex: 1; min-width: 150px; }
+                                                .bg-gray-50 { background-color: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px; }
+                                                .text-gray-500 { color: #6b7280; font-size: 11px; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; display: block; }
+                                                .font-medium { font-weight: 500; color: #111827; font-size: 14px; }
+                                                .border-b { border-bottom: 1px solid #e5e7eb; }
+                                                .pb-2 { padding-bottom: 8px; }
+                                                
+                                                table { 
+                                                    width: 100%; 
+                                                    border-collapse: collapse; 
+                                                    margin: 20px 0; 
+                                                    font-size: 13px;
+                                                    table-layout: fixed;
+                                                }
+                                                th, td { 
+                                                    border: 1px solid #e5e7eb; 
+                                                    padding: 10px 12px; 
+                                                    text-align: left; 
+                                                    word-wrap: break-word;
+                                                }
+                                                th { 
+                                                    background-color: #f9fafb; 
+                                                    font-weight: 600; 
+                                                    color: #374151;
+                                                    text-transform: uppercase;
+                                                    font-size: 11px;
+                                                    letter-spacing: 0.5px;
+                                                }
+                                                tr:nth-child(even) {
+                                                    background-color: #fcfcfc;
+                                                }
+                                                .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 35%; }
+                                                .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 10%; text-align: center; }
+                                                .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 20%; text-align: right; }
+                                                .items-table th:nth-child(4), .items-table td:nth-child(4) { width: 15%; text-align: center; }
+                                                .items-table th:nth-child(5), .items-table td:nth-child(5) { width: 20%; text-align: right; }
+                                                
+                                                .costs-table th:nth-child(1), .costs-table td:nth-child(1) { width: 40%; }
+                                                .costs-table th:nth-child(2), .costs-table td:nth-child(2) { width: 40%; }
+                                                .costs-table th:nth-child(3), .costs-table td:nth-child(3) { width: 20%; text-align: right; }
+                                                h3 { 
+                                                    margin: 30px 0 12px; 
+                                                    font-size: 18px; 
+                                                    color: #1f2937;
+                                                    border-bottom: 2px solid #e5e7eb;
+                                                    padding-bottom: 8px;
+                                                }
+                                                .summary-row { 
+                                                    display: flex; 
+                                                    justify-content: space-between; 
+                                                    padding: 8px 0; 
+                                                    font-size: 14px; 
+                                                    border-bottom: 1px solid #f3f4f6;
+                                                }
+                                                .summary-row:last-child {
+                                                    border-bottom: none;
+                                                }
+                                                .summary-row.total { 
+                                                    font-weight: 700; 
+                                                    font-size: 18px; 
+                                                    border-top: 2px solid #1f2937; 
+                                                    margin-top: 8px; 
+                                                    padding-top: 12px; 
+                                                    color: #111827;
+                                                }
+                                                .terms-section {
+                                                    margin-top: 50px;
+                                                    padding-top: 20px;
+                                                    border-top: 1px solid #e5e7eb;
+                                                    page-break-inside: avoid;
+                                                }
+                                                .terms-section h4 {
+                                                    margin: 0 0 10px 0;
+                                                    font-size: 14px;
+                                                    color: #374151;
+                                                    text-transform: uppercase;
+                                                }
+                                                .terms-section ul {
+                                                    margin: 0;
+                                                    padding-left: 20px;
+                                                    font-size: 12px;
+                                                    color: #6b7280;
+                                                    line-height: 1.6;
+                                                }
+                                            </style>
+                                        </head>
+                                        <body>
+                                            <div class="header-section">
+                                                <div class="header-info">
+                                                    <h1>ESTIMATE</h1>
+                                                    <p><strong>Event:</strong> ${eventData.title || 'Untitled Event'}</p>
+                                                    <p><strong>Date Generated:</strong> ${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                                </div>
+                                                <div class="logo-container">
+                                                    <img src="/BeGoodLogo.jpg" alt="BeGood Logo" />
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="content-section">
+                                                ${previewContent.innerHTML}
+                                            </div>
+
+                                            <div class="terms-section">
+                                                <h4>Terms and Conditions</h4>
+                                                <ul>
+                                                    <li>This estimate is valid for 30 days from the date of issue.</li>
+                                                    <li>A 50% advance payment is required to confirm the booking.</li>
+                                                    <li>The final balance is due upon completion of the event.</li>
+                                                    <li>Any additional requirements or scope changes during execution will be billed separately.</li>
+                                                    <li>Cancellation policies apply as per standard terms.</li>
+                                                </ul>
+                                            </div>
+                                        </body>
+                                        </html>
+                                    `)
+                                    printWindow.document.close()
+                                    printWindow.focus()
+                                    setTimeout(() => { printWindow.print(); printWindow.close(); }, 750)
+                                }}
+                                className="flex items-center gap-1.5 text-sm"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Download PDF
+                            </Button>
+                            <Button variant="ghost" onClick={() => setShowPreview(false)}>
+                                Back to Edit
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div id="estimate-preview-content" className="flex-1 overflow-y-auto p-6 space-y-6">
                         {/* 1. Basic Details */}
                         <div className="bg-gray-50 p-4 rounded-lg border">
                             <h3 className="text-lg font-semibold mb-3 border-b pb-2">Event Details</h3>
@@ -921,24 +1105,24 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                         {category}
                                     </div>
                                     <div className="p-0">
-                                        <table className="w-full text-sm text-left">
+                                        <table className="w-full text-sm text-left items-table">
                                             <thead className="bg-gray-50 text-gray-500">
                                                 <tr>
-                                                    <th className="px-4 py-2 font-medium">Item</th>
-                                                    <th className="px-4 py-2 font-medium">Qty</th>
-                                                    <th className="px-4 py-2 font-medium">Price</th>
-                                                    <th className="px-4 py-2 font-medium">Days</th>
-                                                    <th className="px-4 py-2 font-medium">Total</th>
+                                                    <th className="px-4 py-2 font-medium w-[35%]">Item</th>
+                                                    <th className="px-4 py-2 font-medium w-[10%] text-center">Qty</th>
+                                                    <th className="px-4 py-2 font-medium w-[20%] text-right">Price</th>
+                                                    <th className="px-4 py-2 font-medium w-[15%] text-center">Days</th>
+                                                    <th className="px-4 py-2 font-medium w-[20%] text-right">Total</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
                                                 {items.map((item, idx) => (
                                                     <tr key={idx}>
                                                         <td className="px-4 py-2">{item.item}</td>
-                                                        <td className="px-4 py-2">{item.quantity}</td>
-                                                        <td className="px-4 py-2">₹{item.pricePerItem}</td>
-                                                        <td className="px-4 py-2">{item.days}</td>
-                                                        <td className="px-4 py-2 font-medium">₹{(item.quantity * item.pricePerItem * item.days).toFixed(2)}</td>
+                                                        <td className="px-4 py-2 text-center">{item.quantity}</td>
+                                                        <td className="px-4 py-2 text-right">₹{item.pricePerItem}</td>
+                                                        <td className="px-4 py-2 text-center">{item.days}</td>
+                                                        <td className="px-4 py-2 font-medium text-right">₹{(item.quantity * item.pricePerItem * item.days).toFixed(2)}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -956,12 +1140,12 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                             <h3 className="text-lg font-semibold mb-3">Additional Costs</h3>
                             {additionalCosts.length > 0 ? (
                                 <div className="border rounded-lg overflow-hidden">
-                                    <table className="w-full text-sm text-left">
+                                    <table className="w-full text-sm text-left costs-table">
                                         <thead className="bg-gray-50 text-gray-500">
                                             <tr>
-                                                <th className="px-4 py-2 font-medium">Item</th>
-                                                <th className="px-4 py-2 font-medium">Remarks</th>
-                                                <th className="px-4 py-2 font-medium">Amount</th>
+                                                <th className="px-4 py-2 font-medium w-[40%]">Item</th>
+                                                <th className="px-4 py-2 font-medium w-[40%]">Remarks</th>
+                                                <th className="px-4 py-2 font-medium w-[20%] text-right">Amount</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
@@ -969,7 +1153,7 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                                                 <tr key={idx}>
                                                     <td className="px-4 py-2">{cost.item}</td>
                                                     <td className="px-4 py-2">{cost.remarks}</td>
-                                                    <td className="px-4 py-2 font-medium">₹{cost.amount}</td>
+                                                    <td className="px-4 py-2 font-medium text-right">₹{cost.amount}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -978,6 +1162,17 @@ export function ProjectPlanningModal({ isOpen, onClose, eventData, onSave }: Pro
                             ) : (
                                 <p className="text-gray-500 italic">No additional costs.</p>
                             )}
+                        </div>
+
+                        {/* 4. Total Estimate */}
+                        <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mt-6">
+                            <div className="flex justify-between items-center text-xl font-bold text-gray-900">
+                                <span>Grand Total Estimate</span>
+                                <span>₹{(
+                                    rows.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.pricePerItem) || 0) * (Number(item.days) || 0)), 0) +
+                                    additionalCosts.reduce((sum, cost) => sum + Number(cost.amount || 0), 0)
+                                ).toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
 

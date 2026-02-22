@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
         versions: (eventID: string | number) => `/api/events/versions?eventID=${eventID}`,
         updateStatus: (eventID: string | number, versionID: string | number, status: string) => `/api/events/updateStatus?eventID=${eventID}&versionID=${versionID}&status=${status}`,
         sendInvoice: '/api/events/send-invoice',
+        clone: '/api/events/clone',
     },
     clients: {
         list: '/api/clients',

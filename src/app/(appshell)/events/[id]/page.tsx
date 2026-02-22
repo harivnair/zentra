@@ -7,6 +7,8 @@ import { API_ENDPOINTS } from "@/lib/endpoint"
 import { ProjectPlanningModal } from "@/components/project-planning-modal"
 import { EstimateHistoryModal } from "@/components/estimate-history-modal"
 import { ExpensesModal } from "@/components/expenses-modal"
+import { BillingExpenseModal } from "@/components/billing-expense-modal"
+import { ChecklistModal } from "@/components/checklist-modal"
 import { toast } from "sonner"
 
 // Event status label mapping (read-only)
@@ -42,6 +44,19 @@ type EventResponse = {
     gst?: number
     tds?: number
     advanceAmt?: number
+    serviceCharge?: number
+    discounts?: number
+    billingAddress?: string
+    pan?: string
+    checklist?: any[]
+    invoiceSummary?: {
+        discountAmount?: number
+        serviceChargeAmt?: number
+        additionalCostAmt?: number
+        expensesTotal?: number
+        gstAmount?: number
+        netTotal?: number
+    }
     client?: {
         id?: string
         name?: string
@@ -49,6 +64,8 @@ type EventResponse = {
         phone?: string
         address?: string
         poc?: string
+        gst?: string
+        pan?: string
     }
     items?: Array<{
         item?: string
@@ -100,6 +117,8 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     const [isProjectPlanningModalOpen, setIsProjectPlanningModalOpen] = useState(false)
     const [isEstimateHistoryModalOpen, setIsEstimateHistoryModalOpen] = useState(false)
     const [isExpensesModalOpen, setIsExpensesModalOpen] = useState(false)
+    const [isBillingModalOpen, setIsBillingModalOpen] = useState(false)
+    const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false)
     const fetchPromiseRef = React.useRef<Promise<EventResponse | null> | null>(null)
 
     const fetchEventData = React.useCallback(async () => {
@@ -346,6 +365,31 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                         Add Expenses →
                     </button>
                 </div>
+
+                {/* Billing & Expenses */}
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
+                    <h4 className="font-semibold text-sm mb-2">Billing & Expenses</h4>
+                    <p className="text-xs opacity-90 mb-3">Tax & Billing Info</p>
+                    <button
+                        onClick={() => setIsBillingModalOpen(true)}
+                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                        Manage Billing →
+                    </button>
+                </div>
+
+                {/* Event Checklist */}
+                <div className={`bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-sm p-4 ${eventData?.status !== 'ESTIMATE_APPROVED' ? 'opacity-60 saturate-50' : ''}`}>
+                    <h4 className="font-semibold text-sm mb-2">Event Checklist</h4>
+                    <p className="text-xs opacity-90 mb-3">Execution Tasks</p>
+                    <button
+                        onClick={() => setIsChecklistModalOpen(true)}
+                        disabled={eventData?.status !== 'ESTIMATE_APPROVED'}
+                        className={`text-xs font-medium transition-opacity ${eventData?.status !== 'ESTIMATE_APPROVED' ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 cursor-pointer'}`}
+                    >
+                        Manage Checklist →
+                    </button>
+                </div>
             </div>
 
             {/* Project Planning Modal */}
@@ -375,6 +419,28 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 eventData={eventData || {}}
                 onSave={() => {
                     setIsExpensesModalOpen(false)
+                    fetchEventData()
+                }}
+            />
+
+            {/* Billing & Expenses Modal */}
+            <BillingExpenseModal
+                isOpen={isBillingModalOpen}
+                onClose={() => setIsBillingModalOpen(false)}
+                eventData={eventData || {}}
+                onSave={() => {
+                    setIsBillingModalOpen(false)
+                    fetchEventData()
+                }}
+            />
+
+            {/* Checklist Modal */}
+            <ChecklistModal
+                isOpen={isChecklistModalOpen}
+                onClose={() => setIsChecklistModalOpen(false)}
+                eventData={eventData || {}}
+                onSave={() => {
+                    setIsChecklistModalOpen(false)
                     fetchEventData()
                 }}
             />

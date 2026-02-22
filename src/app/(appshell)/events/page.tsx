@@ -11,7 +11,7 @@ import { toast } from "sonner"
 import { TableRowSkeleton, ListSkeleton } from "@/components/skeleton-loader"
 import { apiRequest } from "@/lib/api-client"
 import { useAuth } from "@/context/auth"
-import { Calendar } from "lucide-react"
+import { Calendar, Copy } from "lucide-react"
 import { useEventPrefill } from "@/context/event-prefill"
 
 type EventItem = {
@@ -134,6 +134,7 @@ export default function EventsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingEvent, setEditingEvent] = useState<EventFormData | null>(null)
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+    const [cloningIds, setCloningIds] = useState<Set<string>>(new Set())
     const { user } = useAuth()
     const { prefill: contextPrefill, clearPrefill } = useEventPrefill()
 
@@ -239,17 +240,79 @@ export default function EventsPage() {
         }
     }
 
+    const handleClone = async (ev: EventItem) => {
+        const idString = String(ev.id)
+        setCloningIds(prev => new Set(prev).add(idString))
+
+        try {
+            // Fetch full event data using eventID (the backend resolves via /events/by-eventid?eventID=...)
+            const lookupId = ev.eventID || ev.id
+            const detailRes = await apiRequest(`/api/events/${encodeURIComponent(String(lookupId))}`)
+            if (!detailRes.ok) {
+                toast.error('Failed to load event details for cloning')
+                return
+            }
+            const fullEvent = await detailRes.json()
+
+            // Clone via backend
+            const cloneRes = await apiRequest('/api/events/clone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fullEvent)
+            })
+
+            if (!cloneRes.ok) {
+                const errText = await cloneRes.text().catch(() => '')
+                throw new Error(`Clone failed: ${cloneRes.status} ${errText}`)
+            }
+
+            const clonedEvent = await cloneRes.json()
+            toast.success(`Event cloned successfully`, {
+                action: {
+                    label: 'View',
+                    onClick: () => window.location.href = `/events/${clonedEvent.eventID || clonedEvent.id}`
+                }
+            })
+
+            // Refresh the list
+            const res = await apiRequest('/api/events')
+            const data = await res.json()
+            const normalizedData = Array.isArray(data) ? data.map((e: EventItem) => ({
+                ...e,
+                startDate: e.eventStartDate || e.startDate,
+                endDate: e.eventEndDate || e.endDate,
+            })) : []
+            setEvents(normalizedData)
+        } catch (err) {
+            console.error('Failed to clone event:', err)
+            toast.error('Failed to clone event')
+        } finally {
+            setCloningIds(prev => {
+                const next = new Set(prev)
+                next.delete(idString)
+                return next
+            })
+        }
+    }
     const getDropdownItems = (ev: EventItem) => {
         const isDeleting = deletingIds.has(String(ev.id))
+        const isCloning = cloningIds.has(String(ev.id))
+        const isBusy = isDeleting || isCloning
         return [
-            { label: 'View', icon: '🔍', action: () => window.location.href = `/events/${ev.eventID || ev.id}`, disabled: isDeleting },
-            { label: 'Edit', icon: '✏️', action: () => handleEdit(ev.id), disabled: isDeleting },
+            { label: 'View', icon: '🔍', action: () => window.location.href = `/events/${ev.eventID || ev.id}`, disabled: isBusy },
+            { label: 'Edit', icon: '✏️', action: () => handleEdit(ev.id), disabled: isBusy },
+            {
+                label: isCloning ? 'Cloning...' : 'Clone',
+                icon: '📋',
+                action: () => handleClone(ev),
+                disabled: isBusy
+            },
             {
                 label: isDeleting ? 'Deleting...' : 'Delete',
                 icon: '🗑️',
                 action: () => handleDelete(ev.id),
                 variant: 'danger' as const,
-                disabled: isDeleting
+                disabled: isBusy
             }
         ]
     }
