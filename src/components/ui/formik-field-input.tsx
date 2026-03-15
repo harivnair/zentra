@@ -16,6 +16,7 @@ export interface FormikFieldInputProps
     inputClassName?: string
     errorMessageClassName?: string
     wrapperClassName?: string
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
 /**
@@ -30,6 +31,7 @@ export function FormikFieldInput({
     errorMessageClassName,
     wrapperClassName,
     id,
+    onChange,
     ...inputProps
 }: FormikFieldInputProps) {
     const inputId = id ?? name
@@ -50,6 +52,7 @@ export function FormikFieldInput({
                         id={inputId}
                         {...inputProps}
                         {...field}
+                        onChange={onChange}
                         className={cn(
                             "focus:ring-2 focus:ring-green-400 focus:border-green-400 placeholder:text-xs",
                             inputClassName
