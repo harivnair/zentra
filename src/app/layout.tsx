@@ -12,8 +12,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "zentra",
-  description: "zentra application",
+  title: "Zentra",
+  description: "Zentra Event Management",
+  icons: {
+    icon: "/zentra-logo.jpg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
