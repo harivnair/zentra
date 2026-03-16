@@ -10,6 +10,7 @@ export interface User {
     email: string | null;
     uid: string;
     phone: string | null;
+    role: string | null;
 }
 
 export interface AuthState {
