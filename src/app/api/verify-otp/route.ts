@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
         const backendUrl = getBackendUrl();
         const body = await request.json();
 
-        const response = await fetch(`${backendUrl}/users/generate-otp?email=${body.email}`, {
+        const response = await fetch(`${backendUrl}/users/validate-otp?email=${body.email}&otp=${body.otp}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

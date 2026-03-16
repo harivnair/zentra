@@ -1,21 +1,21 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { Formik, Form, FormikHelpers } from "formik"
-import { toast } from "sonner"
+import Image from "next/image";
+import Link from "next/link";
+import { Formik, Form, FormikHelpers } from "formik";
+import { toast } from "sonner";
 
-import { FormikFieldInput } from "@/components/ui/formik-field-input"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { useState } from "react"
+import { FormikFieldInput } from "@/components/ui/formik-field-input";
+import { LoadingButton } from "@/components/ui/loading-button";
+import { useState } from "react";
 
-import { ForgotPasswordFormValues } from "../auth.type"
-import authUtilities from "../auth.utilites"
-import { Check } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { ForgotPasswordFormValues } from "../auth.type";
+import authUtilities from "../auth.utilites";
+import { Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRequestApi } from "@/hooks/useRequestApi";
 
-
-const OTP_LENGTH = 4
+const OTP_LENGTH = 6;
 
 const initialValues: ForgotPasswordFormValues = {
     email: "",
@@ -24,75 +24,65 @@ const initialValues: ForgotPasswordFormValues = {
     confirmPassword: "",
     showResetForm: false,
     otpVerified: false,
-}
+};
 
 export default function ForgotPasswordPage() {
-    const router = useRouter()
-    const [loading, setLoading] = useState(false)
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const { request } = useRequestApi();
 
-    const handleEmailSubmit = async (values: ForgotPasswordFormValues, setFieldValue: (field: string, value: boolean) => void) => {
-        setLoading(true)
+    const handleEmailSubmit = async (
+        values: ForgotPasswordFormValues,
+        setFieldValue: (field: string, value: boolean) => void,
+    ) => {
+        setLoading(true);
         try {
-            const response = await fetch("/api/forgot-password", {
+            const result = await request<{ email: string }>("/api/forgot-password", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    action: "request-reset",
-                    email: values.email,
-                }),
-            })
+                body: { email: values.email },
+            });
 
-            if (response.ok) {
-                toast.success(
-                    "If an account exists for this email, you will receive reset instructions."
-                )
-                setFieldValue("showResetForm", true)
-                setFieldValue("otpVerified", false)
-            } else {
-                const errorData = await response.json().catch(() => ({}))
-                toast.error(
-                    errorData.error || "Failed to request password reset. Please try again."
-                )
+            if (result !== null) {
+                toast.success("If an account exists for this email, you will receive reset instructions.");
+                setFieldValue("showResetForm", true);
+                setFieldValue("otpVerified", false);
             }
         } catch {
-            toast.error("Something went wrong. Please try again.")
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
-    const handleOtpVerify = async (otp: string, setFieldValue: (field: string, value: boolean) => void) => {
+    const handleOtpVerify = async (
+        values: ForgotPasswordFormValues,
+        setFieldValue: (field: string, value: boolean) => void,
+    ) => {
+        const { otp, email } = values;
+
         if (!otp || otp.length !== OTP_LENGTH) {
-            setFieldValue("otpVerified", false)
-            return
+            setFieldValue("otpVerified", false);
+            return;
         }
 
         try {
-            const response = await fetch("/api/forgot-password", {
+            const result = await request("/api/verify-otp", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    action: "verify-otp",
-                    otp: otp,
-                }),
-            })
+                body: { email, otp },
+            });
 
-            if (response.ok) {
-                setFieldValue("otpVerified", true)
+            if (result) {
+                setFieldValue("otpVerified", true);
             } else {
-                setFieldValue("otpVerified", false)
+                toast.error("Invalid OTP. Please check the code sent to your email.");
+                setFieldValue("otpVerified", false);
             }
         } catch {
-            setFieldValue("otpVerified", false)
+            setFieldValue("otpVerified", false);
         }
-    }
+    };
 
     const handleResetPassword = async (values: ForgotPasswordFormValues) => {
-        setLoading(true)
+        setLoading(true);
         try {
             const response = await fetch("/api/forgot-password", {
                 method: "POST",
@@ -105,32 +95,33 @@ export default function ForgotPasswordPage() {
                     otp: values.otp,
                     password: values.password,
                 }),
-            })
+            });
 
             if (response.ok) {
-                toast.success("Password successfully reset. Please log in with your new password.")
+                toast.success("Password successfully reset. Please log in with your new password.");
                 // Optionally redirect to login after a short delay
-                router.push("/login")
+                router.push("/login");
             } else {
-                const errorData = await response.json().catch(() => ({}))
-                toast.error(
-                    errorData.error || "Failed to reset password. Please try again."
-                )
+                const errorData = await response.json().catch(() => ({}));
+                toast.error(errorData.error || "Failed to reset password. Please try again.");
             }
         } catch {
-            toast.error("Something went wrong. Please try again.")
+            toast.error("Something went wrong. Please try again.");
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
-    const handleSubmit = (values: ForgotPasswordFormValues, {setFieldValue}: FormikHelpers<ForgotPasswordFormValues> ) => {
+    const handleSubmit = (
+        values: ForgotPasswordFormValues,
+        { setFieldValue }: FormikHelpers<ForgotPasswordFormValues>,
+    ) => {
         if (!values.showResetForm) {
-            handleEmailSubmit(values, setFieldValue)
+            handleEmailSubmit(values, setFieldValue);
         } else {
-            handleResetPassword(values)
+            handleResetPassword(values);
         }
-    }
+    };
 
     return (
         <Formik
@@ -200,13 +191,13 @@ export default function ForgotPasswordPage() {
                                             maxLength={OTP_LENGTH}
                                             inputMode="numeric"
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                const numericValue = e.target.value.replace(/[^0-9]/g, '')
-                                                setFieldValue("otp", numericValue)
-                                                handleOtpVerify(numericValue, setFieldValue)
+                                                const numericValue = e.target.value.replace(/[^0-9]/g, "");
+                                                setFieldValue("otp", numericValue);
+                                                handleOtpVerify({ ...values, otp: numericValue }, setFieldValue);
                                             }}
                                         />
                                         {values.otpVerified && (
-                                            <div className="absolute right-3 top-8">
+                                            <div className="absolute right-3 top-9">
                                                 <Check className="h-5 w-5 text-green-500" />
                                             </div>
                                         )}
@@ -256,5 +247,5 @@ export default function ForgotPasswordPage() {
                 </Form>
             )}
         </Formik>
-    )
+    );
 }
