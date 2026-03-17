@@ -84,29 +84,16 @@ export default function ForgotPasswordPage() {
     const handleResetPassword = async (values: ForgotPasswordFormValues) => {
         setLoading(true);
         try {
-            const response = await fetch("/api/forgot-password", {
+            const result = await request<{ email: string; password: string }>("/api/reset-password", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    action: "reset-password",
-                    email: values.email,
-                    otp: values.otp,
-                    password: values.password,
-                }),
+                body: { email: values.email, password: values.password },
             });
 
-            if (response.ok) {
+            if (result) {
                 toast.success("Password successfully reset. Please log in with your new password.");
-                // Optionally redirect to login after a short delay
                 router.push("/login");
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                toast.error(errorData.error || "Failed to reset password. Please try again.");
             }
         } catch {
-            toast.error("Something went wrong. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -118,7 +105,7 @@ export default function ForgotPasswordPage() {
     ) => {
         if (!values.showResetForm) {
             handleEmailSubmit(values, setFieldValue);
-        } else {
+        } else if (values.otpVerified) {
             handleResetPassword(values);
         }
     };
