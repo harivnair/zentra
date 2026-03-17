@@ -6,7 +6,7 @@ export async function PUT(request: NextRequest) {
         const backendUrl = getBackendUrl();
         const body = await request.json();
 
-        const response = await fetch(`${backendUrl}/users/${body.userId}/change-password`, {
+        const response = await fetch(`${backendUrl}/users/change-password`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",

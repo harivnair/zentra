@@ -1,32 +1,21 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const Spinner = () => (
-    <svg
-        className="animate-spin h-4 w-4 mr-1"
-        viewBox="0 0 24 24"
-        aria-hidden
-    >
-        <circle
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-            fill="none"
-        />
+    <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24" aria-hidden>
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
     </svg>
-)
+);
 
-export interface LoadingButtonProps
-    extends Omit<React.ComponentProps<typeof Button>, "children"> {
-    loading?: boolean
-    loadingLabel?: React.ReactNode
-    children: React.ReactNode
-    type?: "button" | "submit" | "reset"
+export interface LoadingButtonProps extends Omit<React.ComponentProps<typeof Button>, "children"> {
+    loading?: boolean;
+    loadingLabel?: React.ReactNode;
+    children: React.ReactNode;
+    type?: "button" | "submit" | "reset";
+    fullWidth?: boolean;
 }
 
 /**
@@ -39,12 +28,13 @@ function LoadingButton({
     children,
     className,
     disabled,
+    fullWidth,
     ...props
 }: LoadingButtonProps) {
     return (
         <Button
             type="submit"
-            className={cn("w-full", className)}
+            className={cn(fullWidth && "w-full", className)}
             disabled={disabled ?? loading}
             {...props}
         >
@@ -57,7 +47,7 @@ function LoadingButton({
                 children
             )}
         </Button>
-    )
+    );
 }
 
-export { LoadingButton }
+export { LoadingButton };

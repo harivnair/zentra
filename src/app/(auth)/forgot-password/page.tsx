@@ -157,6 +157,7 @@ export default function ForgotPasswordPage() {
                                 />
 
                                 <LoadingButton
+                                    fullWidth
                                     loading={loading}
                                     loadingLabel="Sending..."
                                     className="border-0 bg-[var(--app-primary)] text-white hover:bg-[var(--app-primary-hover)] transition-colors"
@@ -208,6 +209,7 @@ export default function ForgotPasswordPage() {
                                 />
 
                                 <LoadingButton
+                                    fullWidth
                                     loading={loading}
                                     loadingLabel="Resetting..."
                                     className="border-0 bg-[var(--app-primary)] text-white hover:bg-[var(--app-primary-hover)] transition-colors"

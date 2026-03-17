@@ -19,6 +19,7 @@ import {
     Package,
     ChevronRight,
     Key,
+    User,
 } from "lucide-react";
 import { useAuth } from "@/context/auth";
 import { toast } from "sonner";
@@ -70,6 +71,8 @@ export default function Sidebar() {
         { href: "/bills", label: "Bills", Icon: CreditCard },
         { href: "/reports", label: "Reports", Icon: BarChart2 },
     ];
+
+    const administrations: NavItem[] = [{ href: "/users", label: "Users", Icon: User }];
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -181,6 +184,10 @@ export default function Sidebar() {
 
                 <SectionLabel label="Finance" />
                 {finance.map(it => (
+                    <NavLink key={it.href} item={it} />
+                ))}
+                <SectionLabel label="Administration" />
+                {administrations.map(it => (
                     <NavLink key={it.href} item={it} />
                 ))}
             </div>
