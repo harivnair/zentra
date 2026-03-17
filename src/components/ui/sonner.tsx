@@ -10,7 +10,6 @@ export function Toaster() {
             position="top-right"
             richColors
             expand={false}
-            closeButton={true}
             duration={5000}
             toastOptions={{
                 style: {

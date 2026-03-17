@@ -83,6 +83,10 @@
   --sidebar-accent-foreground: oklch(0.95 0.01 250);
   --sidebar-border: oklch(0.28 0.03 260 / 50%);
   --sidebar-ring: oklch(0.52 0.19 262 / 40%);
+  /* Custom brand LAB colors */
+  --app-primary: lab(53 67.05 -2.57);
+  --app-primary-hover: lab(45 60 -2.57);
+  --app-secondary: lab(50 -24.09 -33.95);
   /* Fluent acrylic blur amounts */
   --acrylic-blur: 24px;
   --glass-blur: 14px;

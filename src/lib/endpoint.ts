@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
     },
     auth: {
         login: '/api/login',
+        forgotPassword: '/api/forgot-password',
     },
     // Add other endpoints as needed
 }
