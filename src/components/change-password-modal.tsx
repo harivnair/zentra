@@ -3,11 +3,11 @@
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 
-import { Button } from "@/components/ui/button";
-import { FormikFieldInput } from "@/components/ui/formik-field-input";
-import { LoadingButton } from "@/components/ui/loading-button";
+import { Button } from "@/components/ui-old/button";
+import { FormikFieldInput } from "@/components/ui-old/formik-field-input";
+import { LoadingButton } from "@/components/ui-old/loading-button";
 import { toast } from "sonner";
-import Modal from "@/components/ui/modal";
+import Modal from "@/components/ui-old/modal";
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { useAuth } from "@/context/auth";
 
@@ -23,7 +23,9 @@ type ChangePasswordFormValues = {
 
 const validationSchema = Yup.object({
     oldPassword: Yup.string().required("Current password is required"),
-    newPassword: Yup.string().min(8, "New password must be at least 8 characters").required("New password is required"),
+    newPassword: Yup.string()
+        .min(8, "New password must be at least 8 characters")
+        .required("New password is required"),
 });
 
 export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
@@ -32,10 +34,13 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
 
     const handleSubmit = async (values: ChangePasswordFormValues) => {
         try {
-            const result = await request<ChangePasswordFormValues & { id: string }>("/api/change-password", {
-                method: "PUT",
-                body: { ...values, id: user?.id ?? "" },
-            });
+            const result = await request<ChangePasswordFormValues & { id: string }>(
+                "/api/change-password",
+                {
+                    method: "PUT",
+                    body: { ...values, id: user?.id ?? "" },
+                }
+            );
 
             if (result !== null) {
                 toast.success("Password changed successfully");
@@ -54,7 +59,9 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
             onClose={onClose}
             header={
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">🔒</div>
+                    <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">
+                        🔒
+                    </div>
                     <div>
                         <h2 className="text-xl font-semibold">Change Password</h2>
                         <p className="text-sm text-gray-600">Update your account password</p>

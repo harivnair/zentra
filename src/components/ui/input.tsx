@@ -1,21 +1,48 @@
-import * as React from "react"
+import { forwardRef, ReactNode, type InputHTMLAttributes } from "react";
+import { cn } from "@/lib/utils/cn";
 
-import { cn } from "@/lib/utils"
-
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
-  return (
-    <input
-      type={type}
-      data-slot="input"
-      className={cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      )}
-      {...props}
-    />
-  )
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string | ReactNode;
+  error?: string;
+  hint?: string;
 }
 
-export { Input }
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, label, error, hint, id, ...props }, ref) => {
+    return (
+      <div className="flex flex-col gap-1.5">
+        {label && (
+          <label htmlFor={id} className="text-sm font-medium text-foreground">
+            {label}
+          </label>
+        )}
+        <input
+          ref={ref}
+          id={id}
+          className={cn(
+            "flex h-10 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground transition-colors",
+            "placeholder:text-muted-foreground text-xs",
+            "focus:border-accent focus:outline-none focus:ring-2 focus:ring-input-ring",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            error &&
+              "border-error focus:border-error focus:ring-[var(--input-error-ring)]",
+            className
+          )}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-error` : undefined}
+          {...props}
+        />
+        {error && (
+          <p id={`${id}-error`} className="text-xs text-error">
+            {error}
+          </p>
+        )}
+        {hint && !error && (
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        )}
+      </div>
+    );
+  }
+);
+
+Input.displayName = "Input";

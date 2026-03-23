@@ -1,3 +1,12 @@
+export type ForgotPasswordFormValues = {
+    email: string;
+    otp?: string;
+    password: string;
+    confirmPassword: string;
+    showResetForm?: boolean;
+    otpVerified?: boolean;
+};
+
 /**
  * Defines the possible roles for users in the system.
  * These roles can be used to categorize users and assign

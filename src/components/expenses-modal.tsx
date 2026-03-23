@@ -1,83 +1,89 @@
-'use client'
+"use client";
 
-import React, { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { apiRequest } from '@/lib/api-client'
-import { API_ENDPOINTS } from '@/lib/endpoint'
+import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui-old/button";
+import { Input } from "@/components/ui-old/input";
+import { Label } from "@/components/ui-old/label";
+import { apiRequest } from "@/lib/api/api-client";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
 
 interface ExpenseItem {
-    itemName: string
-    amount: number
-    comments: string
-    poc: string
-    expenseDescription: 'ESTIMATED_EXPENSE' | 'ACTUAL_EXPENSE'
-    createdDate?: string
-    lastUpdateddDate?: string
-    expenseStatus: 'ESTIMATE_SUBMITTED' | 'APPROVED' | 'REJECTED'
+    itemName: string;
+    amount: number;
+    comments: string;
+    poc: string;
+    expenseDescription: "ESTIMATED_EXPENSE" | "ACTUAL_EXPENSE";
+    createdDate?: string;
+    lastUpdateddDate?: string;
+    expenseStatus: "ESTIMATE_SUBMITTED" | "APPROVED" | "REJECTED";
 }
 
 interface ExpensesModalProps {
-    isOpen: boolean
-    onClose: () => void
+    isOpen: boolean;
+    onClose: () => void;
     eventData: {
-        id?: string
-        expensesList?: ExpenseItem[]
-        [key: string]: unknown
-    }
-    onSave: () => void
+        id?: string;
+        expensesList?: ExpenseItem[];
+        [key: string]: unknown;
+    };
+    onSave: () => void;
 }
 
 export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesModalProps) {
-    const [expenses, setExpenses] = useState<ExpenseItem[]>([])
+    const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
     useEffect(() => {
-        if (!isOpen) return
+        if (!isOpen) return;
 
         // Load existing expenses if available, otherwise start with one empty field
         if (Array.isArray(eventData?.expensesList) && eventData.expensesList.length > 0) {
-            setExpenses(eventData.expensesList)
+            setExpenses(eventData.expensesList);
         } else {
-            setExpenses([{
-                itemName: '',
-                amount: 0,
-                comments: '',
-                poc: '',
-                expenseDescription: 'ESTIMATED_EXPENSE',
-                expenseStatus: 'ESTIMATE_SUBMITTED',
-            }])
+            setExpenses([
+                {
+                    itemName: "",
+                    amount: 0,
+                    comments: "",
+                    poc: "",
+                    expenseDescription: "ESTIMATED_EXPENSE",
+                    expenseStatus: "ESTIMATE_SUBMITTED",
+                },
+            ]);
         }
-    }, [isOpen, eventData])
+    }, [isOpen, eventData]);
 
     const handleAddExpense = () => {
         setExpenses([
             ...expenses,
             {
-                itemName: '',
+                itemName: "",
                 amount: 0,
-                comments: '',
-                poc: '',
-                expenseDescription: 'ESTIMATED_EXPENSE',
-                expenseStatus: 'ESTIMATE_SUBMITTED',
+                comments: "",
+                poc: "",
+                expenseDescription: "ESTIMATED_EXPENSE",
+                expenseStatus: "ESTIMATE_SUBMITTED",
             },
-        ])
-    }
+        ]);
+    };
 
     const handleRemoveExpense = (index: number) => {
-        setExpenses(expenses.filter((_, i) => i !== index))
-    }
+        setExpenses(expenses.filter((_, i) => i !== index));
+    };
 
-    const handleExpenseChange = (index: number, field: keyof ExpenseItem, value: string | number) => {
-        const newExpenses = [...expenses]
-        newExpenses[index] = { ...newExpenses[index], [field]: value }
-        setExpenses(newExpenses)
-    }
+    const handleExpenseChange = (
+        index: number,
+        field: keyof ExpenseItem,
+        value: string | number
+    ) => {
+        const newExpenses = [...expenses];
+        newExpenses[index] = { ...newExpenses[index], [field]: value };
+        setExpenses(newExpenses);
+    };
 
     const handleSave = async () => {
         try {
             // Filter out incomplete expenses
-            const completeExpenses = expenses.filter(exp => exp.itemName && exp.amount > 0)
+            const completeExpenses = expenses.filter(exp => exp.itemName && exp.amount > 0);
 
             const updatedEvent = {
                 ...eventData,
@@ -86,26 +92,26 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                     createdDate: exp.createdDate || new Date().toISOString(),
                     lastUpdateddDate: new Date().toISOString(),
                 })),
-            }
+            };
 
             const res = await apiRequest(API_ENDPOINTS.events.list, {
-                method: 'POST',
+                method: "POST",
                 body: JSON.stringify(updatedEvent),
-            })
+            });
 
             if (res.ok) {
-                onSave()
-                onClose()
+                onSave();
+                onClose();
             } else {
-                alert('Failed to save expenses')
+                alert("Failed to save expenses");
             }
         } catch (err) {
-            console.error('Error saving expenses:', err)
-            alert('Error saving expenses')
+            console.error("Error saving expenses:", err);
+            alert("Error saving expenses");
         }
-    }
+    };
 
-    if (!isOpen) return null
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -144,7 +150,13 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                                         <Input
                                             type="text"
                                             value={expense.itemName}
-                                            onChange={e => handleExpenseChange(index, 'itemName', e.target.value)}
+                                            onChange={e =>
+                                                handleExpenseChange(
+                                                    index,
+                                                    "itemName",
+                                                    e.target.value
+                                                )
+                                            }
                                             placeholder="e.g., Transportation, Food"
                                             className="text-sm"
                                         />
@@ -154,7 +166,13 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                                         <Input
                                             type="number"
                                             value={expense.amount}
-                                            onChange={e => handleExpenseChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                                            onChange={e =>
+                                                handleExpenseChange(
+                                                    index,
+                                                    "amount",
+                                                    parseFloat(e.target.value) || 0
+                                                )
+                                            }
                                             min="0"
                                             step="0.01"
                                             placeholder="Enter amount"
@@ -168,7 +186,9 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                                         <Input
                                             type="text"
                                             value={expense.poc}
-                                            onChange={e => handleExpenseChange(index, 'poc', e.target.value)}
+                                            onChange={e =>
+                                                handleExpenseChange(index, "poc", e.target.value)
+                                            }
                                             placeholder="Point of Contact"
                                             className="text-sm"
                                         />
@@ -177,10 +197,18 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                                         <Label className="text-sm font-medium">Expense Type</Label>
                                         <select
                                             value={expense.expenseDescription}
-                                            onChange={e => handleExpenseChange(index, 'expenseDescription', e.target.value)}
+                                            onChange={e =>
+                                                handleExpenseChange(
+                                                    index,
+                                                    "expenseDescription",
+                                                    e.target.value
+                                                )
+                                            }
                                             className="w-full px-3 py-2 border rounded text-sm"
                                         >
-                                            <option value="ESTIMATED_EXPENSE">Estimated Expense</option>
+                                            <option value="ESTIMATED_EXPENSE">
+                                                Estimated Expense
+                                            </option>
                                             <option value="ACTUAL_EXPENSE">Actual Expense</option>
                                         </select>
                                     </div>
@@ -190,10 +218,18 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                                         <Label className="text-sm font-medium">Status</Label>
                                         <select
                                             value={expense.expenseStatus}
-                                            onChange={e => handleExpenseChange(index, 'expenseStatus', e.target.value)}
+                                            onChange={e =>
+                                                handleExpenseChange(
+                                                    index,
+                                                    "expenseStatus",
+                                                    e.target.value
+                                                )
+                                            }
                                             className="w-full px-3 py-2 border rounded text-sm"
                                         >
-                                            <option value="ESTIMATE_SUBMITTED">Estimate Submitted</option>
+                                            <option value="ESTIMATE_SUBMITTED">
+                                                Estimate Submitted
+                                            </option>
                                             <option value="APPROVED">Approved</option>
                                             <option value="REJECTED">Rejected</option>
                                         </select>
@@ -203,7 +239,13 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                                         <Input
                                             type="text"
                                             value={expense.comments}
-                                            onChange={e => handleExpenseChange(index, 'comments', e.target.value)}
+                                            onChange={e =>
+                                                handleExpenseChange(
+                                                    index,
+                                                    "comments",
+                                                    e.target.value
+                                                )
+                                            }
                                             placeholder="Add any notes"
                                             className="text-sm"
                                         />
@@ -237,11 +279,7 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3 mt-6 border-t pt-4">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onClose}
-                    >
+                    <Button type="button" variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
                     <Button
@@ -254,5 +292,5 @@ export function ExpensesModal({ isOpen, onClose, eventData, onSave }: ExpensesMo
                 </div>
             </div>
         </div>
-    )
+    );
 }

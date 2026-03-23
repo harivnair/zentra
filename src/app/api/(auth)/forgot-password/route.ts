@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleApiRequest, getBackendUrl, getBackendHeaders } from "@/lib/api-server";
+import { handleApiRequest, getBackendUrl, getBackendHeaders } from "@/lib/api/api-server";
 
 export async function POST(request: NextRequest) {
     return handleApiRequest(async () => {

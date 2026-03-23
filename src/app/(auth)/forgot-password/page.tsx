@@ -1,19 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { Formik, Form, FormikHelpers } from "formik";
 import { toast } from "sonner";
+import { Check } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { FormikFieldInput } from "@/components/ui/formik-field-input";
-import { LoadingButton } from "@/components/ui/loading-button";
-import { useState } from "react";
-
-import { ForgotPasswordFormValues } from "../auth.type";
-import authUtilities from "../auth.utilites";
-import { Check } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useRequestApi } from "@/hooks/useRequestApi";
+import { Button, LinkText } from "@/components/ui";
+import authUtilities from "@/lib/validations/auth";
+import { ForgotPasswordFormValues } from "@/types/auth";
 
 const OTP_LENGTH = 6;
 
@@ -33,7 +31,7 @@ export default function ForgotPasswordPage() {
 
     const handleEmailSubmit = async (
         values: ForgotPasswordFormValues,
-        setFieldValue: (field: string, value: boolean) => void,
+        setFieldValue: (field: string, value: boolean) => void
     ) => {
         setLoading(true);
         try {
@@ -43,7 +41,9 @@ export default function ForgotPasswordPage() {
             });
 
             if (result !== null) {
-                toast.success("If an account exists for this email, you will receive reset instructions.");
+                toast.success(
+                    "If an account exists for this email, you will receive reset instructions."
+                );
                 setFieldValue("showResetForm", true);
                 setFieldValue("otpVerified", false);
             }
@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
 
     const handleOtpVerify = async (
         values: ForgotPasswordFormValues,
-        setFieldValue: (field: string, value: boolean) => void,
+        setFieldValue: (field: string, value: boolean) => void
     ) => {
         const { otp, email } = values;
 
@@ -84,10 +84,13 @@ export default function ForgotPasswordPage() {
     const handleResetPassword = async (values: ForgotPasswordFormValues) => {
         setLoading(true);
         try {
-            const result = await request<{ email: string; password: string }>("/api/reset-password", {
-                method: "POST",
-                body: { email: values.email, password: values.password },
-            });
+            const result = await request<{ email: string; password: string }>(
+                "/api/reset-password",
+                {
+                    method: "POST",
+                    body: { email: values.email, password: values.password },
+                }
+            );
 
             if (result) {
                 toast.success("Password successfully reset. Please log in with your new password.");
@@ -101,7 +104,7 @@ export default function ForgotPasswordPage() {
 
     const handleSubmit = (
         values: ForgotPasswordFormValues,
-        { setFieldValue }: FormikHelpers<ForgotPasswordFormValues>,
+        { setFieldValue }: FormikHelpers<ForgotPasswordFormValues>
     ) => {
         if (!values.showResetForm) {
             handleEmailSubmit(values, setFieldValue);
@@ -127,7 +130,7 @@ export default function ForgotPasswordPage() {
                     <div className="grid gap-2 text-center">
                         <div className="flex items-center justify-center">
                             <Image
-                                src="/zentra-logo.jpg"
+                                src="/logo.svg"
                                 alt="Zentra"
                                 width={64}
                                 height={64}
@@ -156,14 +159,7 @@ export default function ForgotPasswordPage() {
                                     autoComplete="email"
                                 />
 
-                                <LoadingButton
-                                    fullWidth
-                                    loading={loading}
-                                    loadingLabel="Sending..."
-                                    className="border-0 bg-[var(--app-primary)] text-white hover:bg-[var(--app-primary-hover)] transition-colors"
-                                >
-                                    Continue
-                                </LoadingButton>
+                                <Button isLoading={loading}>Continue</Button>
                             </>
                         ) : (
                             // OTP and Password reset form
@@ -179,9 +175,15 @@ export default function ForgotPasswordPage() {
                                             maxLength={OTP_LENGTH}
                                             inputMode="numeric"
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                const numericValue = e.target.value.replace(/[^0-9]/g, "");
+                                                const numericValue = e.target.value.replace(
+                                                    /[^0-9]/g,
+                                                    ""
+                                                );
                                                 setFieldValue("otp", numericValue);
-                                                handleOtpVerify({ ...values, otp: numericValue }, setFieldValue);
+                                                handleOtpVerify(
+                                                    { ...values, otp: numericValue },
+                                                    setFieldValue
+                                                );
                                             }}
                                         />
                                         {values.otpVerified && (
@@ -208,29 +210,14 @@ export default function ForgotPasswordPage() {
                                     autoComplete="new-password"
                                 />
 
-                                <LoadingButton
-                                    fullWidth
-                                    loading={loading}
-                                    loadingLabel="Resetting..."
-                                    className="border-0 bg-[var(--app-primary)] text-white hover:bg-[var(--app-primary-hover)] transition-colors"
-                                    disabled={!values.otpVerified}
-                                >
+                                <Button isLoading={loading} disabled={!values.otpVerified}>
                                     Reset Password
-                                </LoadingButton>
+                                </Button>
                             </>
                         )}
 
                         <div className="text-center">
-                            <Link
-                                href="/login"
-                                className="text-xs underline"
-                                style={{
-                                    color: "var(--app-secondary)",
-                                    textDecoration: "none",
-                                }}
-                            >
-                                Back to Login
-                            </Link>
+                            <LinkText href="/login">Back to Login</LinkText>
                         </div>
                     </div>
                 </Form>

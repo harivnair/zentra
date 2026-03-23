@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { setSecureItem, getSecureItem, removeSecureItem } from "@/lib/secure-storage";
-import { API_ENDPOINTS } from "@/lib/endpoint";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
 
 export interface User {
     id: string;
