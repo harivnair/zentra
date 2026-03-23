@@ -1,74 +1,79 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { X, CheckCircle } from "lucide-react"
-import { Button } from "./ui/button"
-import { toast } from "sonner"
-import { apiRequest } from "@/lib/api-client"
-import { API_ENDPOINTS } from "@/lib/endpoint"
+import { useState, useEffect } from "react";
+import { X, CheckCircle } from "lucide-react";
+import { Button } from "./ui-old/button";
+import { toast } from "sonner";
+import { apiRequest } from "@/lib/api/api-client";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
 
 interface EstimateItem {
-    item: string
-    quantity: number
-    pricePerItem: number
-    finalAmt: number
-    category: string
-    description?: string
-    days: number
-    startDate?: string | null
-    endDate?: string | null
+    item: string;
+    quantity: number;
+    pricePerItem: number;
+    finalAmt: number;
+    category: string;
+    description?: string;
+    days: number;
+    startDate?: string | null;
+    endDate?: string | null;
 }
 
 interface EstimateVersion {
-    id: string
-    version: number
-    createdDate?: string | null
-    items?: EstimateItem[]
+    id: string;
+    version: number;
+    createdDate?: string | null;
+    items?: EstimateItem[];
 }
 
 interface EstimateHistoryModalProps {
-    isOpen: boolean
-    onClose: () => void
-    eventTitle?: string
-    eventID?: string
+    isOpen: boolean;
+    onClose: () => void;
+    eventTitle?: string;
+    eventID?: string;
 }
 
-export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: EstimateHistoryModalProps) {
-    const [versions, setVersions] = useState<EstimateVersion[]>([])
-    const [isLoading, setIsLoading] = useState(false)
-    const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null)
+export function EstimateHistoryModal({
+    isOpen,
+    onClose,
+    eventTitle,
+    eventID,
+}: EstimateHistoryModalProps) {
+    const [versions, setVersions] = useState<EstimateVersion[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen && eventID) {
-            fetchVersions()
-            setExpandedVersionId(null)
+            fetchVersions();
+            setExpandedVersionId(null);
         }
-    }, [isOpen, eventID])
+    }, [isOpen, eventID]);
 
     const fetchVersions = async () => {
-        if (!eventID) return
+        if (!eventID) return;
 
-        setIsLoading(true)
+        setIsLoading(true);
         try {
-            const response = await apiRequest(API_ENDPOINTS.events.versions(eventID))
+            const response = await apiRequest(API_ENDPOINTS.events.versions(eventID));
             if (!response.ok) {
-                throw new Error('Failed to fetch estimate versions')
+                throw new Error("Failed to fetch estimate versions");
             }
-            const data = await response.json()
-            setVersions(data)
+            const data = await response.json();
+            setVersions(data);
         } catch (error) {
-            console.error('Error fetching estimate versions:', error)
-            toast.error('Failed to load estimate history')
+            console.error("Error fetching estimate versions:", error);
+            toast.error("Failed to load estimate history");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const toggleDetails = (id: string) => {
-        setExpandedVersionId(expandedVersionId === id ? null : id)
-    }
+        setExpandedVersionId(expandedVersionId === id ? null : id);
+    };
 
-    if (!isOpen) return null
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -99,10 +104,14 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {versions.map((version) => (
+                            {versions.map(version => (
                                 <div
                                     key={version.id}
-                                    className={`border rounded-lg transition-all border-gray-200 bg-white hover:border-blue-300 ${expandedVersionId === version.id ? 'ring-1 ring-blue-500 border-blue-500' : ''}`}
+                                    className={`border rounded-lg transition-all border-gray-200 bg-white hover:border-blue-300 ${
+                                        expandedVersionId === version.id
+                                            ? "ring-1 ring-blue-500 border-blue-500"
+                                            : ""
+                                    }`}
                                 >
                                     <div className="p-5 flex items-start justify-between">
                                         <div className="flex-1">
@@ -130,14 +139,16 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
                                                     </label>
                                                     <p className="text-sm font-medium text-gray-900">
                                                         {version.createdDate
-                                                            ? new Date(version.createdDate).toLocaleDateString('en-IN', {
-                                                                year: 'numeric',
-                                                                month: 'short',
-                                                                day: 'numeric',
-                                                                hour: '2-digit',
-                                                                minute: '2-digit'
-                                                            })
-                                                            : 'Not available'}
+                                                            ? new Date(
+                                                                  version.createdDate
+                                                              ).toLocaleDateString("en-IN", {
+                                                                  year: "numeric",
+                                                                  month: "short",
+                                                                  day: "numeric",
+                                                                  hour: "2-digit",
+                                                                  minute: "2-digit",
+                                                              })
+                                                            : "Not available"}
                                                     </p>
                                                 </div>
                                             </div>
@@ -148,45 +159,77 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
                                             variant="outline"
                                             className="ml-4 flex items-center gap-2"
                                         >
-                                            {expandedVersionId === version.id ? (
-                                                'Hide Details'
-                                            ) : (
-                                                'View Details'
-                                            )}
+                                            {expandedVersionId === version.id
+                                                ? "Hide Details"
+                                                : "View Details"}
                                         </Button>
                                     </div>
 
                                     {/* Expanded Details Section */}
                                     {expandedVersionId === version.id && (
                                         <div className="border-t bg-gray-50 p-5 rounded-b-lg">
-                                            <h4 className="font-semibold text-sm mb-3">Item Details</h4>
-                                            {(!version.items || version.items.length === 0) ? (
-                                                <p className="text-sm text-gray-500 italic">No items recorded for this version.</p>
+                                            <h4 className="font-semibold text-sm mb-3">
+                                                Item Details
+                                            </h4>
+                                            {!version.items || version.items.length === 0 ? (
+                                                <p className="text-sm text-gray-500 italic">
+                                                    No items recorded for this version.
+                                                </p>
                                             ) : (
                                                 <div className="overflow-x-auto">
                                                     <table className="w-full text-sm text-left">
                                                         <thead className="text-xs text-gray-500 uppercase bg-gray-100 border-b">
                                                             <tr>
-                                                                <th className="px-3 py-2">Category</th>
+                                                                <th className="px-3 py-2">
+                                                                    Category
+                                                                </th>
                                                                 <th className="px-3 py-2">Item</th>
-                                                                <th className="px-3 py-2 text-right">Qty</th>
-                                                                <th className="px-3 py-2 text-right">Price/Item</th>
-                                                                <th className="px-3 py-2 text-right">Days</th>
-                                                                <th className="px-3 py-2 text-right">Total</th>
+                                                                <th className="px-3 py-2 text-right">
+                                                                    Qty
+                                                                </th>
+                                                                <th className="px-3 py-2 text-right">
+                                                                    Price/Item
+                                                                </th>
+                                                                <th className="px-3 py-2 text-right">
+                                                                    Days
+                                                                </th>
+                                                                <th className="px-3 py-2 text-right">
+                                                                    Total
+                                                                </th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-gray-200">
                                                             {version.items.map((item, idx) => (
-                                                                <tr key={idx} className="hover:bg-gray-100">
-                                                                    <td className="px-3 py-2 font-medium">{item.category}</td>
+                                                                <tr
+                                                                    key={idx}
+                                                                    className="hover:bg-gray-100"
+                                                                >
+                                                                    <td className="px-3 py-2 font-medium">
+                                                                        {item.category}
+                                                                    </td>
                                                                     <td className="px-3 py-2">
                                                                         <div>{item.item}</div>
-                                                                        {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
+                                                                        {item.description && (
+                                                                            <div className="text-xs text-gray-500">
+                                                                                {item.description}
+                                                                            </div>
+                                                                        )}
                                                                     </td>
-                                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
-                                                                    <td className="px-3 py-2 text-right">{item.pricePerItem}</td>
-                                                                    <td className="px-3 py-2 text-right">{item.days}</td>
-                                                                    <td className="px-3 py-2 text-right font-semibold">₹{(item.finalAmt || 0).toLocaleString()}</td>
+                                                                    <td className="px-3 py-2 text-right">
+                                                                        {item.quantity}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-right">
+                                                                        {item.pricePerItem}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-right">
+                                                                        {item.days}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-right font-semibold">
+                                                                        ₹
+                                                                        {(
+                                                                            item.finalAmt || 0
+                                                                        ).toLocaleString()}
+                                                                    </td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>
@@ -203,15 +246,11 @@ export function EstimateHistoryModal({ isOpen, onClose, eventTitle, eventID }: E
 
                 {/* Footer */}
                 <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
-                    <Button
-                        onClick={onClose}
-                        variant="outline"
-                        className="px-6"
-                    >
+                    <Button onClick={onClose} variant="outline" className="px-6">
                         Close
                     </Button>
                 </div>
             </div>
         </div>
-    )
+    );
 }

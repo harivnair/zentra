@@ -1,5 +1,5 @@
+import { apiRequest } from "@/lib/api/api-client";
 import { useState } from "react";
-import { apiRequest } from "@/lib/api-client";
 import { toast } from "sonner";
 
 export function useRequestApi<T>() {
@@ -9,7 +9,7 @@ export function useRequestApi<T>() {
 
     async function request<B = object>(
         url: string,
-        options?: Omit<RequestInit, "body"> & { body?: B },
+        options?: Omit<RequestInit, "body"> & { body?: B }
     ): Promise<T | null> {
         setLoading(true);
         setError(null);

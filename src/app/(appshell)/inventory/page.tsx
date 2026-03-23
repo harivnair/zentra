@@ -1,80 +1,79 @@
-"use client"
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react"
-import InventoryUsageModal from "@/components/inventory-usage-modal"
-import { API_ENDPOINTS } from "@/lib/endpoint"
-import { Button } from "@/components/ui/button"
-import DropdownMenu from "@/components/ui/dropdown-menu"
-import CreateInventoryModal from "@/components/create-inventory-modal"
-import { Inventory, InventoryFormData, InventoryUsage } from "@/types/inventory"
-import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader"
-import { showConfirmation } from "@/components/confirmation-toast"
-import { toast } from "sonner"
-import { apiRequest } from "@/lib/api-client"
-import { Package } from "lucide-react"
-
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import InventoryUsageModal from "@/components/inventory-usage-modal";
+import { Button } from "@/components/ui-old/button";
+import DropdownMenu from "@/components/ui-old/dropdown-menu";
+import CreateInventoryModal from "@/components/create-inventory-modal";
+import { Inventory, InventoryFormData, InventoryUsage } from "@/types/inventory";
+import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader";
+import { showConfirmation } from "@/components/confirmation-toast";
+import { toast } from "sonner";
+import { Package } from "lucide-react";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { apiRequest } from "@/lib/api/api-client";
 
 export default function InventoryPage() {
-    const [inventory, setInventory] = useState<Inventory[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [editingItem, setEditingItem] = useState<InventoryFormData | null>(null)
-    const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+    const [inventory, setInventory] = useState<Inventory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<InventoryFormData | null>(null);
+    const [modalMode, setModalMode] = useState<"create" | "edit">("create");
     // Usage modal state
-    const [usageModalOpen, setUsageModalOpen] = useState(false)
-    const [usageLoading, setUsageLoading] = useState(false)
-    const [usageData, setUsageData] = useState<InventoryUsage[] | null>(null)
+    const [usageModalOpen, setUsageModalOpen] = useState(false);
+    const [usageLoading, setUsageLoading] = useState(false);
+    const [usageData, setUsageData] = useState<InventoryUsage[] | null>(null);
     const handleTrackUsage = async (inventoryId: string) => {
-        setUsageModalOpen(true)
-        setUsageLoading(true)
-        setUsageData(null)
+        setUsageModalOpen(true);
+        setUsageLoading(true);
+        setUsageData(null);
         try {
-            const res = await apiRequest(API_ENDPOINTS.inventory.checkUsage(inventoryId))
-            if (!res.ok) throw new Error('Failed to fetch usage')
-            const data = await res.json()
-            setUsageData(Array.isArray(data) ? data : [])
+            const res = await apiRequest(API_ENDPOINTS.inventory.checkUsage(inventoryId));
+            if (!res.ok) throw new Error("Failed to fetch usage");
+            const data = await res.json();
+            setUsageData(Array.isArray(data) ? data : []);
         } catch {
-            setUsageData([])
+            setUsageData([]);
         } finally {
-            setUsageLoading(false)
+            setUsageLoading(false);
         }
-    }
+    };
     // const { user } = useAuth() // user not used
 
     const fetchInventory = useCallback(async () => {
-        setLoading(true)
-        setError(null)
+        setLoading(true);
+        setError(null);
         try {
-            const res = await apiRequest(API_ENDPOINTS.inventory.list)
+            const res = await apiRequest(API_ENDPOINTS.inventory.list);
             if (!res.ok) {
-                throw new Error(`Failed to fetch inventory: ${res.status}`)
+                throw new Error(`Failed to fetch inventory: ${res.status}`);
             }
-            const data = await res.json()
-            setInventory(Array.isArray(data) ? data : [])
+            const data = await res.json();
+            setInventory(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error('Error fetching inventory:', err)
-            setError(err instanceof Error ? err.message : 'Failed to fetch inventory')
-            setInventory([])
+            console.error("Error fetching inventory:", err);
+            setError(err instanceof Error ? err.message : "Failed to fetch inventory");
+            setInventory([]);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }, [])
+    }, []);
 
     useEffect(() => {
-        fetchInventory()
-    }, [fetchInventory])
+        fetchInventory();
+    }, [fetchInventory]);
 
-    const inventoryCount = useMemo(() => inventory.length, [inventory])
+    const inventoryCount = useMemo(() => inventory.length, [inventory]);
 
     const openCreateModal = () => {
-        setModalMode('create')
-        setEditingItem(null)
-        setIsModalOpen(true)
-    }
+        setModalMode("create");
+        setEditingItem(null);
+        setIsModalOpen(true);
+    };
 
     const openEditModal = (item: Inventory) => {
-        setModalMode('edit')
+        setModalMode("edit");
         const editData: InventoryFormData = {
             id: item.id,
             itemName: item.itemName,
@@ -83,10 +82,10 @@ export default function InventoryPage() {
             dimensions: item.dimensions,
             quantity: item.quantity,
             price: item.price,
-        }
-        setEditingItem(editData)
-        setIsModalOpen(true)
-    }
+        };
+        setEditingItem(editData);
+        setIsModalOpen(true);
+    };
 
     const handleDelete = async (id: string) => {
         showConfirmation({
@@ -95,37 +94,37 @@ export default function InventoryPage() {
             onConfirm: async () => {
                 try {
                     const res = await apiRequest(`${API_ENDPOINTS.inventory.list}/${id}`, {
-                        method: 'DELETE'
-                    })
+                        method: "DELETE",
+                    });
 
                     if (res.ok) {
-                        await fetchInventory()
-                        toast.success('Inventory item deleted successfully')
+                        await fetchInventory();
+                        toast.success("Inventory item deleted successfully");
                     } else {
-                        const errText = await res.text().catch(() => '')
-                        throw new Error(`Failed to delete item: ${res.status} ${errText}`)
+                        const errText = await res.text().catch(() => "");
+                        throw new Error(`Failed to delete item: ${res.status} ${errText}`);
                     }
                 } catch (error) {
-                    toast.error('Failed to delete inventory item')
-                    console.error("Error deleting inventory item:", error)
+                    toast.error("Failed to delete inventory item");
+                    console.error("Error deleting inventory item:", error);
                 }
             },
-        })
-    }
+        });
+    };
 
     const getDropdownItems = (item: Inventory) => [
         {
             label: "Edit",
             icon: "✏️",
-            action: () => openEditModal(item)
+            action: () => openEditModal(item),
         },
         {
             label: "Delete",
             icon: "🗑️",
             action: () => handleDelete(String(item.id)),
-            variant: "danger" as const
-        }
-    ]
+            variant: "danger" as const,
+        },
+    ];
 
     return (
         <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
@@ -135,20 +134,16 @@ export default function InventoryPage() {
                         <Package className="h-8 w-8 text-blue-600" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">
-                            Inventory Management
-                        </h2>
+                        <h2 className="text-2xl font-bold">Inventory Management</h2>
                         <p className="text-muted-foreground">
-                            You have {inventoryCount} {inventoryCount === 1 ? 'item' : 'items'} in inventory
+                            You have {inventoryCount} {inventoryCount === 1 ? "item" : "items"} in
+                            inventory
                         </p>
                     </div>
                 </div>
 
                 <div className="ml-auto w-full sm:w-auto">
-                    <Button
-                        onClick={openCreateModal}
-                        className="w-full sm:w-auto"
-                    >
+                    <Button onClick={openCreateModal} className="w-full sm:w-auto">
                         + Add Inventory Item
                     </Button>
                 </div>
@@ -163,20 +158,20 @@ export default function InventoryPage() {
                         <div className="p-4 text-muted-foreground">No inventory items found.</div>
                     )}
 
-                    {!loading && !error && inventory.map((item) => (
-                        <div key={item.id} className="border rounded-md p-4 cursor-pointer">
-                            <div className="flex items-center justify-between">
-                                <div className="font-medium">{item.itemName}</div>
-                                <DropdownMenu items={getDropdownItems(item)} />
+                    {!loading &&
+                        !error &&
+                        inventory.map(item => (
+                            <div key={item.id} className="border rounded-md p-4 cursor-pointer">
+                                <div className="flex items-center justify-between">
+                                    <div className="font-medium">{item.itemName}</div>
+                                    <DropdownMenu items={getDropdownItems(item)} />
+                                </div>
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                    {item.category} · {item.quantity} units
+                                </div>
+                                <div className="mt-1 text-sm font-medium">${item.price}</div>
                             </div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                                {item.category} · {item.quantity} units
-                            </div>
-                            <div className="mt-1 text-sm font-medium">
-                                ${item.price}
-                            </div>
-                        </div>
-                    ))}
+                        ))}
                 </div>
 
                 {/* Desktop: table view */}
@@ -191,7 +186,9 @@ export default function InventoryPage() {
                                 <th className="py-3 px-4">Quantity</th>
                                 <th className="py-3 px-4">Price</th>
                                 <th className="py-3 px-4">Track Usage</th>
-                                <th className="py-3 px-4 text-right sticky right-0 bg-white">&nbsp;</th>
+                                <th className="py-3 px-4 text-right sticky right-0 bg-white">
+                                    &nbsp;
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -205,33 +202,38 @@ export default function InventoryPage() {
                             )}
                             {!loading && !error && inventory.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                                    <td
+                                        colSpan={7}
+                                        className="py-8 text-center text-muted-foreground"
+                                    >
                                         No inventory items found.
                                     </td>
                                 </tr>
                             )}
-                            {!loading && !error && inventory.map((item) => (
-                                <tr key={item.id} className="border-b hover:bg-gray-50">
-                                    <td className="py-4 px-4 font-medium">{item.itemName}</td>
-                                    <td className="py-4 px-4">{item.category}</td>
-                                    <td className="py-4 px-4">{item.spec || '-'}</td>
-                                    <td className="py-4 px-4">{item.dimensions || '-'}</td>
-                                    <td className="py-4 px-4">{item.quantity}</td>
-                                    <td className="py-4 px-4">${item.price}</td>
-                                    <td className="py-4 px-4">
-                                        <button
-                                            className="text-blue-600 underline hover:text-blue-800"
-                                            onClick={() => handleTrackUsage(item.id!)}
-                                            type="button"
-                                        >
-                                            Track Usage
-                                        </button>
-                                    </td>
-                                    <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm">
-                                        <DropdownMenu items={getDropdownItems(item)} />
-                                    </td>
-                                </tr>
-                            ))}
+                            {!loading &&
+                                !error &&
+                                inventory.map(item => (
+                                    <tr key={item.id} className="border-b hover:bg-gray-50">
+                                        <td className="py-4 px-4 font-medium">{item.itemName}</td>
+                                        <td className="py-4 px-4">{item.category}</td>
+                                        <td className="py-4 px-4">{item.spec || "-"}</td>
+                                        <td className="py-4 px-4">{item.dimensions || "-"}</td>
+                                        <td className="py-4 px-4">{item.quantity}</td>
+                                        <td className="py-4 px-4">${item.price}</td>
+                                        <td className="py-4 px-4">
+                                            <button
+                                                className="text-blue-600 underline hover:text-blue-800"
+                                                onClick={() => handleTrackUsage(item.id!)}
+                                                type="button"
+                                            >
+                                                Track Usage
+                                            </button>
+                                        </td>
+                                        <td className="py-4 px-4 text-right sticky right-0 bg-white/90 backdrop-blur-sm">
+                                            <DropdownMenu items={getDropdownItems(item)} />
+                                        </td>
+                                    </tr>
+                                ))}
                         </tbody>
                     </table>
                 </div>
@@ -247,14 +249,14 @@ export default function InventoryPage() {
             <CreateInventoryModal
                 isOpen={isModalOpen}
                 onClose={() => {
-                    setIsModalOpen(false)
-                    setEditingItem(null)
-                    setModalMode('create')
+                    setIsModalOpen(false);
+                    setEditingItem(null);
+                    setModalMode("create");
                 }}
                 onSubmit={fetchInventory}
                 editData={editingItem}
                 mode={modalMode}
             />
         </div>
-    )
+    );
 }
