@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { API_ENDPOINTS } from "../lib/api/endpoint";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers, FieldProps, FormikProps } from "formik";
 import * as Yup from "yup";
-import { Button } from "@/components/ui-old/button";
-import { Input } from "@/components/ui-old/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui-old/label";
 import { EnquiryFormData, CreateEnquiryModalProps } from "@/types/enquiry";
 import { useClients } from "@/hooks/useClients";
@@ -15,6 +15,7 @@ import DatePicker from "react-datepicker";
 const CreatableSelect = dynamic(() => import("react-select/creatable"), { ssr: false });
 import "react-datepicker/dist/react-datepicker.css";
 import { apiRequest } from "@/lib/api/api-client";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 
 const validationSchema = Yup.object({
     client: Yup.string().test("client-or-name", "Please select a client", function (value) {
@@ -113,7 +114,7 @@ export default function CreateEnquiryModal({
 
     const handleSubmit = async (
         values: EnquiryFormData,
-        { setSubmitting, setStatus, resetForm }: FormikHelpers<EnquiryFormData>
+        { setSubmitting, setStatus, resetForm }: FormikHelpers<EnquiryFormData>,
     ) => {
         setSaveProcessing(true);
 
@@ -175,7 +176,7 @@ export default function CreateEnquiryModal({
 
             if (!response.ok)
                 throw new Error(
-                    `Failed to ${isEdit ? "update" : "create"} enquiry: ${response.statusText}`
+                    `Failed to ${isEdit ? "update" : "create"} enquiry: ${response.statusText}`,
                 );
 
             const contentType = response.headers.get("content-type") ?? "";
@@ -199,7 +200,7 @@ export default function CreateEnquiryModal({
 
             const pick = <T,>(
                 record: Record<string, unknown> | null | undefined,
-                keys: string[]
+                keys: string[],
             ): T | undefined => {
                 if (!record) return undefined;
                 for (const key of keys) {
@@ -258,55 +259,35 @@ export default function CreateEnquiryModal({
     if (!isOpen) return null;
 
     return (
-        <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50"
-            onClick={e => e.target === e.currentTarget && onClose()}
+        <Modal
+            open={isOpen}
+            onClose={onClose}
+            title={mode === "edit" ? "Edit Enquiry" : "Create Enquiry"}
+            description={
+                mode === "edit"
+                    ? "Update the enquiry details"
+                    : "Add the following details to create an enquiry"
+            }
+            size="xl"
+            showCloseIcon
         >
-            <div className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
-                <Formik
-                    innerRef={formikRef}
-                    initialValues={initialValues}
-                    enableReinitialize
-                    validationSchema={validationSchema}
-                    onSubmit={handleSubmit}
-                >
-                    {({
-                        errors,
-                        touched,
-                        isSubmitting,
-                        status,
-                        values,
-                        setFieldValue,
-                        submitForm,
-                    }) => (
-                        <Form>
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">
-                                        📨
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-semibold">
-                                            {mode === "edit" ? "Edit Enquiry" : "Create Enquiry"}
-                                        </h2>
-                                        <p className="text-sm text-gray-600">
-                                            {mode === "edit"
-                                                ? "Update the enquiry details"
-                                                : "Add the following details to create an enquiry"}
-                                        </p>
-                                    </div>
+            <Formik
+                innerRef={formikRef}
+                initialValues={initialValues}
+                enableReinitialize
+                validationSchema={validationSchema}
+                onSubmit={handleSubmit}
+            >
+                {({ errors, touched, isSubmitting, status, values, setFieldValue, submitForm }) => (
+                    <Form>
+                        <ModalBody className="max-h-[60vh] overflow-y-auto">
+                            {status && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                    {status}
                                 </div>
-                                <button
-                                    onClick={onClose}
-                                    className="text-gray-400 hover:text-gray-600 text-xl"
-                                    type="button"
-                                >
-                                    ×
-                                </button>
-                            </div>
+                            )}
                             {/* Event Title */}
-                            <div>
+                            <div className="mb-4">
                                 <Label htmlFor="title">Event Title</Label>
                                 <Field
                                     as={Input}
@@ -324,13 +305,7 @@ export default function CreateEnquiryModal({
                                     className="mt-1 text-sm text-red-600"
                                 />
                             </div>
-                            <div className="pt-4 space-y-4">
-                                {status && (
-                                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                                        {status}
-                                    </div>
-                                )}
-
+                            <div className="space-y-4">
                                 {/* Enquiry Date removed; set internally on submit */}
 
                                 {/* Row 2: Event Dates */}
@@ -351,7 +326,7 @@ export default function CreateEnquiryModal({
                                                     onChange={(date: Date | null) => {
                                                         form.setFieldValue(
                                                             "fromDate",
-                                                            date ? date.toISOString() : ""
+                                                            date ? date.toISOString() : "",
                                                         );
                                                     }}
                                                     showTimeSelect
@@ -388,7 +363,7 @@ export default function CreateEnquiryModal({
                                                     onChange={(date: Date | null) =>
                                                         form.setFieldValue(
                                                             "toDate",
-                                                            date ? date.toISOString() : ""
+                                                            date ? date.toISOString() : "",
                                                         )
                                                     }
                                                     showTimeSelect
@@ -536,7 +511,7 @@ export default function CreateEnquiryModal({
                                                     placeholder="Search or create client..."
                                                     value={(() => {
                                                         const option = clients.find(
-                                                            c => c.id === values.client
+                                                            c => c.id === values.client,
                                                         );
                                                         if (option)
                                                             return {
@@ -570,7 +545,7 @@ export default function CreateEnquiryModal({
                                                             if (values.eventType === "PERSONAL") {
                                                                 setFieldValue(
                                                                     "clientPoC",
-                                                                    sel.label
+                                                                    sel.label,
                                                                 );
                                                             }
                                                         } else {
@@ -578,12 +553,12 @@ export default function CreateEnquiryModal({
                                                             setFieldValue("clientName", "");
                                                             if (values.eventType === "PERSONAL") {
                                                                 const selectedClient = clients.find(
-                                                                    c => c.id === sel.value
+                                                                    c => c.id === sel.value,
                                                                 );
                                                                 if (selectedClient)
                                                                     setFieldValue(
                                                                         "clientPoC",
-                                                                        selectedClient.name
+                                                                        selectedClient.name,
                                                                     );
                                                             }
                                                         }
@@ -670,7 +645,7 @@ export default function CreateEnquiryModal({
                                                             .slice(0, 10);
                                                         form.setFieldValue(
                                                             "enquiryPoCNumber",
-                                                            value
+                                                            value,
                                                         );
                                                     }}
                                                     className={`mt-1 ${
@@ -777,30 +752,27 @@ export default function CreateEnquiryModal({
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Footer */}
-                            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6 pt-4 border-t">
-                                <Button
-                                    variant="outline"
-                                    onClick={onClose}
-                                    type="button"
-                                    disabled={isSubmitting || saveProcessing}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    disabled={isSubmitting || saveProcessing}
-                                    onClick={() => submitForm()}
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                    {saveProcessing || isSubmitting ? "Saving..." : "Save Enquiry"}
-                                </Button>
-                            </div>
-                        </Form>
-                    )}
-                </Formik>
-            </div>
-        </div>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button
+                                variant="outline"
+                                onClick={onClose}
+                                type="button"
+                                disabled={isSubmitting || saveProcessing}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                disabled={isSubmitting || saveProcessing}
+                                onClick={() => submitForm()}
+                            >
+                                {saveProcessing || isSubmitting ? "Saving..." : "Save Enquiry"}
+                            </Button>
+                        </ModalFooter>
+                    </Form>
+                )}
+            </Formik>
+        </Modal>
     );
 }
