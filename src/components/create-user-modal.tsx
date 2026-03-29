@@ -1,21 +1,15 @@
-import { useState } from "react";
 import { Formik, Form } from "formik";
-import { FormikFieldInput } from "@/components/ui/formik-field-input";
-import { LoadingButton } from "@/components/ui/loading-button";
-import { useRequestApi } from "@/hooks/useRequestApi";
-import Modal from "@/components/ui/modal";
-import { Button } from "./ui/button";
-import * as Yup from "yup";
 
-interface User {
-    id?: string;
-    name: string;
-    role: string;
-    phone: string;
-    email: string;
-    uid: string;
-    password?: string;
-}
+import { FormikFieldInput } from "@/components/ui/formik-field-input";
+import { FormikFieldSelect } from "@/components/ui/formik-field-select";
+import { useRequestApi } from "@/hooks/useRequestApi";
+import { Modal, ModalFooter, ModalBody } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { getValidationSchema } from "@/lib/validations/user";
+import { User } from "@/types/user";
+import { userFormInitialValues, userRoleOptions } from "@/constants/user";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { toast } from "sonner";
 
 interface CreateUserModalProps {
     open: boolean;
@@ -24,112 +18,113 @@ interface CreateUserModalProps {
     onSuccess?: () => void;
 }
 
-const initialValues: User = {
-    name: "",
-    role: "",
-    phone: "",
-    email: "",
-    uid: "",
-    password: "",
-};
-
-const roleOptions = [
-    { label: "Admin", value: "admin" },
-    { label: "User", value: "user" },
-    { label: "Customer", value: "customer" },
-];
-
-const validationSchema = Yup.object({
-    name: Yup.string().required("Name is required"),
-    uid: Yup.string().required("Username is required"),
-    password: Yup.string().required("Password is required"),
-    role: Yup.string().oneOf(["admin", "user", "customer"]).required("Role is required"),
-    email: Yup.string().email("Invalid email").required("Email is required"),
-    phone: Yup.string().required("Phone number is required"),
-});
-
 export default function CreateUserModal({ open, onClose, user, onSuccess }: CreateUserModalProps) {
-    const { request } = useRequestApi();
-    const [loading, setLoading] = useState(false);
+    const { request, loading, error } = useRequestApi();
 
-    // Use Modal component for consistent modal UI
+    const isEditMode = Boolean(user?.id);
 
-    const handleSubmit = async (values: User) => {
-        setLoading(true);
+    const handleSubmit = async (
+        values: User,
+        { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void },
+    ) => {
+        const { name, uid, email, phone, role, password } = values;
+        const body = { name, uid, email, phone, role };
         try {
-            if (user && user.id) {
-                await request(`/users/${user.id}`, {
+            let result;
+            if (isEditMode) {
+                result = await request(`${API_ENDPOINTS.users}/${user!.id}`, {
                     method: "PUT",
-                    body: values,
+                    body,
                 });
             } else {
-                await request("/users", {
+                result = await request(API_ENDPOINTS.users, {
                     method: "POST",
-                    body: values,
+                    body: { ...body, password },
                 });
             }
+            if (result === null) {
+                toast.error(
+                    `Failed to ${isEditMode ? "update" : "create"} user. Please try again. ${error}`,
+                );
+                return;
+            }
+
             if (onSuccess) onSuccess();
+            toast.success(`User ${isEditMode ? "updated" : "created"} successfully!`);
             onClose();
         } catch {
-            // handle error
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
+    const validationSchema = getValidationSchema(Boolean(user));
+
     return (
         <Modal
-            isOpen={open}
+            open={open}
             onClose={onClose}
-            header={<h2 className="text-xl font-bold">{user ? "Edit User" : "Create User"}</h2>}
-            showCloseButton
+            title={user ? "Edit User" : "Create User"}
+            size="lg"
+            description="Create a new user profile and set initial access credentials."
         >
             <Formik
-                initialValues={user ? { ...user, password: "" } : initialValues}
+                initialValues={user ? { ...user, password: "" } : userFormInitialValues}
                 onSubmit={handleSubmit}
                 validationSchema={validationSchema}
+                validateOnMount={false}
             >
-                {({ values, setFieldValue, errors, touched }) => (
-                    <Form className="grid gap-4">
-                        <FormikFieldInput name="name" label="Name" placeholder="Full Name" />
-                        <FormikFieldInput name="uid" label="Username" placeholder="Username" />
-                        <FormikFieldInput name="password" label="Password" type="text" placeholder="Password" />
-                        <div>
-                            <label className="text-sm mb-1 block" htmlFor="role">
-                                Role
-                            </label>
-                            <select
-                                id="role"
+                {() => (
+                    <Form className="grid gap-3">
+                        <ModalBody className="grid gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <FormikFieldInput
+                                    name="name"
+                                    label="Name"
+                                    placeholder="Full Name"
+                                />
+                                <FormikFieldInput
+                                    name="uid"
+                                    label="Username"
+                                    placeholder="Username"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <FormikFieldInput
+                                    name="password"
+                                    label="Password"
+                                    type="text"
+                                    placeholder="Password"
+                                    disabled={Boolean(user)}
+                                />
+                                <FormikFieldInput
+                                    name="phone"
+                                    label="Phone Number"
+                                    placeholder="Phone Number"
+                                />
+                            </div>
+                            <FormikFieldInput
+                                name="email"
+                                label="Email"
+                                type="email"
+                                placeholder="Email"
+                            />
+                            <FormikFieldSelect
                                 name="role"
-                                className="w-full border rounded-md px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                                value={values.role}
-                                onChange={e => setFieldValue("role", e.target.value)}
-                            >
-                                <option value="">Select role</option>
-                                {roleOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </option>
-                                ))}
-                            </select>
-                            {touched.role && errors.role && (
-                                <div className="text-xs text-red-500 mt-1">{errors.role}</div>
-                            )}
-                        </div>
-                        <FormikFieldInput name="email" label="Email" type="email" placeholder="Email" />
-                        <FormikFieldInput name="phone" label="Phone Number" placeholder="Phone Number" />
-                        <div className="flex flex-row items-center gap-2 justify-end mt-6">
-                            <Button type="button" variant="outline" className="min-w-[90px]" onClick={onClose}>
+                                label="Role"
+                                options={userRoleOptions}
+                                placeholder="Select role"
+                            />
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button type="button" variant="outline" onClick={onClose}>
                                 Cancel
                             </Button>
-                            <LoadingButton
-                                className="min-w-[90px] border-0 bg-[var(--app-primary)] text-white hover:bg-[var(--app-primary-hover)] transition-colors"
-                                loading={loading}
-                                loadingLabel={user ? "Saving..." : "Creating..."}
-                            >
+                            <Button isLoading={loading} type="submit">
                                 {user ? "Save" : "Create"}
-                            </LoadingButton>
-                        </div>
+                            </Button>
+                        </ModalFooter>
                     </Form>
                 )}
             </Formik>

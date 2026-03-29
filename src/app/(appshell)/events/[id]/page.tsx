@@ -7,9 +7,9 @@ import { EstimateHistoryModal } from "@/components/estimate-history-modal";
 import { ExpensesModal } from "@/components/expenses-modal";
 import { BillingExpenseModal } from "@/components/billing-expense-modal";
 import { ChecklistModal } from "@/components/checklist-modal";
-import { toast } from "sonner";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
+import { EventResponse } from "@/types/event";
 
 // Event status label mapping (read-only)
 const STATUS_LABELS: Record<string, string> = {
@@ -34,83 +34,6 @@ const STATUS_COLORS: Record<string, string> = {
     PROJECT_COMPLETED: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
 };
 
-type EventResponse = {
-    id?: string;
-    eventID?: string;
-    title?: string;
-    eventStartDate?: string;
-    eventEndDate?: string;
-    location?: string;
-    venue?: string;
-    status?: string;
-    gst?: number;
-    tds?: number;
-    advanceAmt?: number;
-    serviceCharge?: number;
-    discounts?: number;
-    billingAddress?: string;
-    pan?: string;
-    checklist?: any[];
-    invoiceSummary?: {
-        discountAmount?: number;
-        serviceChargeAmt?: number;
-        additionalCostAmt?: number;
-        expensesTotal?: number;
-        gstAmount?: number;
-        netTotal?: number;
-    };
-    client?: {
-        id?: string;
-        name?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-        poc?: string;
-        gst?: string;
-        pan?: string;
-    };
-    items?: Array<{
-        item?: string;
-        description?: string;
-        count?: number;
-        pricePerItem?: number;
-        vendor?: string;
-        days?: number;
-        serialNumber?: number;
-    }>;
-    categorySummary?: Array<{
-        category?: string;
-        gst?: number;
-        tds?: number;
-        totalAmount?: number;
-        advanceAmount?: number;
-        adjustedAmt?: number;
-        balance?: number;
-    }>;
-    vendorSummary?: Array<unknown>;
-    purchaseOrders?: Array<{
-        vendor?: string;
-        items?: Array<{
-            item?: string;
-            description?: string;
-            count?: number;
-            pricePerItem?: number;
-            vendor?: string;
-            days?: number;
-            serialNumber?: number;
-        }>;
-        gst?: number;
-        tds?: number;
-        totalAmount?: number;
-        advanceAmount?: number;
-        adjustedAmt?: number;
-        balance?: number;
-    }>;
-    estimateId?: string;
-    enquiryId?: string;
-    [key: string]: unknown;
-};
-
 export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = React.use(params);
     const router = useRouter();
@@ -131,7 +54,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             const queryParam = String(id).includes("_") ? id : id;
             fetchPromiseRef.current = (async () => {
                 const res = await apiRequest(
-                    API_ENDPOINTS.events.detail(encodeURIComponent(String(queryParam)))
+                    API_ENDPOINTS.events.detail(encodeURIComponent(String(queryParam))),
                 );
                 if (!res.ok) return null;
                 return (await res.json()) as EventResponse;
@@ -211,7 +134,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                                   day: "numeric",
                                                   hour: "2-digit",
                                                   minute: "2-digit",
-                                              }
+                                              },
                                           )
                                         : "-"}
                                 </p>
@@ -230,7 +153,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                                   day: "numeric",
                                                   hour: "2-digit",
                                                   minute: "2-digit",
-                                              }
+                                              },
                                           )
                                         : "-"}
                                 </p>

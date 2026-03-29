@@ -1,9 +1,18 @@
-export interface Notification {
-    id: string;
-    user: string;
-    action: string;
-    detail?: string;
-    time: string;
-    read: boolean;
-    avatar?: string;
+export type NotificationType =
+    | "ENQUIRY"
+    | "EVENT"
+    | "USER"
+    | "SYSTEM"
+    | "INVENTORY"
+    | "ESTIMATE"
+    | "VENDOR"
+    | "CHECKLIST";
+
+export interface NotificationData {
+    type: NotificationType;
+    entityId: string | null;
+    message: string;
+    data: Record<string, unknown>;
+    createdAt: string;
+    isRead?: boolean;
 }

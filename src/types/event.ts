@@ -109,3 +109,80 @@ export interface CalendarEvent {
     asignee?: string;
     currentTask?: string;
 }
+
+export type EventResponse = {
+    id?: string;
+    eventID?: string;
+    title?: string;
+    eventStartDate?: string;
+    eventEndDate?: string;
+    location?: string;
+    venue?: string;
+    status?: string;
+    gst?: number;
+    tds?: number;
+    advanceAmt?: number;
+    serviceCharge?: number;
+    discounts?: number;
+    billingAddress?: string;
+    pan?: string;
+    checklist?: unknown[];
+    invoiceSummary?: {
+        discountAmount?: number;
+        serviceChargeAmt?: number;
+        additionalCostAmt?: number;
+        expensesTotal?: number;
+        gstAmount?: number;
+        netTotal?: number;
+    };
+    client?: {
+        id?: string;
+        name?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+        poc?: string;
+        gst?: string;
+        pan?: string;
+    };
+    items?: Array<{
+        item?: string;
+        description?: string;
+        count?: number;
+        pricePerItem?: number;
+        vendor?: string;
+        days?: number;
+        serialNumber?: number;
+    }>;
+    categorySummary?: Array<{
+        category?: string;
+        gst?: number;
+        tds?: number;
+        totalAmount?: number;
+        advanceAmount?: number;
+        adjustedAmt?: number;
+        balance?: number;
+    }>;
+    vendorSummary?: Array<unknown>;
+    purchaseOrders?: Array<{
+        vendor?: string;
+        items?: Array<{
+            item?: string;
+            description?: string;
+            count?: number;
+            pricePerItem?: number;
+            vendor?: string;
+            days?: number;
+            serialNumber?: number;
+        }>;
+        gst?: number;
+        tds?: number;
+        totalAmount?: number;
+        advanceAmount?: number;
+        adjustedAmt?: number;
+        balance?: number;
+    }>;
+    estimateId?: string;
+    enquiryId?: string;
+    [key: string]: unknown;
+};

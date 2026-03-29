@@ -37,17 +37,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             children,
             ...props
         },
-        ref
+        ref,
     ) => (
         <button
             ref={ref}
             className={cn(
-                "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 cursor-pointer",
+                "inline-flex items-center justify-center rounded-md font-medium transition-all duration-200 cursor-pointer",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 "disabled:pointer-events-none disabled:opacity-50",
                 variantStyles[variant],
                 sizeStyles[size],
-                className
+                className,
             )}
             disabled={disabled || isLoading}
             {...props}
@@ -55,7 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             {isLoading && <Spinner />}
             {children}
         </button>
-    )
+    ),
 );
 
 Button.displayName = "Button";

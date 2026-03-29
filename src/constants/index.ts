@@ -23,3 +23,7 @@ export const MONTH_NAMES = [
     "November",
     "December",
 ];
+
+export const DEFAULT_PAGE_SIZE = 10;
+
+export const NOTIFICATION_INTERVAL_MS = 5000000;

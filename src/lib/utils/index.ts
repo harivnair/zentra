@@ -1,9 +1,16 @@
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
 import { AVATAR_COLORS } from "@/constants";
+
+export function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs));
+}
 
 export function formatCurrency(
     amount: number,
     currency: string = "USD",
-    locale: string = "en-US"
+    locale: string = "en-US",
 ): string {
     return new Intl.NumberFormat(locale, {
         style: "currency",
@@ -26,7 +33,7 @@ export function truncate(text: string, maxLength: number): string {
 }
 
 export function pluralize(count: number, singular: string, plural?: string): string {
-    return count === 1 ? singular : plural ?? `${singular}s`;
+    return count === 1 ? singular : (plural ?? `${singular}s`);
 }
 
 export function getUserNameInitials(name: string) {
