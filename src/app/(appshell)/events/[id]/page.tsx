@@ -447,7 +447,14 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             <ChecklistModal
                 isOpen={isChecklistModalOpen}
                 onClose={() => setIsChecklistModalOpen(false)}
-                eventData={eventData || {}}
+                eventData={
+                    (eventData as unknown as {
+                        [key: string]: any;
+                        id?: string;
+                        items?: any[];
+                        checklist?: any[];
+                    }) || {}
+                }
                 onSave={() => {
                     setIsChecklistModalOpen(false);
                     fetchEventData();

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-datepicker/dist/react-datepicker.css";
 
 /*
  * Dark mode variant mapped to data-theme attribute.
@@ -259,9 +260,47 @@ body {
     }
 }
 
-/* Scrollbar tinting */
+/* Scrollbar tinting - Slim design */
 @supports (scrollbar-color: auto) {
     * {
         scrollbar-color: var(--border-hover) transparent;
+        scrollbar-width: thin;
     }
+}
+
+/* Webkit scrollbar styling (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--border-hover);
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+}
+
+/* ==========================================================================
+   React DatePicker Styles - Preserve default layout with theme colors
+   ========================================================================== */
+.react-datepicker__header--time {
+    padding-bottom: 19px;
+    padding-top: 22px;
+    background-color: var(--primary-light);
+}
+
+.react-datepicker__header {
+    background-color: var(--primary-light);
+}
+
+.react-datepicker__day--keyboard-selected {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
 }

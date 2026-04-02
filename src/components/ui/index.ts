@@ -12,4 +12,6 @@ export { Pagination, type PaginationInfo } from "./pagination";
 export { PageHeader } from "./page-header";
 export { Modal, ModalBody, ModalFooter } from "./modal";
 export { MenuList, type MenuItem, type MenuListProps } from "./menu-list";
+export { Table } from "./table";
+export { Tooltip } from "./tooltip";
 export * from "./icons";

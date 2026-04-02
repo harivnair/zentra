@@ -55,6 +55,9 @@ export const routePermissions: Record<string, RoutePermission> = {
     "/events": {
         roles: ["admin", "user", "customer"],
     },
+    "/events/:id": {
+        roles: ["admin", "user", "customer"],
+    },
     "/inventory": {
         roles: ["admin", "user"],
     },

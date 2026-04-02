@@ -1,16 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import DropdownMenu from "@/components/ui-old/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+import { useRequestApi } from "@/hooks/useRequestApi";
+import { Button } from "@/components/ui/button";
+import { LinkText, MenuList, type MenuItem } from "@/components/ui";
+import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
+import { Copy } from "lucide-react";
+import { PageHeader } from "@/components/ui";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { MobileCardList } from "@/components/shared/mobile-card-list";
+import { ConfirmationModal } from "@/components/shared/confirmation-modal";
 import CreateEventModal from "@/components/create-event-modal";
 import { EventFormData } from "@/types/event";
-import { showConfirmation } from "@/components/confirmation-toast";
-import { toast } from "sonner";
-import { TableRowSkeleton, ListSkeleton } from "@/components/skeleton-loader";
-import { useAuth } from "@/context/auth";
-import { Calendar, Copy } from "lucide-react";
 import { useEventPrefill } from "@/context/event-prefill";
 import { apiRequest } from "@/lib/api/api-client";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
 
 type EventItem = {
     id: number | string;
@@ -27,8 +35,8 @@ type EventItem = {
         | string;
     startDate?: string;
     endDate?: string;
-    eventStartDate?: string; // Backend field name
-    eventEndDate?: string; // Backend field name
+    eventStartDate?: string;
+    eventEndDate?: string;
     location?: string;
     venue?: string;
     status?: string;
@@ -36,47 +44,24 @@ type EventItem = {
     enquiryId?: string;
 };
 
-const StatusPill = ({ status }: { status?: string }) => {
+const getStatusVariant = (
+    status?: string,
+): "default" | "success" | "warning" | "danger" | "info" => {
     const s = String(status ?? "").toLowerCase();
-    const base = "inline-block rounded-full px-3 py-1 text-sm font-medium";
-    if (s === "in progress" || s === "in_progress" || s === "ongoing")
-        return (
-            <span
-                className={
-                    base +
-                    " bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"
-                }
-            >
-                {status}
-            </span>
-        );
-    if (s === "cancelled" || s === "canceled")
-        return (
-            <span
-                className={base + " bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400"}
-            >
-                {status}
-            </span>
-        );
-    return (
-        <span
-            className={base + " bg-gray-200 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"}
-        >
-            {status ?? "Not Started"}
-        </span>
-    );
+    if (s === "in progress" || s === "in_progress" || s === "ongoing") return "warning";
+    if (s === "cancelled" || s === "canceled") return "danger";
+    if (s === "completed" || s === "done" || s === "finished") return "success";
+    return "default";
 };
 
 // Helper function to format dates using native JavaScript Date
 const formatDateTime = (dateStr?: string) => {
-    if (!dateStr) return "N/A";
+    if (!dateStr) return "-";
     try {
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) {
-            console.warn("Invalid date:", dateStr);
-            return "N/A";
+            return "-";
         }
-        // Format: Oct 28, 2025 6:30 AM
         return date.toLocaleString("en-US", {
             month: "short",
             day: "numeric",
@@ -85,31 +70,27 @@ const formatDateTime = (dateStr?: string) => {
             minute: "2-digit",
             hour12: true,
         });
-    } catch (error) {
-        console.error("Error formatting date:", dateStr, error);
-        return "N/A";
+    } catch {
+        return "-";
     }
 };
 
 const formatDateRange = (startDate?: string, endDate?: string) => {
-    if (!startDate && !endDate) return "N/A";
+    if (!startDate && !endDate) return "-";
     if (!endDate) return formatDateTime(startDate);
-    if (!startDate) return "N/A";
+    if (!startDate) return "-";
 
     try {
         const start = new Date(startDate);
         const end = new Date(endDate);
 
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            console.warn("Invalid date range:", { startDate, endDate });
-            return "N/A";
+            return "-";
         }
 
-        // Check if same day
         const sameDay = start.toDateString() === end.toDateString();
 
         if (sameDay) {
-            // Format: Oct 28, 2025 · 6:30 AM - 7:15 AM
             const dateStr = start.toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -128,7 +109,6 @@ const formatDateRange = (startDate?: string, endDate?: string) => {
             return `${dateStr} · ${startTime} - ${endTime}`;
         }
 
-        // Different days: Oct 28, 6:30 AM - Oct 29, 5:00 PM
         const startStr = start.toLocaleString("en-US", {
             month: "short",
             day: "numeric",
@@ -144,21 +124,165 @@ const formatDateRange = (startDate?: string, endDate?: string) => {
             hour12: true,
         });
         return `${startStr} - ${endStr}`;
-    } catch (error) {
-        console.error("Error formatting date range:", { startDate, endDate }, error);
-        return "N/A";
+    } catch {
+        return "-";
     }
 };
 
+const columns = (
+    onView: (ev: EventItem) => void,
+    onEdit: (ev: EventItem) => void,
+    onClone: (ev: EventItem) => void,
+    onDelete: (ev: EventItem) => void,
+    deletingIds: Set<string>,
+    cloningIds: Set<string>,
+): Column<EventItem>[] => [
+    {
+        key: "title",
+        header: "Event Name",
+        render: row => {
+            const isDeleting = deletingIds.has(String(row.id));
+            return (
+                <div className="font-medium">
+                    {isDeleting ? (
+                        <span className="inline-flex items-center gap-2 text-red-600">
+                            <svg
+                                className="animate-spin h-4 w-4"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                ></circle>
+                                <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                            </svg>
+                            {row.title}
+                        </span>
+                    ) : (
+                        <LinkText href={`/events/${row.eventID}`}>{row.title}</LinkText>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
+        key: "client",
+        header: "Client",
+        render: row => (
+            <div>
+                <div className="font-medium">
+                    {typeof row.client === "string" ? row.client : row.client?.name}
+                </div>
+                {typeof row.client !== "string" && row.client && (
+                    <div className="text-xs text-muted-foreground">
+                        {row.client.email && <div>{row.client.email}</div>}
+                        {row.client.phone && <div>{row.client.phone}</div>}
+                    </div>
+                )}
+            </div>
+        ),
+    },
+    {
+        key: "schedule",
+        header: "Schedule",
+        render: row => (
+            <div className="text-sm">
+                <div className="text-muted-foreground">
+                    {formatDateTime(row.startDate || row.eventStartDate)}
+                </div>
+                {row.endDate || row.eventEndDate ? (
+                    <div className="text-muted-foreground">
+                        {formatDateTime(row.endDate || row.eventEndDate)}
+                    </div>
+                ) : null}
+            </div>
+        ),
+    },
+    {
+        key: "status",
+        header: "Status",
+        render: row => (
+            <Badge variant={getStatusVariant(row.status)}>{row.status || "Not Started"}</Badge>
+        ),
+    },
+    {
+        key: "actions",
+        header: "",
+        className: "text-right",
+        render: row => {
+            const isDeleting = deletingIds.has(String(row.id));
+            const isCloning = cloningIds.has(String(row.id));
+            const isBusy = isDeleting || isCloning;
+
+            const items: MenuItem[] = [
+                {
+                    key: "view",
+                    label: "View",
+                    icon: <FileTextIcon size={16} />,
+                    onClick: () => onView(row),
+                    disabled: isBusy,
+                },
+                {
+                    key: "edit",
+                    label: "Edit",
+                    icon: <PencilIcon size={16} />,
+                    onClick: () => onEdit(row),
+                    disabled: isBusy,
+                },
+                {
+                    key: "clone",
+                    label: isCloning ? "Cloning..." : "Clone",
+                    icon: <Copy size={16} />,
+                    onClick: () => onClone(row),
+                    disabled: isBusy,
+                },
+                {
+                    key: "delete",
+                    label: isDeleting ? "Deleting..." : "Delete",
+                    icon: <TrashIcon size={16} />,
+                    onClick: () => onDelete(row),
+                    className: "text-destructive focus:text-destructive",
+                    disabled: isBusy,
+                },
+            ];
+
+            return (
+                <div className="flex justify-center">
+                    <MenuList
+                        align="end"
+                        items={items}
+                        trigger={
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVerticalIcon size={16} />
+                            </Button>
+                        }
+                    />
+                </div>
+            );
+        },
+    },
+];
+
 export default function EventsPage() {
+    const router = useRouter();
+    const { request, loading } = useRequestApi<EventItem[]>();
     const [events, setEvents] = useState<EventItem[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<EventFormData | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [eventToDelete, setEventToDelete] = useState<EventItem | null>(null);
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
     const [cloningIds, setCloningIds] = useState<Set<string>>(new Set());
-    const { user } = useAuth();
     const { prefill: contextPrefill, clearPrefill } = useEventPrefill();
 
     // Handle prefill from context (coming from estimates page)
@@ -170,102 +294,57 @@ export default function EventsPage() {
         }
     }, [contextPrefill, clearPrefill]);
 
-    useEffect(() => {
-        let mounted = true;
-        const fetchEvents = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const res = await apiRequest("/api/events");
-                if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`);
-                const data = await res.json();
-
-                // Normalize the response to map backend field names to frontend field names
-                const normalizedData = Array.isArray(data)
-                    ? data.map((ev: EventItem) => ({
+    const fetchEvents = async () => {
+        try {
+            const res = await request(API_ENDPOINTS.events.list, {
+                method: "GET",
+            });
+            if (res !== null) {
+                const normalizedData = Array.isArray(res)
+                    ? res.map((ev: EventItem) => ({
                           ...ev,
                           startDate: ev.eventStartDate || ev.startDate,
                           endDate: ev.eventEndDate || ev.endDate,
                       }))
                     : [];
-
-                console.log("Normalized events data:", normalizedData);
-                if (mounted) setEvents(normalizedData);
-            } catch (err: unknown) {
-                if (mounted) setError((err as Error)?.message ?? "Unknown error");
-            } finally {
-                if (mounted) setLoading(false);
+                setEvents(normalizedData);
             }
-        };
-        fetchEvents();
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const handleDelete = async (id: string | number) => {
-        const idString = String(id);
-
-        showConfirmation({
-            title: "Delete Event",
-            description:
-                "Are you sure you want to delete this event? This action cannot be undone.",
-            onConfirm: async () => {
-                // Add to deleting state immediately
-                setDeletingIds(prev => new Set(prev).add(idString));
-
-                try {
-                    console.log("Deleting event with ID:", idString);
-                    const res = await apiRequest(`/api/events/${idString}`, {
-                        method: "DELETE",
-                    });
-                    if (!res.ok) {
-                        const txt = await res.text().catch(() => "");
-                        console.log("Delete response status:", res.status, "body:", txt);
-                        throw new Error(`Delete failed: ${res.status} ${txt}`);
-                    }
-                    // Remove from UI
-                    setEvents(prev => prev.filter(e => String(e.id) !== idString));
-                    toast.success("Event deleted successfully");
-                } catch (err) {
-                    console.error("Failed to delete event", err);
-                    toast.error("Failed to delete event");
-                } finally {
-                    // Remove from deleting state
-                    setDeletingIds(prev => {
-                        const next = new Set(prev);
-                        next.delete(idString);
-                        return next;
-                    });
-                }
-            },
-        });
+        } catch (err: unknown) {
+            toast.error("Failed to fetch events");
+            console.error(err);
+        }
     };
 
-    const handleEdit = async (id: string | number) => {
-        // Fetch full event details to get estimateId
+    useEffect(() => {
+        fetchEvents();
+    }, []);
+
+    const handleView = (ev: EventItem) => {
+        router.push(`/events/${ev.eventID || ev.id}`);
+    };
+
+    const handleEdit = async (ev: EventItem) => {
         try {
-            const res = await apiRequest(`/api/events/${encodeURIComponent(String(id))}`);
+            const res = await apiRequest(`/api/events/${encodeURIComponent(String(ev.id))}`);
             if (!res.ok) {
                 toast.error("Failed to load event details");
                 return;
             }
-            const ev = await res.json();
+            const fullEvent = await res.json();
 
             setEditingEvent({
-                id: String(ev.id ?? id),
-                title: ev.title || ev.eventName || "",
-                eventStartDate: ev.eventStartDate ?? ev.startDate ?? "",
-                eventEndDate: ev.eventEndDate ?? ev.endDate ?? "",
-                location: ev.location ?? "",
-                venue: ev.venue ?? "",
-                clientId: typeof ev.client === "string" ? "" : ev.client?.id ?? "",
-                estimateId: ev.estimateId ?? "",
-                enquiryId: ev.enquiryId ?? "",
+                id: String(fullEvent.id ?? ev.id),
+                title: fullEvent.title || fullEvent.eventName || "",
+                eventStartDate: fullEvent.eventStartDate ?? fullEvent.startDate ?? "",
+                eventEndDate: fullEvent.eventEndDate ?? fullEvent.endDate ?? "",
+                location: fullEvent.location ?? "",
+                venue: fullEvent.venue ?? "",
+                clientId: typeof fullEvent.client === "string" ? "" : (fullEvent.client?.id ?? ""),
+                estimateId: fullEvent.estimateId ?? "",
+                enquiryId: fullEvent.enquiryId ?? "",
             });
             setIsModalOpen(true);
-        } catch (error) {
-            console.error("Failed to fetch event for edit:", error);
+        } catch {
             toast.error("Failed to load event details");
         }
     };
@@ -275,10 +354,9 @@ export default function EventsPage() {
         setCloningIds(prev => new Set(prev).add(idString));
 
         try {
-            // Fetch full event data using eventID (the backend resolves via /events/by-eventid?eventID=...)
             const lookupId = ev.eventID || ev.id;
             const detailRes = await apiRequest(
-                `/api/events/${encodeURIComponent(String(lookupId))}`
+                `/api/events/${encodeURIComponent(String(lookupId))}`,
             );
             if (!detailRes.ok) {
                 toast.error("Failed to load event details for cloning");
@@ -286,7 +364,6 @@ export default function EventsPage() {
             }
             const fullEvent = await detailRes.json();
 
-            // Clone via backend
             const cloneRes = await apiRequest("/api/events/clone", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -307,19 +384,8 @@ export default function EventsPage() {
                 },
             });
 
-            // Refresh the list
-            const res = await apiRequest("/api/events");
-            const data = await res.json();
-            const normalizedData = Array.isArray(data)
-                ? data.map((e: EventItem) => ({
-                      ...e,
-                      startDate: e.eventStartDate || e.startDate,
-                      endDate: e.eventEndDate || e.endDate,
-                  }))
-                : [];
-            setEvents(normalizedData);
-        } catch (err) {
-            console.error("Failed to clone event:", err);
+            await fetchEvents();
+        } catch {
             toast.error("Failed to clone event");
         } finally {
             setCloningIds(prev => {
@@ -329,277 +395,193 @@ export default function EventsPage() {
             });
         }
     };
-    const getDropdownItems = (ev: EventItem) => {
-        const isDeleting = deletingIds.has(String(ev.id));
-        const isCloning = cloningIds.has(String(ev.id));
-        const isBusy = isDeleting || isCloning;
-        return [
-            {
-                label: "View",
-                icon: "🔍",
-                action: () => (window.location.href = `/events/${ev.eventID || ev.id}`),
-                disabled: isBusy,
-            },
-            {
-                label: "Edit",
-                icon: "✏️",
-                action: () => handleEdit(ev.id),
-                disabled: isBusy,
-            },
-            {
-                label: isCloning ? "Cloning..." : "Clone",
-                icon: "📋",
-                action: () => handleClone(ev),
-                disabled: isBusy,
-            },
-            {
-                label: isDeleting ? "Deleting..." : "Delete",
-                icon: "🗑️",
-                action: () => handleDelete(ev.id),
-                variant: "danger" as const,
-                disabled: isBusy,
-            },
-        ];
+
+    const handleDeleteClick = (ev: EventItem) => {
+        setEventToDelete(ev);
+        setDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!eventToDelete) return;
+        const idString = String(eventToDelete.id);
+
+        setDeletingIds(prev => new Set(prev).add(idString));
+
+        try {
+            const res = await apiRequest(`/api/events/${idString}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) {
+                const txt = await res.text().catch(() => "");
+                throw new Error(`Delete failed: ${res.status} ${txt}`);
+            }
+            setEvents(prev => prev.filter(e => String(e.id) !== idString));
+            toast.success("Event deleted successfully");
+        } catch {
+            toast.error("Failed to delete event");
+        } finally {
+            setDeletingIds(prev => {
+                const next = new Set(prev);
+                next.delete(idString);
+                return next;
+            });
+            setDeleteModalOpen(false);
+            setEventToDelete(null);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        setDeleteModalOpen(false);
+        setEventToDelete(null);
     };
 
     return (
-        <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-lg bg-green-100 flex items-center justify-center">
-                        <Calendar className="h-8 w-8 text-green-600" />
+        <div className="flex flex-col gap-6 sm:gap-8">
+            <PageHeader
+                title="Event Management"
+                description={`Manage all events. You have ${events.length} ${events.length === 1 ? "event" : "events"}`}
+                actions={
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                        <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+                            Create Event
+                        </Button>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-bold">Events</h2>
-                        <p className="text-muted-foreground">
-                            All scheduled events and their status
-                        </p>
-                    </div>
+                }
+            />
+            <div className="flex flex-col gap-4 sm:gap-1">
+                <div className="rounded-lg bg-surface p-4 sm:p-6 shadow-sm hidden md:block">
+                    <DataTable
+                        columns={columns(
+                            handleView,
+                            handleEdit,
+                            handleClone,
+                            handleDeleteClick,
+                            deletingIds,
+                            cloningIds,
+                        )}
+                        data={events}
+                        rowKey={row => String(row.id)}
+                        emptyMessage="No events found."
+                        hoverable
+                        isLoading={loading}
+                    />
                 </div>
-            </div>
-
-            <div className="glass rounded-2xl p-4 sm:p-6">
-                <div className="hidden md:block">
-                    {error && <div className="p-4 text-red-600">{error}</div>}
-
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-xs text-muted-foreground">
-                                <th className="py-3">Event Name</th>
-                                <th className="py-3">Client</th>
-                                <th className="py-3">Start Date</th>
-                                <th className="py-3">End Date</th>
-                                <th className="py-3">Status</th>
-                                <th className="py-3 text-right">&nbsp;</th>
-                            </tr>
-                        </thead>
-                        <tbody className="stagger-rows">
-                            {loading && <TableRowSkeleton rows={8} />}
-                            {!loading && !error && events.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="py-8 text-center text-muted-foreground"
-                                    >
-                                        No events found.
-                                    </td>
-                                </tr>
-                            )}
-                            {events.map(ev => {
-                                const isDeleting = deletingIds.has(String(ev.id));
-                                return (
-                                    <tr
-                                        key={ev.id}
-                                        className={`border-t hover:bg-gray-50 cursor-pointer ${
-                                            isDeleting
-                                                ? "opacity-50 pointer-events-none bg-gray-50"
-                                                : ""
-                                        }`}
-                                        onClick={() =>
-                                            !isDeleting &&
-                                            (window.location.href = `/events/${
-                                                ev.eventID || ev.id
-                                            }`)
-                                        }
-                                    >
-                                        <td className="py-4">
-                                            {isDeleting && (
-                                                <span className="inline-flex items-center gap-2">
-                                                    <svg
-                                                        className="animate-spin h-4 w-4 text-red-600"
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <circle
-                                                            className="opacity-25"
-                                                            cx="12"
-                                                            cy="12"
-                                                            r="10"
-                                                            stroke="currentColor"
-                                                            strokeWidth="4"
-                                                        ></circle>
-                                                        <path
-                                                            className="opacity-75"
-                                                            fill="currentColor"
-                                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                        ></path>
-                                                    </svg>
-                                                    {ev.title}
-                                                </span>
-                                            )}
-                                            {!isDeleting && ev.title}
-                                        </td>
-                                        <td className="py-4">
-                                            <div className="font-medium">
-                                                {typeof ev.client === "string"
-                                                    ? ev.client
-                                                    : ev.client?.name}
-                                            </div>
-                                            <div className="text-muted-foreground text-xs">
-                                                {typeof ev.client === "string"
-                                                    ? ""
-                                                    : `${ev.client?.email ?? ""}${
-                                                          ev.client?.phone
-                                                              ? " · " + ev.client?.phone
-                                                              : ""
-                                                      }`}
-                                            </div>
-                                        </td>
-                                        <td className="py-4">{formatDateTime(ev.startDate)}</td>
-                                        <td className="py-4">{formatDateTime(ev.endDate)}</td>
-                                        <td className="py-4">
-                                            <StatusPill status={ev.status} />
-                                        </td>
-                                        <td
-                                            className="py-4 text-right"
-                                            onClick={e => e.stopPropagation()}
-                                        >
-                                            <DropdownMenu items={getDropdownItems(ev)} />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Mobile stacked cards */}
-                <div className="flex flex-col gap-4 md:hidden stagger-children">
-                    {loading && <ListSkeleton type="cards" items={5} />}
-                    {error && <div className="p-4 text-red-600">{error}</div>}
-                    {!loading && !error && events.length === 0 && (
-                        <div className="p-4 text-muted-foreground">No events found.</div>
+                <MobileCardList
+                    className="flex flex-col gap-4 md:hidden"
+                    items={events.map(ev => ({ id: String(ev.id), data: ev }))}
+                    renderHeader={ev => (
+                        <div className="flex items-center justify-between">
+                            <div className="font-bold text-lg">{ev.title}</div>
+                            <Badge variant={getStatusVariant(ev.status)}>
+                                {ev.status || "Not Started"}
+                            </Badge>
+                        </div>
                     )}
-
-                    {events.map(ev => {
-                        const isDeleting = deletingIds.has(String(ev.id));
-                        return (
-                            <div
-                                key={ev.id}
-                                className={`border rounded-md p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                                    isDeleting ? "opacity-50 pointer-events-none bg-gray-50" : ""
-                                }`}
-                                onClick={() =>
-                                    !isDeleting &&
-                                    (window.location.href = `/events/${ev.eventID || ev.id}`)
-                                }
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="font-medium">
-                                        {isDeleting && (
-                                            <span className="inline-flex items-center gap-2">
-                                                <svg
-                                                    className="animate-spin h-4 w-4 text-red-600"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <circle
-                                                        className="opacity-25"
-                                                        cx="12"
-                                                        cy="12"
-                                                        r="10"
-                                                        stroke="currentColor"
-                                                        strokeWidth="4"
-                                                    ></circle>
-                                                    <path
-                                                        className="opacity-75"
-                                                        fill="currentColor"
-                                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                    ></path>
-                                                </svg>
-                                                {ev.title}
-                                            </span>
-                                        )}
-                                        {!isDeleting && ev.title}
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-2"
-                                        onClick={e => e.stopPropagation()}
-                                    >
-                                        <StatusPill status={ev.status} />
-                                        <DropdownMenu items={getDropdownItems(ev)} />
-                                    </div>
-                                </div>
-                                <div className="mt-2 text-sm text-muted-foreground">
+                    renderContent={ev => (
+                        <>
+                            <div className="mb-1">
+                                Schedule:{" "}
+                                <span className="font-medium">
                                     {formatDateRange(ev.startDate, ev.endDate)}
-                                </div>
-                                <div className="mt-1 text-sm text-muted-foreground">
+                                </span>
+                            </div>
+                            <div className="mb-1">
+                                Client:{" "}
+                                <span className="font-medium">
                                     {typeof ev.client === "string" ? ev.client : ev.client?.name}
-                                </div>
-                                {typeof ev.client !== "string" && ev.client && (
-                                    <div className="mt-3 text-sm text-muted-foreground">
-                                        {ev.client.email && (
-                                            <div>
-                                                Email:{" "}
-                                                <span className="font-medium">
-                                                    {ev.client.email}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {ev.client.phone && (
-                                            <div>
-                                                Phone:{" "}
-                                                <span className="font-medium">
-                                                    {ev.client.phone}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {ev.client.address && (
-                                            <div className="truncate">{ev.client.address}</div>
-                                        )}
-                                    </div>
-                                )}
+                                </span>
+                            </div>
+                            {typeof ev.client !== "string" && ev.client && (
+                                <>
+                                    {ev.client.email && (
+                                        <div className="mb-1">
+                                            Email:{" "}
+                                            <span className="font-medium">{ev.client.email}</span>
+                                        </div>
+                                    )}
+                                    {ev.client.phone && (
+                                        <div className="mb-1">
+                                            Phone:{" "}
+                                            <span className="font-medium">{ev.client.phone}</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </>
+                    )}
+                    renderActions={ev => {
+                        const isDeleting = deletingIds.has(String(ev.id));
+                        const isCloning = cloningIds.has(String(ev.id));
+                        const isBusy = isDeleting || isCloning;
+
+                        return (
+                            <div className="flex gap-2 justify-end">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleView(ev)}
+                                    disabled={isBusy}
+                                >
+                                    View
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEdit(ev)}
+                                    disabled={isBusy}
+                                >
+                                    Edit
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleClone(ev)}
+                                    disabled={isBusy}
+                                >
+                                    {isCloning ? "Cloning..." : "Clone"}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteClick(ev)}
+                                    disabled={isBusy}
+                                >
+                                    {isDeleting ? "Deleting..." : "Delete"}
+                                </Button>
                             </div>
                         );
-                    })}
-                </div>
-            </div>
-
-            <CreateEventModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setEditingEvent(null);
-                }}
-                onSubmit={async () => {
-                    setLoading(true);
-                    try {
-                        const res = await apiRequest("/api/events");
-                        const data = await res.json();
-                        setEvents(Array.isArray(data) ? data : []);
-                        toast.success("Event updated successfully");
-                    } catch (err) {
-                        console.error("Failed to refresh events", err);
-                    } finally {
-                        setLoading(false);
+                    }}
+                    emptyMessage="No events found."
+                    isLoading={loading}
+                />
+                <CreateEventModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setEditingEvent(null);
+                    }}
+                    onSubmit={async () => {
+                        await fetchEvents();
+                        setIsModalOpen(false);
+                        setEditingEvent(null);
+                        toast.success("Event created successfully");
+                    }}
+                    editData={editingEvent}
+                />
+                <ConfirmationModal
+                    open={deleteModalOpen}
+                    onClose={handleDeleteCancel}
+                    onConfirm={handleDeleteConfirm}
+                    title="Delete Event"
+                    description={
+                        eventToDelete
+                            ? `Are you sure you want to delete "${eventToDelete.title}"? This action cannot be undone.`
+                            : undefined
                     }
-                }}
-                editData={editingEvent}
-                prefillData={contextPrefill ?? null}
-                mode="edit"
-            />
+                    confirmText="Delete"
+                    cancelText="Cancel"
+                />
+            </div>
         </div>
     );
 }

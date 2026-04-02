@@ -1,21 +1,32 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { API_ENDPOINTS } from "../lib/api/endpoint";
-import { Formik, Form, Field, ErrorMessage, FormikHelpers, FieldProps, FormikProps } from "formik";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { Formik, Form, FormikHelpers, FormikProps } from "formik";
 import * as Yup from "yup";
+
+import { API_ENDPOINTS } from "../lib/api/endpoint";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui-old/label";
+import { FormikFieldInput } from "@/components/ui/formik-field-input";
+import { FormikFieldTextArea } from "@/components/ui/formik-field-textarea";
+import { FormikFieldRadio } from "@/components/ui/formik-field-radio";
+import { FormikFieldDatePicker } from "@/components/ui/formik-field-date-picker";
+import { cn } from "@/lib/utils/cn";
 import { EnquiryFormData, CreateEnquiryModalProps } from "@/types/enquiry";
 import { useClients } from "@/hooks/useClients";
-import dynamic from "next/dynamic";
 import { toast } from "sonner";
-import DatePicker from "react-datepicker";
-const CreatableSelect = dynamic(() => import("react-select/creatable"), { ssr: false });
-import "react-datepicker/dist/react-datepicker.css";
 import { apiRequest } from "@/lib/api/api-client";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
+
+// Dynamically import FormikFieldCreatableSelect to avoid SSR issues with react-select
+const FormikFieldCreatableSelect = dynamic(
+    () =>
+        import("@/components/ui/formik-field-creatable-select").then(mod => ({
+            default: mod.FormikFieldCreatableSelect,
+        })),
+    { ssr: false },
+);
 
 const validationSchema = Yup.object({
     client: Yup.string().test("client-or-name", "Please select a client", function (value) {
@@ -269,7 +280,6 @@ export default function CreateEnquiryModal({
                     : "Add the following details to create an enquiry"
             }
             size="xl"
-            showCloseIcon
         >
             <Formik
                 innerRef={formikRef}
@@ -278,7 +288,7 @@ export default function CreateEnquiryModal({
                 validationSchema={validationSchema}
                 onSubmit={handleSubmit}
             >
-                {({ errors, touched, isSubmitting, status, values, setFieldValue, submitForm }) => (
+                {({ isSubmitting, status, values, setFieldValue, submitForm }) => (
                     <Form>
                         <ModalBody className="max-h-[60vh] overflow-y-auto">
                             {status && (
@@ -288,21 +298,12 @@ export default function CreateEnquiryModal({
                             )}
                             {/* Event Title */}
                             <div className="mb-4">
-                                <Label htmlFor="title">Event Title</Label>
-                                <Field
-                                    as={Input}
-                                    id="title"
+                                <FormikFieldInput
                                     name="title"
+                                    label="Event Title"
                                     type="text"
                                     placeholder="e.g. Birthday party, Annual day celebration"
-                                    className={`mt-1 ${
-                                        errors.title && touched.title ? "border-red-500" : ""
-                                    }`}
-                                />
-                                <ErrorMessage
-                                    name="title"
-                                    component="div"
-                                    className="mt-1 text-sm text-red-600"
+                                    inputClassName="mt-1"
                                 />
                             </div>
                             <div className="space-y-4">
@@ -311,77 +312,33 @@ export default function CreateEnquiryModal({
                                 {/* Row 2: Event Dates */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <Label htmlFor="fromDate">
-                                            Event From (Date & Time){" "}
-                                            <span className="text-gray-500 text-xs">
-                                                (optional)
-                                            </span>
-                                        </Label>
-                                        <Field name="fromDate">
-                                            {({ field, form }: FieldProps) => (
-                                                <DatePicker
-                                                    selected={
-                                                        field.value ? new Date(field.value) : null
-                                                    }
-                                                    onChange={(date: Date | null) => {
-                                                        form.setFieldValue(
-                                                            "fromDate",
-                                                            date ? date.toISOString() : "",
-                                                        );
-                                                    }}
-                                                    showTimeSelect
-                                                    timeIntervals={15}
-                                                    dateFormat="MMM d, yyyy h:mm aa"
-                                                    placeholderText="Select date & time"
-                                                    className={`mt-1 w-full px-3 py-2 border rounded-md shadow-sm ${
-                                                        errors.fromDate && touched.fromDate
-                                                            ? "border-red-500"
-                                                            : "border-gray-300"
-                                                    }`}
-                                                />
-                                            )}
-                                        </Field>
-                                        <ErrorMessage
+                                        <FormikFieldDatePicker
                                             name="fromDate"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            label={
+                                                <>
+                                                    Event From (Date & Time){" "}
+                                                    <span className="text-gray-500 text-xs">
+                                                        (optional)
+                                                    </span>
+                                                </>
+                                            }
+                                            inputClassName="mt-1"
+                                            placeholderText="Select date & time"
                                         />
                                     </div>
                                     <div>
-                                        <Label htmlFor="toDate">
-                                            Event To (Date & Time){" "}
-                                            <span className="text-gray-500 text-xs">
-                                                (optional)
-                                            </span>
-                                        </Label>
-                                        <Field name="toDate">
-                                            {({ field, form }: FieldProps) => (
-                                                <DatePicker
-                                                    selected={
-                                                        field.value ? new Date(field.value) : null
-                                                    }
-                                                    onChange={(date: Date | null) =>
-                                                        form.setFieldValue(
-                                                            "toDate",
-                                                            date ? date.toISOString() : "",
-                                                        )
-                                                    }
-                                                    showTimeSelect
-                                                    timeIntervals={15}
-                                                    dateFormat="MMM d, yyyy h:mm aa"
-                                                    placeholderText="Select date & time"
-                                                    className={`mt-1 w-full px-3 py-2 border rounded-md shadow-sm ${
-                                                        errors.toDate && touched.toDate
-                                                            ? "border-red-500"
-                                                            : "border-gray-300"
-                                                    }`}
-                                                />
-                                            )}
-                                        </Field>
-                                        <ErrorMessage
+                                        <FormikFieldDatePicker
                                             name="toDate"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            label={
+                                                <>
+                                                    Event To (Date & Time){" "}
+                                                    <span className="text-gray-500 text-xs">
+                                                        (optional)
+                                                    </span>
+                                                </>
+                                            }
+                                            inputClassName="mt-1"
+                                            placeholderText="Select date & time"
                                         />
                                     </div>
                                 </div>
@@ -389,69 +346,33 @@ export default function CreateEnquiryModal({
                                 {/* Location and Venue */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <Label htmlFor="location">Location</Label>
-                                        <Field
-                                            as={Input}
-                                            id="location"
+                                        <FormikFieldInput
                                             name="location"
+                                            label="Location"
                                             type="text"
                                             placeholder="Enter event location"
-                                            className={`mt-1 ${
-                                                errors.location && touched.location
-                                                    ? "border-red-500"
-                                                    : ""
-                                            }`}
-                                        />
-                                        <ErrorMessage
-                                            name="location"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            inputClassName="mt-1"
                                         />
                                     </div>
                                     <div>
-                                        <Label htmlFor="venue">Venue</Label>
-                                        <Field
-                                            as={Input}
-                                            id="venue"
+                                        <FormikFieldInput
                                             name="venue"
+                                            label="Venue"
                                             type="text"
                                             placeholder="Enter event venue"
-                                            className={`mt-1 ${
-                                                errors.venue && touched.venue
-                                                    ? "border-red-500"
-                                                    : ""
-                                            }`}
-                                        />
-                                        <ErrorMessage
-                                            name="venue"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            inputClassName="mt-1"
                                         />
                                     </div>
                                 </div>
 
                                 {/* Requirements */}
                                 <div>
-                                    <Label htmlFor="highlvelRequirement">
-                                        High Level Requirements
-                                    </Label>
-                                    <Field
-                                        as="textarea"
-                                        id="highlvelRequirement"
+                                    <FormikFieldTextArea
                                         name="highlvelRequirement"
+                                        label="High Level Requirements"
                                         rows={4}
                                         placeholder="Describe the high level requirements for the event"
-                                        className={`mt-1 w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none ${
-                                            errors.highlvelRequirement &&
-                                            touched.highlvelRequirement
-                                                ? "border-red-500"
-                                                : "border-gray-300"
-                                        }`}
-                                    />
-                                    <ErrorMessage
-                                        name="highlvelRequirement"
-                                        component="div"
-                                        className="mt-1 text-sm text-red-600"
+                                        textareaClassName="mt-1"
                                     />
                                 </div>
 
@@ -463,35 +384,14 @@ export default function CreateEnquiryModal({
 
                                     {/* Event Type Radio Buttons (first) */}
                                     <div className="mb-4">
-                                        <Label>Event Type</Label>
-                                        <div className="mt-2 flex gap-6">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <Field
-                                                    type="radio"
-                                                    name="eventType"
-                                                    value="PERSONAL"
-                                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                                />
-                                                <span className="text-sm text-gray-700">
-                                                    Individual
-                                                </span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <Field
-                                                    type="radio"
-                                                    name="eventType"
-                                                    value="CORPORATE"
-                                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                                />
-                                                <span className="text-sm text-gray-700">
-                                                    Corporate
-                                                </span>
-                                            </label>
-                                        </div>
-                                        <ErrorMessage
+                                        <FormikFieldRadio
                                             name="eventType"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            label="Event Type"
+                                            options={[
+                                                { label: "Individual", value: "PERSONAL" },
+                                                { label: "Corporate", value: "CORPORATE" },
+                                            ]}
+                                            radioClassName="mt-2"
                                         />
                                     </div>
 
@@ -503,104 +403,86 @@ export default function CreateEnquiryModal({
                                                 Loading clients...
                                             </div>
                                         ) : (
-                                            <>
-                                                <CreatableSelect
-                                                    inputId="client"
-                                                    classNamePrefix="react-select"
-                                                    isClearable
-                                                    placeholder="Search or create client..."
-                                                    value={(() => {
-                                                        const option = clients.find(
-                                                            c => c.id === values.client,
-                                                        );
-                                                        if (option)
-                                                            return {
-                                                                value: option.id,
-                                                                label: option.name,
-                                                            };
-                                                        if (clientsLoading) return null;
-                                                        if (values.clientName)
-                                                            return {
-                                                                value: "__new__",
-                                                                label: values.clientName,
-                                                            };
-                                                        return null;
-                                                    })()}
-                                                    onChange={opt => {
-                                                        const selected = Array.isArray(opt)
-                                                            ? opt[0]
-                                                            : opt;
-                                                        if (!selected) {
-                                                            setFieldValue("client", "");
-                                                            setFieldValue("clientName", "");
-                                                            return;
-                                                        }
-                                                        const sel = selected as {
-                                                            value: string;
-                                                            label: string;
+                                            <FormikFieldCreatableSelect
+                                                name="client"
+                                                id="client"
+                                                placeholder="Search or create client..."
+                                                isClearable
+                                                options={clients.map(c => ({
+                                                    value: c.id,
+                                                    label: c.name,
+                                                }))}
+                                                value={(() => {
+                                                    const option = clients.find(
+                                                        c => c.id === values.client,
+                                                    );
+                                                    if (option)
+                                                        return {
+                                                            value: option.id,
+                                                            label: option.name,
                                                         };
-                                                        if (sel.value === "__new__") {
-                                                            setFieldValue("client", "");
-                                                            setFieldValue("clientName", sel.label);
-                                                            if (values.eventType === "PERSONAL") {
-                                                                setFieldValue(
-                                                                    "clientPoC",
-                                                                    sel.label,
-                                                                );
-                                                            }
-                                                        } else {
-                                                            setFieldValue("client", sel.value);
-                                                            setFieldValue("clientName", "");
-                                                            if (values.eventType === "PERSONAL") {
-                                                                const selectedClient = clients.find(
-                                                                    c => c.id === sel.value,
-                                                                );
-                                                                if (selectedClient)
-                                                                    setFieldValue(
-                                                                        "clientPoC",
-                                                                        selectedClient.name,
-                                                                    );
-                                                            }
-                                                        }
-                                                    }}
-                                                    onCreateOption={async (inputValue: string) => {
-                                                        // Do not persist immediately; store typed name and show as selected
+                                                    if (clientsLoading) return null;
+                                                    if (values.clientName)
+                                                        return {
+                                                            value: "__new__",
+                                                            label: values.clientName,
+                                                        };
+                                                    return null;
+                                                })()}
+                                                onChange={selectedValue => {
+                                                    const selectedOption = clients.find(
+                                                        c => c.id === selectedValue,
+                                                    );
+                                                    if (selectedValue === "__new__") {
                                                         setFieldValue("client", "");
-                                                        setFieldValue("clientName", inputValue);
+                                                        setFieldValue(
+                                                            "clientName",
+                                                            values.clientName,
+                                                        );
                                                         if (values.eventType === "PERSONAL") {
-                                                            setFieldValue("clientPoC", inputValue);
+                                                            setFieldValue(
+                                                                "clientPoC",
+                                                                values.clientName,
+                                                            );
                                                         }
-                                                    }}
-                                                    options={clients.map(c => ({
-                                                        value: c.id,
-                                                        label: c.name,
-                                                    }))}
-                                                    className={`mt-1 ${
-                                                        errors.client && touched.client
-                                                            ? "border-red-500 rounded"
-                                                            : ""
-                                                    }`}
-                                                />
-                                                <ErrorMessage
-                                                    name="client"
-                                                    component="div"
-                                                    className="mt-1 text-sm text-red-600"
-                                                />
-                                            </>
+                                                    } else if (selectedOption) {
+                                                        setFieldValue("client", selectedOption.id);
+                                                        setFieldValue("clientName", "");
+                                                        if (values.eventType === "PERSONAL") {
+                                                            setFieldValue(
+                                                                "clientPoC",
+                                                                selectedOption.name,
+                                                            );
+                                                        }
+                                                    } else {
+                                                        setFieldValue("client", "");
+                                                        setFieldValue("clientName", "");
+                                                    }
+                                                }}
+                                                onCreateOption={(inputValue: string) => {
+                                                    // Do not persist immediately; store typed name and show as selected
+                                                    setFieldValue("client", "");
+                                                    setFieldValue("clientName", inputValue);
+                                                    if (values.eventType === "PERSONAL") {
+                                                        setFieldValue("clientPoC", inputValue);
+                                                    }
+                                                }}
+                                                selectClassName="mt-1"
+                                            />
                                         )}
                                     </div>
 
                                     {/* Client POC */}
                                     <div className="mb-4">
-                                        <Label htmlFor="clientPoC">
-                                            Client POC{" "}
-                                            {values.eventType === "PERSONAL" &&
-                                                "(Same as Client Name)"}
-                                        </Label>
-                                        <Field
-                                            as={Input}
-                                            id="clientPoC"
+                                        <FormikFieldInput
                                             name="clientPoC"
+                                            label={
+                                                <>
+                                                    Client POC{" "}
+                                                    {values.eventType === "PERSONAL" &&
+                                                        "(Same as Client Name)"}
+                                                </>
+                                            }
                                             type="text"
                                             placeholder={
                                                 values.eventType === "CORPORATE"
@@ -608,146 +490,80 @@ export default function CreateEnquiryModal({
                                                     : "Client name (auto-filled)"
                                             }
                                             disabled={values.eventType === "PERSONAL"}
-                                            className={`mt-1 ${
-                                                values.eventType === "PERSONAL"
-                                                    ? "bg-gray-100 cursor-not-allowed"
-                                                    : ""
-                                            } ${
-                                                errors.clientPoC && touched.clientPoC
-                                                    ? "border-red-500"
-                                                    : ""
-                                            }`}
-                                        />
-                                        <ErrorMessage
-                                            name="clientPoC"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            inputClassName={cn(
+                                                "mt-1",
+                                                values.eventType === "PERSONAL" &&
+                                                    "bg-gray-100 cursor-not-allowed",
+                                            )}
                                         />
                                     </div>
 
                                     {/* Client POC Contact Number */}
                                     <div>
-                                        <Label htmlFor="enquiryPoCNumber">
-                                            Client POC Contact Number
-                                        </Label>
-                                        <Field
+                                        <FormikFieldInput
                                             name="enquiryPoCNumber"
-                                            render={({ field, form }: FieldProps) => (
-                                                <Input
-                                                    {...field}
-                                                    id="enquiryPoCNumber"
-                                                    type="tel"
-                                                    placeholder="1234567890 (10 digits)"
-                                                    maxLength={10}
-                                                    onChange={e => {
-                                                        const value = e.target.value
-                                                            .replace(/\D/g, "")
-                                                            .slice(0, 10);
-                                                        form.setFieldValue(
-                                                            "enquiryPoCNumber",
-                                                            value,
-                                                        );
-                                                    }}
-                                                    className={`mt-1 ${
-                                                        errors.enquiryPoCNumber &&
-                                                        touched.enquiryPoCNumber
-                                                            ? "border-red-500"
-                                                            : ""
-                                                    }`}
-                                                />
-                                            )}
-                                        />
-                                        <ErrorMessage
-                                            name="enquiryPoCNumber"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            label="Client POC Contact Number"
+                                            type="tel"
+                                            placeholder="1234567890 (10 digits)"
+                                            maxLength={10}
+                                            inputClassName="mt-1"
+                                            onChange={e => {
+                                                const value = e.target.value
+                                                    .replace(/\D/g, "")
+                                                    .slice(0, 10);
+                                                setFieldValue("enquiryPoCNumber", value);
+                                            }}
                                         />
                                     </div>
 
                                     {/* Event POC */}
                                     <div className="mt-4">
-                                        <Label htmlFor="eventPoC">Event POC</Label>
-                                        <Field
-                                            as={Input}
-                                            id="eventPoC"
+                                        <FormikFieldInput
                                             name="eventPoC"
+                                            label="Event POC"
                                             type="text"
                                             placeholder="Enter event POC name"
-                                            className={`mt-1 ${
-                                                errors.eventPoC && touched.eventPoC
-                                                    ? "border-red-500"
-                                                    : ""
-                                            }`}
-                                        />
-                                        <ErrorMessage
-                                            name="eventPoC"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            inputClassName="mt-1"
                                         />
                                     </div>
 
                                     {/* Enquiry POC */}
                                     <div className="mt-4">
-                                        <Label htmlFor="enquiryPoC">Enquiry POC</Label>
-                                        <Field
-                                            as={Input}
-                                            id="enquiryPoC"
+                                        <FormikFieldInput
                                             name="enquiryPoC"
+                                            label="Enquiry POC"
                                             type="text"
                                             placeholder="Enter enquiry POC name"
-                                            className="mt-1"
-                                        />
-                                        <ErrorMessage
-                                            name="enquiryPoC"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            inputClassName="mt-1"
                                         />
                                     </div>
 
                                     {/* Event POC Number */}
                                     <div className="mt-4">
-                                        <Label htmlFor="eventPoCNumber">Event POC Number</Label>
-                                        <Field
+                                        <FormikFieldInput
                                             name="eventPoCNumber"
-                                            render={({ field, form }: FieldProps) => (
-                                                <Input
-                                                    {...field}
-                                                    id="eventPoCNumber"
-                                                    type="tel"
-                                                    placeholder="1234567890 (10 digits)"
-                                                    maxLength={10}
-                                                    onChange={e => {
-                                                        const value = e.target.value
-                                                            .replace(/\D/g, "")
-                                                            .slice(0, 10);
-                                                        form.setFieldValue("eventPoCNumber", value);
-                                                    }}
-                                                    className="mt-1"
-                                                />
-                                            )}
-                                        />
-                                        <ErrorMessage
-                                            name="eventPoCNumber"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            label="Event POC Number"
+                                            type="tel"
+                                            placeholder="1234567890 (10 digits)"
+                                            maxLength={10}
+                                            inputClassName="mt-1"
+                                            onChange={e => {
+                                                const value = e.target.value
+                                                    .replace(/\D/g, "")
+                                                    .slice(0, 10);
+                                                setFieldValue("eventPoCNumber", value);
+                                            }}
                                         />
                                     </div>
 
                                     {/* Assigned To */}
                                     <div className="mt-4">
-                                        <Label htmlFor="assignedTo">Assigned To</Label>
-                                        <Field
-                                            as={Input}
-                                            id="assignedTo"
+                                        <FormikFieldInput
                                             name="assignedTo"
+                                            label="Assigned To"
                                             type="text"
                                             placeholder="Enter assigned staff name"
-                                            className="mt-1"
-                                        />
-                                        <ErrorMessage
-                                            name="assignedTo"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
+                                            inputClassName="mt-1"
                                         />
                                     </div>
                                 </div>

@@ -3,9 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers, FormikProps } from "formik";
 import * as Yup from "yup";
-import { Button } from "@/components/ui-old/button";
-import { Input } from "@/components/ui-old/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui-old/label";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import {
     EventFormData,
     CreateEventModalProps,
@@ -70,7 +71,7 @@ export default function CreateEventModal({
             try {
                 setLoadingEventDetails(true);
                 const res = await apiRequest(
-                    `/api/events/${encodeURIComponent(String(editData.id))}/estimate`
+                    `/api/events/${encodeURIComponent(String(editData.id))}/estimate`,
                 );
                 if (res.ok) {
                     const data = await res.json();
@@ -227,24 +228,24 @@ export default function CreateEventModal({
               eventEndDate: formatDateForInput(editData.eventEndDate),
           }
         : prefillData
-        ? {
-              title: prefillData.title || prefillData.eventName || "",
-              eventStartDate: formatDateForInput(prefillData.eventStartDate),
-              eventEndDate: formatDateForInput(prefillData.eventEndDate),
-              location: prefillData.location || "",
-              venue: prefillData.venue || "",
-              clientId: prefillData.clientId || "",
-              estimateId: prefillData.estimateId,
-              enquiryId: prefillData.enquiryId,
-          }
-        : {
-              title: "",
-              eventStartDate: "",
-              eventEndDate: "",
-              location: "",
-              venue: "",
-              clientId: "",
-          };
+          ? {
+                title: prefillData.title || prefillData.eventName || "",
+                eventStartDate: formatDateForInput(prefillData.eventStartDate),
+                eventEndDate: formatDateForInput(prefillData.eventEndDate),
+                location: prefillData.location || "",
+                venue: prefillData.venue || "",
+                clientId: prefillData.clientId || "",
+                estimateId: prefillData.estimateId,
+                enquiryId: prefillData.enquiryId,
+            }
+          : {
+                title: "",
+                eventStartDate: "",
+                eventEndDate: "",
+                location: "",
+                venue: "",
+                clientId: "",
+            };
 
     useEffect(() => {
         if (!isOpen) return;
@@ -257,7 +258,7 @@ export default function CreateEventModal({
 
     const handleSubmit = async (
         values: EventFormData,
-        { setSubmitting, setStatus }: FormikHelpers<EventFormData>
+        { setSubmitting, setStatus }: FormikHelpers<EventFormData>,
     ) => {
         try {
             setStatus(null);
@@ -272,7 +273,7 @@ export default function CreateEventModal({
             // Ensure enquiryId is present
             if (mode === "create" && !values.enquiryId) {
                 setEstimateError(
-                    "Enquiry information is missing. Please select an estimate again."
+                    "Enquiry information is missing. Please select an estimate again.",
                 );
                 setSubmitting(false);
                 return;
@@ -393,19 +394,19 @@ export default function CreateEventModal({
                             category,
                             item: coerceString(
                                 itemRecord.item ?? itemRecord.description,
-                                "Line item"
+                                "Line item",
                             ),
                             description: coerceString(
                                 itemRecord.description ?? itemRecord.item,
-                                ""
+                                "",
                             ),
                             count: coerceNumber(
                                 itemRecord.count ?? itemRecord.quantity ?? itemRecord.sqft,
-                                1
+                                1,
                             ),
                             pricePerItem: coerceNumber(
                                 itemRecord.pricePerItem ?? itemRecord.rate ?? itemRecord.unitCost,
-                                0
+                                0,
                             ),
                             days: coerceNumber(itemRecord.days, 1),
                             vendor: displayVendorName ?? vendorName ?? vendorId ?? "",
@@ -437,7 +438,7 @@ export default function CreateEventModal({
             const vendorIds = Array.from(
                 vendorIdSet.size > 0
                     ? vendorIdSet
-                    : new Set(vendorNames.map(v => v.id).filter(Boolean) as string[])
+                    : new Set(vendorNames.map(v => v.id).filter(Boolean) as string[]),
             );
             if (vendorIds.length > 0) {
                 payload.vendors = vendorIds.map(id => ({ id }));
@@ -457,7 +458,7 @@ export default function CreateEventModal({
             if (!res.ok) {
                 const text = await res.text().catch(() => "");
                 throw new Error(
-                    text || `Failed to ${isEdit ? "update" : "create"} event: ${res.status}`
+                    text || `Failed to ${isEdit ? "update" : "create"} event: ${res.status}`,
                 );
             }
             await res.json().catch(() => null);
@@ -473,223 +474,192 @@ export default function CreateEventModal({
     if (!isOpen) return null;
 
     return (
-        <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50"
-            onClick={e => e.target === e.currentTarget && onClose()}
+        <Modal
+            open={isOpen}
+            onClose={onClose}
+            title={mode === "edit" ? "Edit Event" : "Create Event"}
+            description={
+                mode === "edit" ? "Update event details" : "Fill details to create an event"
+            }
+            size="xl"
+            showCloseIcon
         >
-            <div className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
-                <Formik
-                    innerRef={formikRef}
-                    initialValues={initialValues}
-                    enableReinitialize
-                    validationSchema={validationSchema}
-                    onSubmit={handleSubmit}
-                >
-                    {({ isSubmitting, status }) => (
-                        <Form>
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded bg-green-100 flex items-center justify-center">
-                                        🎫
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-semibold">
-                                            {mode === "edit" ? "Edit Event" : "Create Event"}
-                                        </h2>
-                                        <p className="text-sm text-gray-600">
-                                            {mode === "edit"
-                                                ? "Update event details"
-                                                : "Fill details to create an event"}
-                                        </p>
-                                    </div>
+            <Formik
+                innerRef={formikRef}
+                initialValues={initialValues}
+                enableReinitialize
+                validationSchema={validationSchema}
+                onSubmit={handleSubmit}
+            >
+                {({ isSubmitting, status }) => (
+                    <Form>
+                        <ModalBody className="max-h-[60vh] overflow-y-auto space-y-4">
+                            {status && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                    {status}
                                 </div>
-                                <button
-                                    onClick={onClose}
-                                    className="text-gray-400 hover:text-gray-600 text-xl"
-                                    type="button"
-                                >
-                                    ×
-                                </button>
+                            )}
+
+                            {/* Estimate Dropdown - Only show in create mode */}
+                            {mode === "create" && (
+                                <div>
+                                    <Label htmlFor="estimateSelect">
+                                        Select Event Title <span className="text-red-600">*</span>
+                                    </Label>
+                                    {loadingEstimates ? (
+                                        <div className="mt-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                                            Loading estimates...
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                id="estimateSelect"
+                                                className="mt-1 w-full px-3 py-2 border rounded-md disabled:bg-gray-100"
+                                                onChange={e => handleEstimateSelect(e.target.value)}
+                                                disabled={loadingEventDetails}
+                                                value={selectedEstimateId}
+                                            >
+                                                <option value="">
+                                                    -- Select an event title --
+                                                </option>
+                                                {estimateDropdown.map(est => (
+                                                    <option key={est.id} value={est.id}>
+                                                        {est.name} ({est.version})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {estimateError && (
+                                                <p className="mt-1 text-sm text-red-600">
+                                                    {estimateError}
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
+                                    {loadingEventDetails && (
+                                        <p className="mt-1 text-sm text-blue-600">
+                                            Loading event details...
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            <div>
+                                <Label htmlFor="title">Event Title</Label>
+                                <Field
+                                    as={Input}
+                                    id="title"
+                                    name="title"
+                                    placeholder="Event title"
+                                    className="mt-1"
+                                />
+                                <ErrorMessage
+                                    name="title"
+                                    component="div"
+                                    className="mt-1 text-sm text-red-600"
+                                />
                             </div>
 
-                            <div className="pt-4 space-y-4">
-                                {status && (
-                                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                                        {status}
-                                    </div>
-                                )}
-
-                                {/* Estimate Dropdown - Only show in create mode */}
-                                {mode === "create" && (
-                                    <div>
-                                        <Label htmlFor="estimateSelect">
-                                            Select Event Title{" "}
-                                            <span className="text-red-600">*</span>
-                                        </Label>
-                                        {loadingEstimates ? (
-                                            <div className="mt-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
-                                                Loading estimates...
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <select
-                                                    id="estimateSelect"
-                                                    className="mt-1 w-full px-3 py-2 border rounded-md disabled:bg-gray-100"
-                                                    onChange={e =>
-                                                        handleEstimateSelect(e.target.value)
-                                                    }
-                                                    disabled={loadingEventDetails}
-                                                    value={selectedEstimateId}
-                                                >
-                                                    <option value="">
-                                                        -- Select an event title --
-                                                    </option>
-                                                    {estimateDropdown.map(est => (
-                                                        <option key={est.id} value={est.id}>
-                                                            {est.name} ({est.version})
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {estimateError && (
-                                                    <p className="mt-1 text-sm text-red-600">
-                                                        {estimateError}
-                                                    </p>
-                                                )}
-                                            </>
-                                        )}
-                                        {loadingEventDetails && (
-                                            <p className="mt-1 text-sm text-blue-600">
-                                                Loading event details...
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <Label htmlFor="title">Event Title</Label>
+                                    <Label htmlFor="eventStartDate">Event Start Date & Time</Label>
                                     <Field
                                         as={Input}
-                                        id="title"
-                                        name="title"
-                                        placeholder="Event title"
+                                        id="eventStartDate"
+                                        name="eventStartDate"
+                                        type="datetime-local"
                                         className="mt-1"
                                     />
                                     <ErrorMessage
-                                        name="title"
+                                        name="eventStartDate"
                                         component="div"
                                         className="mt-1 text-sm text-red-600"
                                     />
                                 </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="eventStartDate">
-                                            Event Start Date & Time
-                                        </Label>
-                                        <Field
-                                            as={Input}
-                                            id="eventStartDate"
-                                            name="eventStartDate"
-                                            type="datetime-local"
-                                            className="mt-1"
-                                        />
-                                        <ErrorMessage
-                                            name="eventStartDate"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="eventEndDate">Event End Date & Time</Label>
-                                        <Field
-                                            as={Input}
-                                            id="eventEndDate"
-                                            name="eventEndDate"
-                                            type="datetime-local"
-                                            className="mt-1"
-                                        />
-                                        <ErrorMessage
-                                            name="eventEndDate"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="location">Location</Label>
-                                        <Field
-                                            as={Input}
-                                            id="location"
-                                            name="location"
-                                            placeholder="Enter location"
-                                            className="mt-1"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="venue">Venue</Label>
-                                        <Field
-                                            as={Input}
-                                            id="venue"
-                                            name="venue"
-                                            placeholder="Enter venue"
-                                            className="mt-1"
-                                        />
-                                    </div>
-                                </div>
-
                                 <div>
-                                    <Label htmlFor="clientId">Client</Label>
-                                    {clientsLoading ? (
-                                        <div className="mt-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
-                                            Loading clients...
-                                        </div>
-                                    ) : (
-                                        <Field
-                                            as="select"
-                                            id="clientId"
-                                            name="clientId"
-                                            className="mt-1 w-full px-3 py-2 border rounded-md"
-                                        >
-                                            <option value="">Select a client</option>
-                                            {clients.map(c => (
-                                                <option key={c.id} value={c.id}>
-                                                    {c.name}
-                                                </option>
-                                            ))}
-                                        </Field>
-                                    )}
+                                    <Label htmlFor="eventEndDate">Event End Date & Time</Label>
+                                    <Field
+                                        as={Input}
+                                        id="eventEndDate"
+                                        name="eventEndDate"
+                                        type="datetime-local"
+                                        className="mt-1"
+                                    />
+                                    <ErrorMessage
+                                        name="eventEndDate"
+                                        component="div"
+                                        className="mt-1 text-sm text-red-600"
+                                    />
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                                <Button
-                                    variant="outline"
-                                    onClick={onClose}
-                                    type="button"
-                                    disabled={isSubmitting}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="bg-green-600 hover:bg-green-700"
-                                >
-                                    {isSubmitting
-                                        ? mode === "edit"
-                                            ? "Updating..."
-                                            : "Creating..."
-                                        : mode === "edit"
-                                        ? "Update Event"
-                                        : "Create Event"}
-                                </Button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="location">Location</Label>
+                                    <Field
+                                        as={Input}
+                                        id="location"
+                                        name="location"
+                                        placeholder="Enter location"
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="venue">Venue</Label>
+                                    <Field
+                                        as={Input}
+                                        id="venue"
+                                        name="venue"
+                                        placeholder="Enter venue"
+                                        className="mt-1"
+                                    />
+                                </div>
                             </div>
-                        </Form>
-                    )}
-                </Formik>
-            </div>
-        </div>
+
+                            <div>
+                                <Label htmlFor="clientId">Client</Label>
+                                {clientsLoading ? (
+                                    <div className="mt-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                                        Loading clients...
+                                    </div>
+                                ) : (
+                                    <Field
+                                        as="select"
+                                        id="clientId"
+                                        name="clientId"
+                                        className="mt-1 w-full px-3 py-2 border rounded-md"
+                                    >
+                                        <option value="">Select a client</option>
+                                        {clients.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </Field>
+                                )}
+                            </div>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button
+                                variant="outline"
+                                onClick={onClose}
+                                type="button"
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting
+                                    ? mode === "edit"
+                                        ? "Updating..."
+                                        : "Creating..."
+                                    : mode === "edit"
+                                      ? "Update Event"
+                                      : "Create Event"}
+                            </Button>
+                        </ModalFooter>
+                    </Form>
+                )}
+            </Formik>
+        </Modal>
     );
 }

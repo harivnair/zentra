@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { XIcon } from "@/components/ui/icons";
 
-type ModalSize = "sm" | "md" | "lg" | "xl";
+type ModalSize = "sm" | "md" | "lg" | "xl" | "xxl";
 
 interface ModalProps {
     open: boolean;
@@ -14,6 +14,7 @@ interface ModalProps {
     size?: ModalSize;
     title?: string;
     description?: string;
+    icon?: ReactNode;
     className?: string;
     closeOnBackdrop?: boolean;
     showCloseIcon?: boolean;
@@ -24,6 +25,7 @@ const sizeStyles: Record<ModalSize, string> = {
     md: "max-w-md",
     lg: "max-w-lg",
     xl: "max-w-xl",
+    xxl: "max-w-screen-lg",
 };
 
 export function Modal({
@@ -33,6 +35,7 @@ export function Modal({
     size = "md",
     title,
     description,
+    icon,
     className,
     closeOnBackdrop = false,
     showCloseIcon = false,
@@ -90,15 +93,16 @@ export function Modal({
             <div
                 ref={dialogRef}
                 className={cn(
-                    "relative z-10 w-full rounded-xl border border-border bg-surface shadow-2xl animate-in zoom-in-95 fade-in duration-200",
+                    "relative z-10 w-full rounded-md border border-border bg-surface shadow-2xl animate-in zoom-in-95 fade-in duration-200",
                     sizeStyles[size],
                     className,
                 )}
             >
                 {/* Header */}
                 {(title || description) && (
-                    <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
-                        <div>
+                    <div className="flex gap-4 border-b border-border px-5 py-4 sm:px-6 items-center">
+                        {icon && <div className="flex-shrink-0 text-muted-foreground">{icon}</div>}
+                        <div className="flex-1">
                             {title && (
                                 <h2
                                     id="modal-title"
@@ -140,7 +144,13 @@ interface ModalBodyProps {
 }
 
 export function ModalBody({ children, className }: ModalBodyProps) {
-    return <div className={cn("px-5 py-4 sm:px-6", className)}>{children}</div>;
+    return (
+        <div
+            className={cn("max-h-[calc(100vh-200px)] overflow-y-auto px-5 py-4 sm:px-6", className)}
+        >
+            {children}
+        </div>
+    );
 }
 
 interface ModalFooterProps {

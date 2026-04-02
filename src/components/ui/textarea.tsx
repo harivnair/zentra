@@ -2,14 +2,14 @@ import { forwardRef, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils/cn";
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
-    label?: string;
+    label?: string | React.ReactNode;
     error?: string;
     hint?: string;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-    ({ className, label, error, hint, id, ...props }, ref) => {
-        const textareaId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+    ({ className, label, error, hint, id, name, ...props }, ref) => {
+        const textareaId = id ?? name;
 
         return (
             <div className="flex flex-col gap-1.5">
@@ -21,6 +21,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                 <textarea
                     ref={ref}
                     id={textareaId}
+                    name={name}
                     className={cn(
                         "flex min-h-[100px] w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground transition-colors",
                         "placeholder:text-muted-foreground",
@@ -29,7 +30,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                         "resize-y",
                         error &&
                             "border-error focus:border-error focus:ring-[var(--input-error-ring)]",
-                        className
+                        className,
                     )}
                     aria-invalid={!!error}
                     aria-describedby={error ? `${textareaId}-error` : undefined}
@@ -43,7 +44,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                 {hint && !error && <p className="text-sm text-muted-foreground">{hint}</p>}
             </div>
         );
-    }
+    },
 );
 
 Textarea.displayName = "Textarea";
