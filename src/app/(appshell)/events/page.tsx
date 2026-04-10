@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
-import { LinkText, MenuList, type MenuItem } from "@/components/ui";
+import { LinkText, MenuList } from "@/components/ui";
 import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import { Copy } from "lucide-react";
 import { PageHeader } from "@/components/ui";
@@ -19,6 +19,8 @@ import { EventFormData } from "@/types/event";
 import { useEventPrefill } from "@/context/event-prefill";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { AccessButton } from "@/components/shared/access-button";
+import { MenuItem } from "@/types";
 
 type EventItem = {
     id: number | string;
@@ -238,6 +240,7 @@ const columns = (
                     icon: <PencilIcon size={16} />,
                     onClick: () => onEdit(row),
                     disabled: isBusy,
+                    scopes: ["w:events"],
                 },
                 {
                     key: "clone",
@@ -245,6 +248,7 @@ const columns = (
                     icon: <Copy size={16} />,
                     onClick: () => onClone(row),
                     disabled: isBusy,
+                    scopes: ["w:events"],
                 },
                 {
                     key: "delete",
@@ -253,6 +257,7 @@ const columns = (
                     onClick: () => onDelete(row),
                     className: "text-destructive focus:text-destructive",
                     disabled: isBusy,
+                    scopes: ["w:events"],
                 },
             ];
 
@@ -442,9 +447,13 @@ export default function EventsPage() {
                 description={`Manage all events. You have ${events.length} ${events.length === 1 ? "event" : "events"}`}
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+                        <AccessButton
+                            scope={["w:events"]}
+                            className="w-full sm:w-auto"
+                            onClick={() => setIsModalOpen(true)}
+                        >
                             Create Event
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

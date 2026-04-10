@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
-import { MenuList, type MenuItem } from "@/components/ui";
+import { MenuList } from "@/components/ui";
 import { MoreVerticalIcon, TrashIcon, FileTextIcon, PencilIcon } from "@/components/ui/icons";
 import { PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -15,6 +15,8 @@ import CreateChecklistModal from "@/components/create-checklist-modal";
 import { ChecklistFormData } from "@/types/checklist";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { downloadCSV } from "@/lib/utils/file";
+import { AccessButton } from "@/components/shared/access-button";
+import { MenuItem } from "@/types";
 
 const columns = (
     onView: (row: ChecklistFormData) => void,
@@ -87,6 +89,7 @@ const columns = (
                     label: "Edit",
                     icon: <PencilIcon size={16} />,
                     onClick: () => onEdit(row),
+                    scopes: ["w:checklists"],
                 },
                 {
                     key: "delete",
@@ -94,6 +97,7 @@ const columns = (
                     icon: <TrashIcon size={16} />,
                     onClick: () => onDelete(row),
                     className: "text-destructive focus:text-destructive",
+                    scopes: ["w:checklists"],
                 },
             ];
 
@@ -200,9 +204,13 @@ export default function ChecklistsPage() {
                         <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
                             Export
                         </Button>
-                        <Button className="w-full sm:w-auto" onClick={handleCreate}>
+                        <AccessButton
+                            scope={["w:checklists"]}
+                            className="w-full sm:w-auto"
+                            onClick={handleCreate}
+                        >
                             Create Checklist
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

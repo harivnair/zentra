@@ -1,3 +1,5 @@
+import { Scope } from "@/types/auth";
+
 export interface NavItem {
     title: string;
     href: string;
@@ -5,6 +7,7 @@ export interface NavItem {
     disabled?: boolean;
     external?: boolean;
     badge?: string;
+    scope?: Scope[]; // Optional scopes required to view this nav item
 }
 
 export interface NavSection {
@@ -25,36 +28,53 @@ export const userMenuNav: NavItem[] = [
 export const sideMenuNav: NavSection[] = [
     {
         title: "Overview",
-        items: [{ title: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" }],
+        items: [
+            {
+                title: "Dashboard",
+                href: "/dashboard",
+                icon: "LayoutDashboard",
+                scope: ["r:dashboard"],
+            },
+        ],
     },
     {
         title: "Sales",
         items: [
-            { title: "Enquiries", href: "/enquiries", icon: "MessageSquare" },
-            { title: "Clients", href: "/clients", icon: "Users" },
-            { title: "Vendors", href: "/vendors", icon: "Store" },
+            {
+                title: "Enquiries",
+                href: "/enquiries",
+                icon: "MessageSquare",
+                scope: ["r:enquiries"],
+            },
+            { title: "Clients", href: "/clients", icon: "Users", scope: ["r:clients"] },
+            { title: "Vendors", href: "/vendors", icon: "Store", scope: ["r:vendors"] },
         ],
     },
     {
         title: "Operations",
         items: [
-            { title: "Events", href: "/events", icon: "Calendar" },
-            { title: "Schedules", href: "/schedules", icon: "Clock" },
-            { title: "CheckLists", href: "/checklists", icon: "CheckSquare" },
-            { title: "Inventory", href: "/inventory", icon: "Package" },
+            { title: "Events", href: "/events", icon: "Calendar", scope: ["r:events"] },
+            { title: "Schedules", href: "/schedules", icon: "Clock", scope: ["r:schedules"] },
+            {
+                title: "CheckLists",
+                href: "/checklists",
+                icon: "CheckSquare",
+                scope: ["r:checklists"],
+            },
+            { title: "Inventory", href: "/inventory", icon: "Package", scope: ["r:inventory"] },
         ],
     },
     {
         title: "Finances",
         items: [
-            { title: "Estimates", href: "/estimates", icon: "FileText" },
-            { title: "Expenses", href: "/expenses", icon: "Wallet" },
-            { title: "Bills", href: "/bills", icon: "Receipt" },
-            { title: "Reports", href: "/reports", icon: "BarChart" },
+            { title: "Estimates", href: "/estimates", icon: "FileText", scope: ["r:estimates"] },
+            { title: "Expenses", href: "/expenses", icon: "Wallet", scope: ["r:expenses"] },
+            { title: "Bills", href: "/bills", icon: "Receipt", scope: ["r:bills"] },
+            { title: "Reports", href: "/reports", icon: "BarChart", scope: ["r:reports"] },
         ],
     },
     {
         title: "Administrations",
-        items: [{ title: "Users", href: "/users", icon: "User" }],
+        items: [{ title: "Users", href: "/users", icon: "User", scope: ["r:users"] }],
     },
 ];

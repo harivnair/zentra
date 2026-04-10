@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
-import { Badge, MenuList, type MenuItem } from "@/components/ui";
+import { Badge, MenuList } from "@/components/ui";
 import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import { PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -19,12 +19,13 @@ import CreateEnquiryModal from "@/components/create-enquiry-modal";
 import { EnquiriesTableFilters } from "@/components/enquiries-table-filters";
 import { Enquiry, EnquiryFormData, EnquiriesTableFiltersFormValues } from "@/types/enquiry";
 import { DEFAULT_PAGE_SIZE } from "@/constants";
-import { APIResponse } from "@/types";
+import { APIResponse, MenuItem } from "@/types";
 import { usePagination } from "@/hooks/usePagination";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { downloadCSV } from "@/lib/utils/file";
 import { buildQueryUrl } from "@/lib/api/query-params";
+import { AccessButton } from "@/components/shared/access-button";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
@@ -167,6 +168,7 @@ const columns = (
                     label: "Edit",
                     icon: <PencilIcon size={16} />,
                     onClick: () => onEdit(row),
+                    scopes: ["w:enquiries"],
                 },
                 {
                     key: "delete",
@@ -174,6 +176,7 @@ const columns = (
                     icon: <TrashIcon size={16} />,
                     onClick: () => onDelete(row),
                     className: "text-destructive focus:text-destructive",
+                    scopes: ["w:enquiries"],
                 },
             ];
 
@@ -406,9 +409,13 @@ export default function EnquiriesPage() {
                         <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
                             Export
                         </Button>
-                        <Button className="w-full sm:w-auto" onClick={handleCreate}>
+                        <AccessButton
+                            scope={["w:enquiries"]}
+                            className="w-full sm:w-auto"
+                            onClick={handleCreate}
+                        >
                             Create Enquiry
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

@@ -26,7 +26,6 @@ export function EstimateVersionsView({
     // Fetch versions on mount
     useEffect(() => {
         fetchVersions();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchVersions = async () => {
@@ -189,7 +188,7 @@ export function EstimateVersionsView({
                                                         </h3>
                                                         <span
                                                             className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(
-                                                                version.estimateStatus
+                                                                version.estimateStatus,
                                                             )}`}
                                                         >
                                                             {getStatusLabel(version.estimateStatus)}
@@ -228,7 +227,7 @@ export function EstimateVersionsView({
                                                             onClick={() =>
                                                                 handleStatusChange(
                                                                     version.id || "",
-                                                                    "UNDER_CLIENT_REVIEW"
+                                                                    "UNDER_CLIENT_REVIEW",
                                                                 )
                                                             }
                                                             className="flex items-center gap-1"
@@ -259,7 +258,7 @@ export function EstimateVersionsView({
                                                             onClick={() =>
                                                                 handleStatusChange(
                                                                     version.id || "",
-                                                                    "FINAL"
+                                                                    "FINAL",
                                                                 )
                                                             }
                                                             className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
@@ -273,7 +272,7 @@ export function EstimateVersionsView({
                                                             onClick={() =>
                                                                 handleStatusChange(
                                                                     version.id || "",
-                                                                    "DRAFT"
+                                                                    "DRAFT",
                                                                 )
                                                             }
                                                             className="flex items-center gap-1"
@@ -290,7 +289,7 @@ export function EstimateVersionsView({
                                                         onClick={() =>
                                                             handleStatusChange(
                                                                 version.id || "",
-                                                                "DRAFT"
+                                                                "DRAFT",
                                                             )
                                                         }
                                                         className="flex items-center gap-1"
@@ -338,7 +337,7 @@ export function EstimateVersionsView({
                                                         <p className="text-gray-600">
                                                             {version.fromDate
                                                                 ? new Date(
-                                                                      version.fromDate
+                                                                      version.fromDate,
                                                                   ).toLocaleDateString()
                                                                 : "N/A"}
                                                         </p>
@@ -350,7 +349,7 @@ export function EstimateVersionsView({
                                                         <p className="text-gray-600">
                                                             {version.toDate
                                                                 ? new Date(
-                                                                      version.toDate
+                                                                      version.toDate,
                                                                   ).toLocaleDateString()
                                                                 : "N/A"}
                                                         </p>
@@ -364,7 +363,7 @@ export function EstimateVersionsView({
                                                                 {versions.find(
                                                                     v =>
                                                                         v.id ===
-                                                                        version.clonedFromEstimateId
+                                                                        version.clonedFromEstimateId,
                                                                 )?.version || "Unknown"}
                                                             </p>
                                                         </div>
@@ -376,7 +375,7 @@ export function EstimateVersionsView({
                                                         <p className="text-gray-600">
                                                             {version.createdAt
                                                                 ? new Date(
-                                                                      version.createdAt
+                                                                      version.createdAt,
                                                                   ).toLocaleString()
                                                                 : "N/A"}
                                                         </p>

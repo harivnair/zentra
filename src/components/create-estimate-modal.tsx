@@ -22,7 +22,7 @@ import {
 } from "@/types/estimate";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
-import { FileTextIcon, TrashIcon, PlusIcon } from "./ui";
+import { TrashIcon, PlusIcon } from "./ui";
 
 const statusOptions: { value: EstimateStatus; label: string }[] = [
     { value: "OPEN", label: "Open" },
@@ -1571,11 +1571,7 @@ export default function CreateEstimateModal({
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                type="submit"
-                                disabled={isSaving || isFetchingEnquiry}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
+                            <Button type="submit" disabled={isSaving || isFetchingEnquiry}>
                                 {isSaving
                                     ? initialData?.id
                                         ? "Updating..."

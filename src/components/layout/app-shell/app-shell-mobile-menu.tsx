@@ -2,19 +2,20 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { sideMenuNav } from "@/config/nav";
 import { MenuIcon, XIcon } from "@/components/ui/icons";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { toast } from "sonner";
 import { useAuth } from "@/context/auth";
+import { filterMenuItems } from "@/lib/utils/permissions";
 
 export function AppShellMobileMenu() {
-    const router = useRouter();
-    const { logout } = useAuth();
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
+    const { user } = useAuth();
+
+    const filteredMenu = filterMenuItems(user, sideMenuNav);
 
     const close = () => setOpen(false);
 
@@ -24,12 +25,6 @@ export function AppShellMobileMenu() {
             document.body.style.overflow = "";
         };
     }, [open]);
-
-    const handleLogout = () => {
-        logout();
-        toast.success("Logged out successfully");
-        router.push("/login");
-    };
 
     return (
         <>
@@ -47,7 +42,7 @@ export function AppShellMobileMenu() {
             <div
                 className={cn(
                     "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200 lg:hidden",
-                    open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+                    open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
                 )}
                 onClick={close}
                 aria-hidden
@@ -59,11 +54,11 @@ export function AppShellMobileMenu() {
                     "fixed inset-x-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-border bg-surface shadow-xl transition-all duration-200 ease-out sm:top-16 sm:max-h-[calc(100dvh-4rem)] lg:hidden",
                     open
                         ? "translate-y-0 opacity-100"
-                        : "-translate-y-2 opacity-0 pointer-events-none"
+                        : "-translate-y-2 opacity-0 pointer-events-none",
                 )}
             >
                 <nav className="flex flex-col gap-4 p-4">
-                    {sideMenuNav.map(section => (
+                    {filteredMenu.map(section => (
                         <div key={section.title}>
                             <h3 className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 {section.title}
@@ -83,7 +78,7 @@ export function AppShellMobileMenu() {
                                                     "flex items-center rounded-lg px-3 py-3 text-base font-medium transition-colors",
                                                     active
                                                         ? "bg-primary-light text-primary"
-                                                        : "text-foreground active:bg-muted"
+                                                        : "text-foreground active:bg-muted",
                                                 )}
                                                 onClick={close}
                                             >

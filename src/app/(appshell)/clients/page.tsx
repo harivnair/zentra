@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
-import { MenuList, type MenuItem } from "@/components/ui";
+import { MenuList } from "@/components/ui";
 import { MoreVerticalIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import CreateClientModal from "@/components/create-client-modal";
 import { PageHeader } from "@/components/ui";
@@ -17,6 +17,8 @@ import { KeyValueDisplay } from "@/components/ui/key-value-display";
 import { Client } from "@/types/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { downloadCSV } from "@/lib/utils/file";
+import { MenuItem } from "@/types";
+import { AccessButton } from "@/components/shared/access-button";
 
 const columns = (
     onView: (row: Client) => void,
@@ -69,6 +71,7 @@ const columns = (
                     icon: <TrashIcon size={16} />,
                     onClick: () => onDelete(row),
                     className: "text-destructive focus:text-destructive",
+                    scopes: ["w:clients"],
                 },
             ];
 
@@ -175,9 +178,13 @@ export default function ClientsPage() {
                         <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
                             Export
                         </Button>
-                        <Button className="w-full sm:w-auto" onClick={handleCreate}>
+                        <AccessButton
+                            scope={["w:clients"]}
+                            className="w-full sm:w-auto"
+                            onClick={handleCreate}
+                        >
                             Create Client
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />
