@@ -12,6 +12,7 @@ import { routePermissions } from "@/config/permissions";
 
 export default function AppShellLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
+    console.log({ pathname });
 
     // Get permissions for current route
     const currentRoutePermissions = routePermissions[pathname];
@@ -29,8 +30,8 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
                                 <EnquiriesProvider>
                                     <div className="mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
                                         <Access
-                                            roles={currentRoutePermissions.roles}
-                                            scopes={currentRoutePermissions.scopes}
+                                            roles={currentRoutePermissions?.roles}
+                                            scopes={currentRoutePermissions?.scopes}
                                         >
                                             {hasAccess => {
                                                 if (!hasAccess) {

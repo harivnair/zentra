@@ -59,7 +59,7 @@ export function Modal({
     useEffect(() => {
         if (open && dialogRef.current) {
             const focusable = dialogRef.current.querySelector<HTMLElement>(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
             );
             focusable?.focus();
         }
@@ -92,7 +92,7 @@ export function Modal({
                 className={cn(
                     "relative z-10 w-full rounded-xl border border-border bg-surface shadow-2xl animate-in zoom-in-95 fade-in duration-200",
                     sizeStyles[size],
-                    className
+                    className,
                 )}
             >
                 {/* Header */}
@@ -153,7 +153,7 @@ export function ModalFooter({ children, className }: ModalFooterProps) {
         <div
             className={cn(
                 "flex items-center justify-end gap-3 border-t border-border px-5 py-4 sm:px-6",
-                className
+                className,
             )}
         >
             {children}

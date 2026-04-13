@@ -83,7 +83,7 @@ export function MenuList({
             {isOpen && (
                 <div
                     className={cn(
-                        "absolute w-48 rounded-xl border border-border bg-surface p-1 shadow-lg z-50",
+                        "absolute w-48 rounded-md border border-border bg-surface p-1 shadow-lg z-50",
                         position === "top" ? "bottom-full mb-2" : "top-full mt-2",
                         align === "start" ? "left-0" : "right-0",
                         className,
