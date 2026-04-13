@@ -1,6 +1,5 @@
-
-import { NextRequest, NextResponse } from 'next/server';
-import { BACKEND_ENDPOINTS } from '@/lib/endpoint';
+import { BACKEND_ENDPOINTS } from "@/lib/api/endpoint";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,20 +9,23 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
 
         // Extract headers
-        const authHeader = req.headers.get('Authorization') || req.headers.get('X-Auth-Token');
+        const authHeader = req.headers.get("Authorization") || req.headers.get("X-Auth-Token");
 
         console.log("Auth Header present:", !!authHeader);
 
         // Forward to Spring Boot backend - Make sure to use 127.0.0.1 (not localhost)
-        const baseUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:8080').replace("localhost", "127.0.0.1"); // Force 127.0.0.1
+        const baseUrl = (process.env.BACKEND_URL || "http://127.0.0.1:8080").replace(
+            "localhost",
+            "127.0.0.1"
+        ); // Force 127.0.0.1
         const backendUrl = `${baseUrl}${BACKEND_ENDPOINTS.events.sendInvoice}`;
 
         // When sending FormData with fetch, do NOT manually setContent-Type.
         // The browser/fetch automatically sets it with the correct boundary.
         const response = await fetch(backendUrl, {
-            method: 'POST',
+            method: "POST",
             body: formData, // passing FormData directly lets fetch set the content-type with boundary
-            headers: authHeader ? { 'Authorization': authHeader } : undefined, // do not set Content-Type
+            headers: authHeader ? { Authorization: authHeader } : undefined, // do not set Content-Type
         });
 
         if (!response.ok) {
@@ -35,9 +37,8 @@ export async function POST(req: NextRequest) {
         const result = await response.text();
         console.log("Backend success:", result);
         return new NextResponse(result, { status: 200 });
-
     } catch (error: any) {
-        console.error('API Route Proxy Error:', error);
+        console.error("API Route Proxy Error:", error);
         return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 });
     }
 }
