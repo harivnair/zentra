@@ -1,17 +1,16 @@
 "use client";
 
-import { Field, ErrorMessage, FieldProps } from "formik";
+import { Field, FieldProps } from "formik";
 import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 
-export interface FormikFieldInputProps
-    extends Omit<React.ComponentProps<"input">, "name" | "value" | "onChange" | "onBlur"> {
+export interface FormikFieldInputProps extends Omit<
+    React.ComponentProps<"input">,
+    "name" | "value" | "onChange" | "onBlur"
+> {
     name: string;
     label?: React.ReactNode;
-    labelClassName?: string;
     inputClassName?: string;
-    errorMessageClassName?: string;
     wrapperClassName?: string;
     onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -23,9 +22,7 @@ export interface FormikFieldInputProps
 export function FormikFieldInput({
     name,
     label,
-    labelClassName,
     inputClassName,
-    errorMessageClassName,
     wrapperClassName,
     id,
     onChange,
@@ -36,24 +33,28 @@ export function FormikFieldInput({
     return (
         <div className={cn("grid gap-2", wrapperClassName)}>
             <Field name={name}>
-                {({ field, meta }: FieldProps<string>) => (
-                    <Input
-                        label={label}
-                        id={inputId}
-                        {...inputProps}
-                        {...field}
-                        onChange={e => {
-                            field.onChange(e);
-                            onChange?.(e);
-                        }}
-                        className={inputClassName}
-                        aria-invalid={meta.touched && !!meta.error}
-                    />
-                )}
+                {({ field, meta }: FieldProps<string>) => {
+                    const showError = !!meta.touched && !!meta.error;
+
+                    return (
+                        <>
+                            <Input
+                                label={label}
+                                id={inputId}
+                                {...inputProps}
+                                {...field}
+                                onChange={e => {
+                                    field.onChange(e);
+                                    onChange?.(e);
+                                }}
+                                className={inputClassName}
+                                error={showError ? meta.error : undefined}
+                                aria-invalid={showError}
+                            />
+                        </>
+                    );
+                }}
             </Field>
-            <ErrorMessage name={name}>
-                {msg => <p className={cn("text-xs text-red-600", errorMessageClassName)}>{msg}</p>}
-            </ErrorMessage>
         </div>
     );
 }

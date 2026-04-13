@@ -5,9 +5,6 @@ export async function PUT(request: NextRequest) {
     return handleApiRequest(async () => {
         const backendUrl = getBackendUrl();
         const body = await request.json();
-
-        console.log({ body });
-
         const response = await fetch(`${backendUrl}/users/change-password`, {
             method: "PUT",
             headers: {

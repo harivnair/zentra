@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import { Formik, Form } from "formik";
-import * as Yup from "yup";
-
+import { toast } from "sonner";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { FormikFieldInput } from "../ui/formik-field-input";
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { useAuth } from "@/context/auth";
-import { toast } from "sonner";
 import authUtilities from "@/lib/validations/auth";
 
 interface ChangePasswordModalProps {
@@ -33,7 +30,7 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
                 {
                     method: "PUT",
                     body: { ...values, uid: user?.uid ?? "" },
-                }
+                },
             );
 
             if (result !== null) {

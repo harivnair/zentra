@@ -11,6 +11,7 @@ export interface User {
     uid: string;
     phone: string | null;
     role: string | null;
+    lastLoginTimestamp: string | null;
 }
 
 export interface AuthState {

@@ -44,3 +44,29 @@ export function formatRelativeTime(date: string | Date): string {
 
     return formatDate(date);
 }
+
+/**
+ * Formats a timestamp to API format: YYYY-MM-DDTHH:mm:ss
+ */
+export function formatApiTimestamp(timestamp: string | Date): string {
+    const date = new Date(timestamp);
+    return date.toISOString().slice(0, 19);
+}
+
+/**
+ * Formats a timestamp for display (e.g., "2min ago", "1hr ago")
+ */
+export function formatDisplayTime(timestamp: string | Date): string {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}min ago`;
+    if (diffHours < 24) return `${diffHours}hr ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+}

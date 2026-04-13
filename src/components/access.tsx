@@ -1,5 +1,5 @@
-import { roleScopeMap } from "@/config/permissions";
 import { useAuth } from "@/context/auth";
+import { roleScopeMap } from "@/config/permissions";
 import { Role, Scope } from "@/types/auth";
 import { ReactNode } from "react";
 

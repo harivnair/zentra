@@ -15,6 +15,7 @@ export interface LoadingButtonProps extends Omit<React.ComponentProps<typeof But
     loadingLabel?: React.ReactNode;
     children: React.ReactNode;
     type?: "button" | "submit" | "reset";
+    fullWidth?: boolean;
 }
 
 /**
@@ -27,12 +28,13 @@ function LoadingButton({
     children,
     className,
     disabled,
+    fullWidth,
     ...props
 }: LoadingButtonProps) {
     return (
         <Button
             type="submit"
-            className={cn("w-full", className)}
+            className={cn(fullWidth && "w-full", className)}
             disabled={disabled ?? loading}
             {...props}
         >

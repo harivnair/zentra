@@ -1,68 +1,184 @@
-import { forwardRef, type SelectHTMLAttributes } from "react";
+"use client";
+import { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import ReactSelect, {
+    components,
+    ControlProps,
+    MenuProps,
+    OptionProps,
+    Props as ReactSelectProps,
+} from "react-select";
 
 interface SelectOption {
-    value: string;
     label: string;
-    disabled?: boolean;
+    value: string;
 }
 
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-    label?: string;
+interface SelectComponentProps extends Omit<ReactSelectProps<SelectOption, false>, "components"> {
+    label?: string | ReactNode;
     error?: string;
     hint?: string;
-    options: SelectOption[];
+    options?: SelectOption[];
     placeholder?: string;
+    className?: string;
 }
 
-export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-    ({ className, label, error, hint, options, placeholder, id, ...props }, ref) => {
-        const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
-
-        return (
-            <div className="flex flex-col gap-1.5">
-                {label && (
-                    <label htmlFor={selectId} className="text-sm font-medium text-foreground">
-                        {label}
-                    </label>
-                )}
-                <select
-                    ref={ref}
-                    id={selectId}
-                    className={cn(
-                        "flex h-10 w-full appearance-none rounded-lg border border-input bg-surface px-3 py-2 pr-8 text-sm text-foreground transition-colors",
-                        "bg-[length:16px_16px] bg-[position:right_0.5rem_center] bg-no-repeat",
-                        "bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238A7B85%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')]",
-                        "focus:border-accent focus:outline-none focus:ring-2 focus:ring-input-ring",
-                        "disabled:cursor-not-allowed disabled:opacity-50",
-                        error &&
-                            "border-error focus:border-error focus:ring-[var(--input-error-ring)]",
-                        className
-                    )}
-                    aria-invalid={!!error}
-                    aria-describedby={error ? `${selectId}-error` : undefined}
-                    {...props}
-                >
-                    {placeholder && (
-                        <option value="" disabled>
-                            {placeholder}
-                        </option>
-                    )}
-                    {options.map(opt => (
-                        <option key={opt.value} value={opt.value} disabled={opt.disabled}>
-                            {opt.label}
-                        </option>
-                    ))}
-                </select>
-                {error && (
-                    <p id={`${selectId}-error`} className="text-sm text-error">
-                        {error}
-                    </p>
-                )}
-                {hint && !error && <p className="text-sm text-muted-foreground">{hint}</p>}
-            </div>
-        );
-    }
+const CustomControl = ({ children, ...props }: ControlProps<SelectOption>) => (
+    <components.Control {...props}>{children}</components.Control>
 );
+
+const CustomMenu = ({ children, ...props }: MenuProps<SelectOption>) => (
+    <components.Menu {...props}>{children}</components.Menu>
+);
+
+const CustomOption = ({ children, ...props }: OptionProps<SelectOption>) => (
+    <components.Option {...props}>{children}</components.Option>
+);
+
+export const Select = ({
+    label,
+    error,
+    hint,
+    options = [],
+    placeholder,
+    className,
+    styles,
+    ...props
+}: SelectComponentProps) => {
+    const customStyles: ReactSelectProps<SelectOption, false>["styles"] = {
+        container: (provided, _state) => ({
+            ...provided,
+            width: "100%",
+        }),
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: "40px",
+            backgroundColor: "var(--surface)",
+            borderColor: error
+                ? "var(--error)"
+                : state.isFocused
+                  ? "var(--accent)"
+                  : "var(--border)",
+            boxShadow: state.isFocused
+                ? `0 0 0 2px ${error ? "var(--input-error-ring)" : "var(--input-focus-ring)"}`
+                : "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            "&:hover": {
+                borderColor: error
+                    ? "var(--error)"
+                    : state.isFocused
+                      ? "var(--accent)"
+                      : "var(--border-hover)",
+            },
+        }),
+        singleValue: (provided, _state) => ({
+            ...provided,
+            color: "var(--foreground)",
+            fontSize: "12px",
+        }),
+        placeholder: (provided, _state) => ({
+            ...provided,
+            color: "var(--muted-foreground)",
+            fontSize: "12px",
+        }),
+        input: (provided, _state) => ({
+            ...provided,
+            color: "var(--foreground)",
+            margin: 0,
+            padding: 0,
+        }),
+        dropdownIndicator: (provided, _state) => ({
+            ...provided,
+            color: "var(--muted-foreground)",
+            "&:hover": {
+                color: "var(--accent)",
+            },
+        }),
+        indicatorSeparator: (provided, _state) => ({
+            ...provided,
+            display: "none",
+        }),
+        menu: (provided, _state) => ({
+            ...provided,
+            backgroundColor: "var(--surface-elevated)",
+            border: "1px solid var(--border)",
+            borderRadius: "6px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+            zIndex: 50,
+        }),
+        menuList: (provided, _state) => ({
+            ...provided,
+            padding: "4px",
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected
+                ? "var(--primary)"
+                : state.isFocused
+                  ? "var(--muted)"
+                  : "var(--surface-elevated)",
+            color: state.isSelected ? "var(--primary-foreground)" : "var(--foreground)",
+            cursor: "pointer",
+            fontSize: "14px",
+            padding: "8px 12px",
+            borderRadius: "4px",
+            transition: "all 0.15s ease",
+            "&:active": {
+                backgroundColor: "var(--primary)",
+                color: "var(--primary-foreground)",
+            },
+        }),
+        noOptionsMessage: (provided, _state) => ({
+            ...provided,
+            color: "var(--muted-foreground)",
+            fontSize: "14px",
+        }),
+        ...styles,
+    };
+
+    return (
+        <div className={cn("flex flex-col gap-1.5", className)}>
+            {label && <label className="text-sm font-medium text-foreground">{label}</label>}
+            <ReactSelect<SelectOption, false>
+                options={options}
+                placeholder={placeholder}
+                components={{
+                    Control: CustomControl,
+                    Menu: CustomMenu,
+                    Option: CustomOption,
+                }}
+                styles={customStyles}
+                theme={theme => ({
+                    ...theme,
+                    colors: {
+                        ...theme.colors,
+                        primary: "var(--primary)",
+                        primary75: "var(--primary-hover)",
+                        primary50: "var(--primary-light)",
+                        primary25: "var(--primary-light)",
+                        danger: "var(--error)",
+                        dangerLight: "var(--error-light)",
+                        neutral0: "var(--surface)",
+                        neutral5: "var(--surface-elevated)",
+                        neutral10: "var(--border)",
+                        neutral20: "var(--border)",
+                        neutral30: "var(--border-hover)",
+                        neutral40: "var(--muted-foreground)",
+                        neutral50: "var(--muted-foreground)",
+                        neutral60: "var(--muted-foreground)",
+                        neutral70: "var(--foreground)",
+                        neutral80: "var(--foreground)",
+                        neutral90: "var(--foreground)",
+                    },
+                })}
+                aria-invalid={!!error}
+                {...props}
+            />
+            {error && <p className="text-xs text-error">{error}</p>}
+            {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+    );
+};
 
 Select.displayName = "Select";

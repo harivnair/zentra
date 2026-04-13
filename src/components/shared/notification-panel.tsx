@@ -3,75 +3,37 @@
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils/cn";
 import { BellIcon, CheckIcon } from "@/components/ui/icons";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { getAvatarColor, getUserNameInitials } from "@/lib/utils";
-import { Notification } from "@/types/notification";
-
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-    {
-        id: "1",
-        user: "Isaiah Rivera",
-        action: "has registered",
-        time: "2min ago",
-        read: false,
-    },
-    {
-        id: "2",
-        user: "Samuel Young",
-        action: "has registered",
-        time: "20min ago",
-        read: true,
-    },
-    {
-        id: "3",
-        user: "Christian Brooks",
-        action: "request for",
-        detail: "KYC verifications",
-        time: "1hr ago",
-        read: true,
-    },
-    {
-        id: "4",
-        user: "Levi Collins",
-        action: "has registered",
-        time: "2hr ago",
-        read: false,
-    },
-    {
-        id: "5",
-        user: "Brayden Stewart",
-        action: "has registered",
-        time: "4min ago",
-        read: true,
-    },
-    {
-        id: "6",
-        user: "Isabella Anderson",
-        action: "has registered",
-        time: "Tuesday",
-        read: false,
-    },
-    {
-        id: "7",
-        user: "John Cook",
-        action: "has registered",
-        time: "Last week",
-        read: true,
-    },
-];
+import { formatDisplayTime } from "@/lib/utils/date";
+import { useNotifications } from "@/hooks/useNotifications";
 
 type Tab = "all" | "unread";
+
+function getNotificationAvatarColor(type: string): string {
+    const colorMap: Record<string, string> = {
+        ENQUIRY: "bg-blue-100 text-blue-700",
+        EVENT: "bg-purple-100 text-purple-700",
+        USER: "bg-green-100 text-green-700",
+        SYSTEM: "bg-gray-100 text-gray-700",
+        INVENTORY: "bg-orange-100 text-orange-700",
+        ESTIMATE: "bg-indigo-100 text-indigo-700",
+        VENDOR: "bg-pink-100 text-pink-700",
+        CHECKLIST: "bg-teal-100 text-teal-700",
+    };
+    return colorMap[type] ?? "bg-gray-100 text-gray-700";
+}
+
+function getNotificationInitials(type: string): string {
+    return type.slice(0, 2).toUpperCase();
+}
 
 export function NotificationPanel() {
     const [open, setOpen] = useState(false);
     const [tab, setTab] = useState<Tab>("all");
-    const [notifications, setNotifications] = useState(SAMPLE_NOTIFICATIONS);
+    const { notifications, loading, markAllRead } = useNotifications();
     const panelRef = useRef<HTMLDivElement>(null);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
-
-    const filtered = tab === "unread" ? notifications.filter(n => !n.read) : notifications;
+    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const filtered = tab === "unread" ? notifications.filter(n => !n.isRead) : notifications;
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -82,10 +44,6 @@ export function NotificationPanel() {
         if (open) document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [open]);
-
-    function markAllRead() {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    }
 
     return (
         <div className="relative" ref={panelRef}>
@@ -120,7 +78,7 @@ export function NotificationPanel() {
                                 "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
                                 tab === "all"
                                     ? "bg-primary-light text-primary"
-                                    : "text-muted-foreground hover:text-foreground"
+                                    : "text-muted-foreground hover:text-foreground",
                             )}
                         >
                             All
@@ -131,7 +89,7 @@ export function NotificationPanel() {
                                 "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
                                 tab === "unread"
                                     ? "bg-primary-light text-primary"
-                                    : "text-muted-foreground hover:text-foreground"
+                                    : "text-muted-foreground hover:text-foreground",
                             )}
                         >
                             Unread
@@ -145,46 +103,39 @@ export function NotificationPanel() {
 
                     {/* Notification list */}
                     <div className="mt-3 max-h-[360px] overflow-y-auto">
-                        {filtered.length > 0 ? (
+                        {loading && notifications.length === 0 ? (
+                            <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                                Loading...
+                            </div>
+                        ) : filtered.length > 0 ? (
                             filtered.map(n => (
                                 <div
-                                    key={n.id}
+                                    key={`${n.type}-${n.createdAt}`}
                                     className={cn(
                                         "flex items-start gap-3 px-5 py-3 transition-colors",
-                                        !n.read && "bg-primary-light/50"
+                                        !n.isRead && "bg-primary-light/50",
                                     )}
                                 >
                                     {/* Avatar */}
                                     <div
                                         className={cn(
                                             "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                                            getAvatarColor(n.id)
+                                            getNotificationAvatarColor(n.type),
                                         )}
                                     >
-                                        {getUserNameInitials(n.user)}
+                                        {getNotificationInitials(n.type)}
                                     </div>
 
                                     {/* Content */}
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-sm text-foreground">
-                                            <span className="font-semibold">{n.user}</span>{" "}
-                                            {n.action}
-                                            {n.detail && (
-                                                <>
-                                                    {" "}
-                                                    <span className="font-medium text-primary">
-                                                        {n.detail}
-                                                    </span>
-                                                </>
-                                            )}
-                                        </p>
+                                        <p className="text-sm text-foreground">{n.message}</p>
                                         <p className="mt-0.5 text-xs text-muted-foreground">
-                                            {n.time}
+                                            {formatDisplayTime(n.createdAt)}
                                         </p>
                                     </div>
 
                                     {/* Unread dot */}
-                                    {!n.read && (
+                                    {!n.isRead && (
                                         <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
                                     )}
                                 </div>
@@ -206,9 +157,10 @@ export function NotificationPanel() {
                             <CheckIcon size={14} />
                             Mark all as read
                         </button>
-                        <Link href="/notifications" onClick={() => setOpen(false)}>
+                        {/* TODO: Implement notification view all functionality */}
+                        {/* <Link href="/notifications" onClick={() => setOpen(false)}>
                             <Button size="sm">View All Notifications</Button>
-                        </Link>
+                        </Link> */}
                     </div>
                 </div>
             )}
