@@ -1,16 +1,27 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui-old/button";
-import DropdownMenu from "@/components/ui-old/dropdown-menu";
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { MenuList, type MenuItem } from "@/components/ui";
+import { MoreVerticalIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import CreateVendorModal from "@/components/create-vendor-modal";
-import { VendorFormData } from "@/types/vendor";
-import { ListSkeleton, TableRowSkeleton } from "@/components/skeleton-loader";
-import { showConfirmation } from "@/components/confirmation-toast";
 import { toast } from "sonner";
-import { useAuth } from "@/context/auth";
-import { Truck } from "lucide-react";
 import { apiRequest } from "@/lib/api/api-client";
+import { PageHeader } from "@/components/ui";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { MobileCardList } from "@/components/shared/mobile-card-list";
+import { ConfirmationModal } from "@/components/shared/confirmation-modal";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { KeyValueDisplay } from "@/components/ui/key-value-display";
+import { Table, Column as TableColumn } from "@/components/ui/table";
+import { downloadCSV } from "@/lib/utils/file";
+
+type VendorItem = {
+    item: string;
+    count: number;
+    pricePerItem: number;
+    description?: string;
+};
 
 type Vendor = {
     id: string;
@@ -20,21 +31,112 @@ type Vendor = {
     tds: number;
     gstCertificate?: string;
     phone: string;
-    items?: unknown[];
+    items?: VendorItem[];
 };
+
+const vendorItemColumns: TableColumn<VendorItem>[] = [
+    { key: "item", header: "Item" },
+    {
+        key: "count",
+        header: "Count",
+        align: "right",
+    },
+    {
+        key: "pricePerItem",
+        header: "Price per Item",
+        align: "right",
+        render: item => `₹${item.pricePerItem.toFixed(2)}`,
+    },
+    {
+        key: "description",
+        header: "Description",
+        render: item => item.description || "-",
+        maxWidth: "200px",
+    },
+];
+
+const columns = (
+    onView: (row: Vendor) => void,
+    onDelete: (row: Vendor) => void,
+): Column<Vendor>[] => [
+    {
+        key: "name",
+        header: "Name",
+        render: row => row.name,
+    },
+    {
+        key: "phone",
+        header: "Phone",
+        render: row => row.phone,
+        className: "text-muted-foreground",
+    },
+    {
+        key: "billingAddress",
+        header: "Billing Address",
+        render: row => row.billingAddress,
+        className: "text-muted-foreground",
+    },
+    {
+        key: "gst",
+        header: "GST",
+        render: row => `${row.gst}%`,
+        className: "text-muted-foreground",
+    },
+    {
+        key: "tds",
+        header: "TDS",
+        render: row => `${row.tds}%`,
+        className: "text-muted-foreground",
+    },
+    {
+        key: "actions",
+        header: "",
+        className: "text-right",
+        render: row => {
+            const items: MenuItem[] = [
+                {
+                    key: "view",
+                    label: "View",
+                    icon: <FileTextIcon size={16} />,
+                    onClick: () => onView(row),
+                },
+                {
+                    key: "delete",
+                    label: "Delete",
+                    icon: <TrashIcon size={16} />,
+                    onClick: () => onDelete(row),
+                    className: "text-destructive focus:text-destructive",
+                },
+            ];
+
+            return (
+                <div className="flex justify-center">
+                    <MenuList
+                        align="end"
+                        items={items}
+                        trigger={
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVerticalIcon size={16} />
+                            </Button>
+                        }
+                    />
+                </div>
+            );
+        },
+    },
+];
 
 export default function VendorsPage() {
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingVendor, setEditingVendor] = useState<VendorFormData | null>(null);
-    const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-    const { user } = useAuth();
+    const [viewModalOpen, setViewModalOpen] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+    const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
 
     const fetchVendors = useCallback(async () => {
         setLoading(true);
-        setError(null);
         try {
             const res = await apiRequest("/api/vendors");
             if (!res.ok) {
@@ -44,7 +146,6 @@ export default function VendorsPage() {
             setVendors(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Error fetching vendors:", err);
-            setError(err instanceof Error ? err.message : "Failed to fetch vendors");
             setVendors([]);
         } finally {
             setLoading(false);
@@ -55,218 +156,212 @@ export default function VendorsPage() {
         fetchVendors();
     }, [fetchVendors]);
 
-    const vendorCount = useMemo(() => vendors.length, [vendors]);
-
     const openCreateModal = () => {
-        setModalMode("create");
-        setEditingVendor(null);
         setIsModalOpen(true);
     };
 
-    const openEditModal = (vendor: Vendor) => {
-        setModalMode("edit");
-        const editData: VendorFormData = {
-            id: vendor.id,
-            name: vendor.name,
-            billingAddress: vendor.billingAddress,
-            gst: vendor.gst,
-            tds: vendor.tds,
-            gstCertificate: vendor.gstCertificate || "",
-            phone: vendor.phone,
-            items: vendor.items as VendorFormData["items"],
-        };
-        setEditingVendor(editData);
-        setIsModalOpen(true);
+    const handleView = (vendor: Vendor) => {
+        setSelectedVendor(vendor);
+        setViewModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        showConfirmation({
-            title: "Delete Vendor",
-            description:
-                "Are you sure you want to delete this vendor? This action cannot be undone.",
-            onConfirm: async () => {
-                try {
-                    const res = await apiRequest(`/api/vendors/${id}`, {
-                        method: "DELETE",
-                    });
-
-                    if (res.ok) {
-                        await fetchVendors();
-                        toast.success("Vendor deleted successfully");
-                    } else {
-                        const errText = await res.text().catch(() => "");
-                        throw new Error(`Failed to delete vendor: ${res.status} ${errText}`);
-                    }
-                } catch (error) {
-                    toast.error("Failed to delete vendor");
-                    console.error("Error deleting vendor:", error);
-                }
-            },
-        });
+    const handleDeleteClick = (vendor: Vendor) => {
+        setVendorToDelete(vendor);
+        setDeleteModalOpen(true);
     };
 
-    const getDropdownItems = (vendor: Vendor) => [
-        {
-            label: "Edit",
-            icon: "✏️",
-            action: () => openEditModal(vendor),
-        },
-        {
-            label: "Delete",
-            icon: "🗑️",
-            action: () => handleDelete(vendor.id),
-            variant: "danger" as const,
-        },
-    ];
+    const handleDeleteConfirm = async () => {
+        if (!vendorToDelete) return;
+        try {
+            const res = await apiRequest(`/api/vendors/${vendorToDelete.id}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                await fetchVendors();
+                toast.success("Vendor deleted successfully!");
+            } else {
+                const errText = await res.text().catch(() => "");
+                throw new Error(`Failed to delete vendor: ${res.status} ${errText}`);
+            }
+        } catch (_error) {
+            toast.error("Failed to delete vendor. Please try again.");
+        } finally {
+            setDeleteModalOpen(false);
+            setVendorToDelete(null);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        setDeleteModalOpen(false);
+        setVendorToDelete(null);
+    };
 
     const handleVendorSaved = async () => {
         await fetchVendors();
     };
 
+    const handleExport = () => {
+        const exportData = vendors.map(vendor => ({
+            Name: vendor.name,
+            Phone: vendor.phone,
+            "Billing Address": vendor.billingAddress,
+            GST: `${vendor.gst}%`,
+            TDS: `${vendor.tds}%`,
+            "GST Certificate": vendor.gstCertificate || "-",
+        }));
+        downloadCSV(exportData, "vendors-export.csv");
+    };
+
     return (
-        <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-lg bg-orange-100 flex items-center justify-center">
-                        <Truck className="h-8 w-8 text-orange-600" />
+        <div className="flex flex-col gap-6 sm:gap-8">
+            <PageHeader
+                title="Vendor Management"
+                description={`Manage all vendors and their contact information.`}
+                actions={
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                            Export
+                        </Button>
+                        <Button className="w-full sm:w-auto" onClick={openCreateModal}>
+                            Create Vendor
+                        </Button>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-bold">
-                            Hi, {user?.name || user?.uid || "User"}!
-                        </h2>
-                        <p className="text-muted-foreground">
-                            You have {vendorCount} {vendorCount === 1 ? "Vendor" : "Vendors"}{" "}
-                            registered
-                        </p>
-                    </div>
+                }
+            />
+            <div className="flex flex-col gap-4 sm:gap-1">
+                <div className="rounded-lg bg-surface p-4 sm:p-6 shadow-sm hidden md:block">
+                    <DataTable
+                        columns={columns(handleView, handleDeleteClick)}
+                        data={vendors}
+                        rowKey={row => row.id}
+                        emptyMessage="No vendors found."
+                        hoverable
+                        isLoading={loading}
+                    />
                 </div>
-
-                <div className="ml-auto w-full sm:w-auto">
-                    <Button
-                        onClick={openCreateModal}
-                        className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
-                    >
-                        + Add New Vendor
-                    </Button>
-                </div>
-            </div>
-
-            <div className="mt-6">
-                <div className="rounded-lg bg-white p-4 sm:p-6 shadow-sm">
-                    {/* Mobile / small screens: stacked cards */}
-                    <div className="flex flex-col gap-4 md:hidden">
-                        {loading && <ListSkeleton type="cards" items={5} />}
-                        {error && <div className="p-4 text-red-600">{error}</div>}
-                        {!loading && !error && vendors.length === 0 && (
-                            <div className="p-4 text-muted-foreground">
-                                No vendors found. Add your first vendor to get started.
+                <MobileCardList
+                    className="flex flex-col gap-4 md:hidden"
+                    items={vendors.map(vendor => ({ id: vendor.id, data: vendor }))}
+                    renderHeader={vendor => (
+                        <div className="flex items-center justify-between">
+                            <div className="font-bold text-lg">{vendor.name}</div>
+                            <div className="text-xs text-muted-foreground">{vendor.phone}</div>
+                        </div>
+                    )}
+                    renderContent={vendor => (
+                        <>
+                            <div className="mb-1">
+                                Billing Address:{" "}
+                                <span className="font-medium">{vendor.billingAddress}</span>
+                            </div>
+                            <div className="mb-1">
+                                GST: <span className="font-medium">{vendor.gst}%</span>
+                            </div>
+                            <div className="mb-1">
+                                TDS: <span className="font-medium">{vendor.tds}%</span>
+                            </div>
+                            <div className="mb-2">
+                                GST Certificate:{" "}
+                                <span className="font-medium">{vendor.gstCertificate || "-"}</span>
+                            </div>
+                        </>
+                    )}
+                    renderActions={vendor => (
+                        <div className="flex gap-2 justify-end">
+                            <Button variant="outline" size="sm" onClick={() => handleView(vendor)}>
+                                View
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteClick(vendor)}
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    )}
+                    emptyMessage="No vendors found."
+                    isLoading={loading}
+                />
+                <ConfirmationModal
+                    open={deleteModalOpen}
+                    onClose={handleDeleteCancel}
+                    onConfirm={handleDeleteConfirm}
+                    title="Delete Vendor"
+                    description={
+                        vendorToDelete
+                            ? `Are you sure you want to delete "${vendorToDelete.name}"? This action cannot be undone.`
+                            : undefined
+                    }
+                    confirmText="Delete"
+                    cancelText="Cancel"
+                />
+                {/* View Vendor Modal */}
+                <Modal
+                    open={viewModalOpen}
+                    onClose={() => {
+                        setViewModalOpen(false);
+                        setSelectedVendor(null);
+                    }}
+                    title="Vendor Details"
+                    size="xl"
+                >
+                    <ModalBody>
+                        {selectedVendor && (
+                            <div className="space-y-4">
+                                <KeyValueDisplay
+                                    columns={2}
+                                    items={[
+                                        { key: "Name", value: selectedVendor.name },
+                                        { key: "Phone", value: selectedVendor.phone },
+                                        {
+                                            key: "Billing Address",
+                                            value: selectedVendor.billingAddress,
+                                        },
+                                        { key: "GST", value: `${selectedVendor.gst}%` },
+                                        { key: "TDS", value: `${selectedVendor.tds}%` },
+                                        {
+                                            key: "GST Certificate",
+                                            value: selectedVendor.gstCertificate || "-",
+                                        },
+                                    ]}
+                                />
+                                {selectedVendor.items && selectedVendor.items.length > 0 && (
+                                    <div className="border-t border-border pt-4">
+                                        <h3 className="text-sm font-semibold text-foreground mb-3">
+                                            Vendor Items
+                                        </h3>
+                                        <Table
+                                            data={selectedVendor.items}
+                                            columns={vendorItemColumns}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
-
-                        {!loading &&
-                            !error &&
-                            vendors.map(vendor => (
-                                <div key={vendor.id} className="border rounded-md p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="font-medium">{vendor.name}</div>
-                                        <DropdownMenu items={getDropdownItems(vendor)} />
-                                    </div>
-                                    <div className="mt-2 text-sm text-muted-foreground">
-                                        {vendor.phone}
-                                    </div>
-                                    <div className="mt-1 text-sm text-muted-foreground truncate">
-                                        {vendor.billingAddress}
-                                    </div>
-                                    <div className="mt-3 flex gap-4 text-sm">
-                                        <span>
-                                            GST: <span className="font-medium">{vendor.gst}%</span>
-                                        </span>
-                                        <span>
-                                            TDS: <span className="font-medium">{vendor.tds}%</span>
-                                        </span>
-                                    </div>
-                                    {vendor.gstCertificate && (
-                                        <div className="mt-2 text-xs text-gray-500">
-                                            GST No: {vendor.gstCertificate}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                    </div>
-
-                    {/* Desktop: table view */}
-                    <div className="hidden md:block">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="text-left text-xs text-muted-foreground">
-                                    <th className="py-3">Vendor Name</th>
-                                    <th className="py-3">Phone</th>
-                                    <th className="py-3">Billing Address</th>
-                                    <th className="py-3">GST %</th>
-                                    <th className="py-3">TDS %</th>
-                                    <th className="py-3">GST Certificate</th>
-                                    <th className="py-3 text-right">&nbsp;</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading && <TableRowSkeleton rows={8} />}
-                                {error && (
-                                    <tr>
-                                        <td colSpan={7} className="py-8 text-center text-red-600">
-                                            {error}
-                                        </td>
-                                    </tr>
-                                )}
-                                {!loading && !error && vendors.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={7}
-                                            className="py-8 text-center text-muted-foreground"
-                                        >
-                                            No vendors found. Add your first vendor to get started.
-                                        </td>
-                                    </tr>
-                                )}
-                                {!loading &&
-                                    !error &&
-                                    vendors.map(vendor => (
-                                        <tr key={vendor.id} className="border-t hover:bg-gray-50">
-                                            <td className="py-4 font-medium">{vendor.name}</td>
-                                            <td className="py-4">{vendor.phone}</td>
-                                            <td
-                                                className="py-4 max-w-xs truncate"
-                                                title={vendor.billingAddress}
-                                            >
-                                                {vendor.billingAddress}
-                                            </td>
-                                            <td className="py-4">{vendor.gst}%</td>
-                                            <td className="py-4">{vendor.tds}%</td>
-                                            <td className="py-4 text-gray-500">
-                                                {vendor.gstCertificate || "-"}
-                                            </td>
-                                            <td className="py-4 text-right">
-                                                <DropdownMenu items={getDropdownItems(vendor)} />
-                                            </td>
-                                        </tr>
-                                    ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setViewModalOpen(false);
+                                setSelectedVendor(null);
+                            }}
+                        >
+                            Close
+                        </Button>
+                    </ModalFooter>
+                </Modal>
+                {/* Create Vendor Modal */}
+                <CreateVendorModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                    }}
+                    onSubmit={handleVendorSaved}
+                />
             </div>
-
-            {/* Create/Edit Vendor Modal */}
-            <CreateVendorModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setEditingVendor(null);
-                    setModalMode("create");
-                }}
-                onSubmit={handleVendorSaved}
-                editData={editingVendor}
-                mode={modalMode}
-            />
         </div>
     );
 }

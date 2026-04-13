@@ -1,227 +1,297 @@
 "use client";
 
-import React, { useState } from "react";
-import CreateChecklistModal from "../../../components/create-checklist-modal";
-import DropdownMenu from "@/components/ui-old/dropdown-menu";
-import { Button } from "@/components/ui-old/button";
-import { useAuth } from "@/context/auth";
-import { showConfirmation } from "@/components/confirmation-toast";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
-type ChecklistRow = {
-    id: string;
-    eventName: string;
-    enquiryDate: string;
-    clientPoc: string;
-    status: "In Progress" | "Not Started" | "Completed";
-    gst?: string;
-};
+import { useRequestApi } from "@/hooks/useRequestApi";
+import { Button } from "@/components/ui/button";
+import { MenuList, type MenuItem } from "@/components/ui";
+import { MoreVerticalIcon, TrashIcon, FileTextIcon, PencilIcon } from "@/components/ui/icons";
+import { PageHeader } from "@/components/ui";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { MobileCardList } from "@/components/shared/mobile-card-list";
+import { ConfirmationModal } from "@/components/shared/confirmation-modal";
+import CreateChecklistModal from "@/components/create-checklist-modal";
+import { ChecklistFormData } from "@/types/checklist";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { downloadCSV } from "@/lib/utils/file";
 
-const INITIAL_DATA: ChecklistRow[] = [
+const columns = (
+    onView: (row: ChecklistFormData) => void,
+    onEdit: (row: ChecklistFormData) => void,
+    onDelete: (row: ChecklistFormData) => void,
+): Column<ChecklistFormData>[] => [
     {
-        id: "1",
-        eventName: "Annual Gala Dinner",
-        enquiryDate: "2025-06-25",
-        clientPoc: "Invoice Creation",
-        status: "In Progress",
-        gst: "GSTIN1234",
+        key: "eventName",
+        header: "Event Name",
+        render: row => row.eventName,
     },
     {
-        id: "2",
-        eventName: "Annual Gala Dinner",
-        enquiryDate: "2025-06-25",
-        clientPoc: "Invoice Creation",
-        status: "In Progress",
-        gst: "GSTIN1234",
+        key: "enquiryDate",
+        header: "Enquiry Date",
+        render: row => row.enquiryDate,
+        className: "text-muted-foreground",
     },
     {
-        id: "3",
-        eventName: "Annual Gala Dinner",
-        enquiryDate: "2025-06-25",
-        clientPoc: "Invoice Creation",
-        status: "Not Started",
-        gst: "GSTIN5678",
+        key: "clientPoc",
+        header: "Client POC",
+        render: row => row.clientPoc,
+        className: "text-muted-foreground",
     },
     {
-        id: "4",
-        eventName: "Annual Gala Dinner",
-        enquiryDate: "2025-06-25",
-        clientPoc: "Invoice Creation",
-        status: "Not Started",
-        gst: "GSTIN9012",
+        key: "status",
+        header: "Status",
+        render: row => {
+            const s = String(row.status ?? "").toLowerCase();
+            if (s === "in progress" || s === "in_progress" || s === "ongoing") {
+                return (
+                    <span className="inline-block rounded-full bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400">
+                        {row.status}
+                    </span>
+                );
+            }
+            if (s === "completed" || s === "done") {
+                return (
+                    <span className="inline-block rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800 dark:bg-green-900/40 dark:text-green-400">
+                        {row.status}
+                    </span>
+                );
+            }
+            return (
+                <span className="inline-block rounded-full bg-gray-200 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700/50 dark:text-gray-300">
+                    {row.status ?? "Not Started"}
+                </span>
+            );
+        },
+    },
+    {
+        key: "gst",
+        header: "GST",
+        render: row => row.gst || "-",
+        className: "text-muted-foreground",
+    },
+    {
+        key: "actions",
+        header: "",
+        className: "text-right",
+        render: row => {
+            const items: MenuItem[] = [
+                {
+                    key: "view",
+                    label: "View",
+                    icon: <FileTextIcon size={16} />,
+                    onClick: () => onView(row),
+                },
+                {
+                    key: "edit",
+                    label: "Edit",
+                    icon: <PencilIcon size={16} />,
+                    onClick: () => onEdit(row),
+                },
+                {
+                    key: "delete",
+                    label: "Delete",
+                    icon: <TrashIcon size={16} />,
+                    onClick: () => onDelete(row),
+                    className: "text-destructive focus:text-destructive",
+                },
+            ];
+
+            return (
+                <div className="flex justify-center">
+                    <MenuList
+                        align="end"
+                        items={items}
+                        trigger={
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVerticalIcon size={16} />
+                            </Button>
+                        }
+                    />
+                </div>
+            );
+        },
     },
 ];
 
-const StatusPill = ({ status }: { status?: string }) => {
-    const s = String(status ?? "").toLowerCase();
-    const base = "inline-block rounded-full px-3 py-1 text-sm font-medium";
-    if (s === "in progress" || s === "in_progress" || s === "ongoing")
-        return (
-            <span
-                className={
-                    base +
-                    " bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400"
-                }
-            >
-                {status}
-            </span>
-        );
-    if (s === "completed" || s === "done")
-        return (
-            <span
-                className={
-                    base + " bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400"
-                }
-            >
-                {status}
-            </span>
-        );
-    return (
-        <span
-            className={base + " bg-gray-200 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"}
-        >
-            {status ?? "Not Started"}
-        </span>
-    );
-};
-
 export default function ChecklistsPage() {
-    const { user } = useAuth();
-    const [rows, setRows] = useState<ChecklistRow[]>(INITIAL_DATA);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const { request, loading } = useRequestApi<ChecklistFormData[]>();
+    const [checklists, setChecklists] = useState<ChecklistFormData[]>([]);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [selectedChecklist, setSelectedChecklist] = useState<ChecklistFormData | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [checklistToDelete, setChecklistToDelete] = useState<ChecklistFormData | null>(null);
 
-    const filtered = rows; // placeholder: later filter by tab/status
+    const fetchChecklists = useCallback(async () => {
+        try {
+            const res = await request(API_ENDPOINTS.checklists.list, {
+                method: "GET",
+            });
+            if (res !== null) {
+                setChecklists(res);
+            }
+        } catch (_err) {
+            toast.error("Failed to fetch checklists. Please try again.");
+        }
+    }, [request]);
 
-    function handleSave(newRow: Omit<ChecklistRow, "id">) {
-        const id = String(Date.now());
-        setRows(prev => [{ id, ...newRow }, ...prev]);
-        setIsModalOpen(false);
-    }
+    useEffect(() => {
+        fetchChecklists();
+    }, [fetchChecklists]);
 
-    function handleDelete(id: string) {
-        showConfirmation({
-            title: "Delete Checklist",
-            description:
-                "Are you sure you want to delete this checklist? This action cannot be undone.",
-            onConfirm: async () => {
-                setRows(prev => prev.filter(r => r.id !== id));
-            },
-            confirmLabel: "Delete",
-            confirmingLabel: "Deleting...",
-        });
-    }
+    const handleCreate = () => {
+        setModalOpen(true);
+    };
 
-    const getDropdownItems = (row: ChecklistRow) => [
-        {
-            label: "View",
-            icon: "🔍",
-            action: () => (window.location.href = `/checklists/${row.id}`),
-        },
-        { label: "Edit", icon: "✏️", action: () => setIsModalOpen(true) },
-        {
-            label: "Delete",
-            icon: "🗑️",
-            action: () => handleDelete(row.id),
-            variant: "danger" as const,
-        },
-    ];
+    const handleView = (checklist: ChecklistFormData) => {
+        setSelectedChecklist(checklist);
+    };
+
+    const handleEdit = (checklist: ChecklistFormData) => {
+        setSelectedChecklist(checklist);
+        setModalOpen(true);
+    };
+
+    const handleDeleteClick = (checklist: ChecklistFormData) => {
+        setChecklistToDelete(checklist);
+        setDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!checklistToDelete || !checklistToDelete.id) return;
+        try {
+            await request(`${API_ENDPOINTS.checklists.detail(checklistToDelete.id)}`, {
+                method: "DELETE",
+            });
+
+            toast.success("Checklist deleted successfully!");
+            fetchChecklists();
+        } catch {
+            toast.error("Failed to delete checklist. Please try again.");
+        } finally {
+            setDeleteModalOpen(false);
+            setChecklistToDelete(null);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        setDeleteModalOpen(false);
+        setChecklistToDelete(null);
+    };
+
+    const handleExport = () => {
+        const exportData = checklists.map(checklist => ({
+            "Event Name": checklist.eventName,
+            "Enquiry Date": checklist.enquiryDate,
+            "Client POC": checklist.clientPoc,
+            Status: checklist.status,
+            GST: checklist.gst,
+        }));
+        downloadCSV(exportData, "checklists-export.csv");
+    };
 
     return (
-        <div className="min-h-screen w-full p-4 sm:p-6 lg:p-8">
-            <CreateChecklistModal
-                open={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSave}
+        <div className="flex flex-col gap-6 sm:gap-8">
+            <PageHeader
+                title="Checklist Management"
+                description="Manage all event checklists and their status"
+                actions={
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                            Export
+                        </Button>
+                        <Button className="w-full sm:w-auto" onClick={handleCreate}>
+                            Create Checklist
+                        </Button>
+                    </div>
+                }
             />
-
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-lg bg-indigo-100 flex items-center justify-center">
-                        <span className="text-indigo-600 text-2xl">🗒️</span>
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold">
-                            Hi, {user?.name || user?.uid || "User"}!
-                        </h2>
-                        <p className="text-muted-foreground">All checklists and their status</p>
-                    </div>
+            <div className="flex flex-col gap-4 sm:gap-1">
+                <div className="rounded-lg bg-surface p-4 sm:p-6 shadow-sm hidden md:block">
+                    <DataTable
+                        columns={columns(handleView, handleEdit, handleDeleteClick)}
+                        data={checklists}
+                        rowKey={row => String(row.id)}
+                        emptyMessage="No checklists found."
+                        hoverable
+                        isLoading={loading}
+                    />
                 </div>
-
-                <div className="ml-auto w-full sm:w-auto">
-                    <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
-                        + Create Checklist
-                    </Button>
-                </div>
-            </div>
-
-            <div className="rounded-lg bg-white p-4 sm:p-6 shadow-sm">
-                <div className="hidden md:block">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-xs text-muted-foreground">
-                                <th className="py-3">Event Name</th>
-                                <th className="py-3">Enquiry Date</th>
-                                <th className="py-3">Client POC</th>
-                                <th className="py-3">Status</th>
-                                <th className="py-3">GST</th>
-                                <th className="py-3 text-right">&nbsp;</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="py-8 text-center text-muted-foreground"
-                                    >
-                                        No checklists found.
-                                    </td>
-                                </tr>
-                            )}
-                            {filtered.map(row => (
-                                <tr key={row.id} className="border-t hover:bg-gray-50">
-                                    <td className="py-4">{row.eventName}</td>
-                                    <td className="py-4 text-muted-foreground">
-                                        {row.enquiryDate}
-                                    </td>
-                                    <td className="py-4 text-muted-foreground">{row.clientPoc}</td>
-                                    <td className="py-4">
-                                        <StatusPill status={row.status} />
-                                    </td>
-                                    <td className="py-4 text-gray-700">{row.gst}</td>
-                                    <td className="py-4 text-right">
-                                        <DropdownMenu items={getDropdownItems(row)} />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className="flex flex-col gap-4 md:hidden">
-                    {filtered.length === 0 && (
-                        <div className="p-4 text-muted-foreground">No checklists found.</div>
-                    )}
-                    {filtered.map(row => (
-                        <div key={row.id} className="border rounded-md p-4">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <div className="font-medium">{row.eventName}</div>
-                                    <div className="text-sm text-muted-foreground mt-1">
-                                        {row.clientPoc}
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <StatusPill status={row.status} />
-                                    <DropdownMenu items={getDropdownItems(row)} />
-                                </div>
-                            </div>
-                            <div className="mt-3 text-sm text-muted-foreground">
-                                {row.enquiryDate} · {row.gst}
+                <MobileCardList
+                    className="flex flex-col gap-4 md:hidden"
+                    items={checklists.map(checklist => ({
+                        id: String(checklist.id),
+                        data: checklist,
+                    }))}
+                    renderHeader={checklist => (
+                        <div className="flex items-center justify-between">
+                            <div className="font-bold text-lg">{checklist.eventName}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {checklist.enquiryDate}
                             </div>
                         </div>
-                    ))}
-                </div>
+                    )}
+                    renderContent={checklist => (
+                        <>
+                            <div className="mb-1">
+                                Client POC:{" "}
+                                <span className="font-medium">{checklist.clientPoc}</span>
+                            </div>
+                            <div className="mb-1">
+                                Status:{" "}
+                                <span className="font-medium">
+                                    {checklist.status ?? "Not Started"}
+                                </span>
+                            </div>
+                            <div className="mb-2">
+                                GST: <span className="font-medium">{checklist.gst || "-"}</span>
+                            </div>
+                        </>
+                    )}
+                    renderActions={checklist => (
+                        <div className="flex gap-2 justify-end">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleView(checklist)}
+                            >
+                                View
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteClick(checklist)}
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    )}
+                    emptyMessage="No checklists found."
+                    isLoading={loading}
+                />
+                <CreateChecklistModal
+                    open={modalOpen}
+                    onClose={() => {
+                        setModalOpen(false);
+                        setSelectedChecklist(null);
+                    }}
+                    onSave={() => {
+                        fetchChecklists();
+                    }}
+                />
+                <ConfirmationModal
+                    open={deleteModalOpen}
+                    onClose={handleDeleteCancel}
+                    onConfirm={handleDeleteConfirm}
+                    title="Delete Checklist"
+                    description={
+                        checklistToDelete
+                            ? `Are you sure you want to delete this checklist for "${checklistToDelete.eventName}"? This action cannot be undone.`
+                            : undefined
+                    }
+                    confirmText="Delete"
+                    cancelText="Cancel"
+                />
             </div>
         </div>
     );

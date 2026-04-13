@@ -17,7 +17,7 @@ export function PageHeader({ title, description, actions, className }: PageHeade
             )}
         >
             <div>
-                <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{title}</h1>
+                <h2 className="text-2xl font-bold text-foreground">{title}</h2>
                 {description && (
                     <p className="mt-1 text-sm text-muted-foreground sm:text-base">{description}</p>
                 )}

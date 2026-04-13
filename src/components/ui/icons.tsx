@@ -221,6 +221,14 @@ export function PackageIcon({ size, className }: IconProps) {
     );
 }
 
+export function PlusIcon({ size, className }: IconProps) {
+    return (
+        <svg {...svg(size, className)}>
+            <path d="M5 12h14M12 5v14" />
+        </svg>
+    );
+}
+
 export function PencilIcon({ size, className }: IconProps) {
     return (
         <svg {...svg(size, className)}>

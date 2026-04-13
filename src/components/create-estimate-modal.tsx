@@ -1,12 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
+import { Formik, Form, FormikHelpers } from "formik";
 import * as Yup from "yup";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { Button } from "@/components/ui-old/button";
-import { Input } from "@/components/ui-old/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FormikFieldInput } from "@/components/ui/formik-field-input";
+import { FormikFieldTextArea } from "@/components/ui/formik-field-textarea";
+import { FormikFieldDatePicker } from "@/components/ui/formik-field-date-picker";
+import { FormikFieldSelect } from "@/components/ui/formik-field-select";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Table, type Column } from "@/components/ui/table";
 import { Label } from "@/components/ui-old/label";
 import { toast } from "sonner";
 import {
@@ -18,6 +22,7 @@ import {
 } from "@/types/estimate";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { FileTextIcon, TrashIcon, PlusIcon } from "./ui";
 
 const statusOptions: { value: EstimateStatus; label: string }[] = [
     { value: "OPEN", label: "Open" },
@@ -116,7 +121,7 @@ const normaliseClientSummaryPayload = (payload: unknown): ClientEnquirySummary[]
         })
         .filter((e): e is ClientEnquirySummary => e !== null)
         .sort((a, b) =>
-            a.clientName.localeCompare(b.clientName, undefined, { sensitivity: "base" })
+            a.clientName.localeCompare(b.clientName, undefined, { sensitivity: "base" }),
         );
 };
 
@@ -142,14 +147,14 @@ const extractFirstEnquiryRecord = (payload: unknown): Record<string, unknown> | 
             const value = objectPayload[key];
             if (Array.isArray(value)) {
                 const first = value.find(
-                    item => item && typeof item === "object" && !Array.isArray(item)
+                    item => item && typeof item === "object" && !Array.isArray(item),
                 );
                 if (first) return first as Record<string, unknown>;
             }
         }
 
         const hasUsefulField = ["id", "enquiryId", "title", "enquiryTitle"].some(
-            key => key in objectPayload
+            key => key in objectPayload,
         );
         if (hasUsefulField) {
             return objectPayload;
@@ -210,7 +215,7 @@ export default function CreateEstimateModal({
     >(initialData);
     const [selectedClientId, setSelectedClientId] = useState(initialData?.client?.id ?? "");
     const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | undefined>(
-        initialData?.enquiryId
+        initialData?.enquiryId,
     );
     const [clientSummaries, setClientSummaries] = useState<ClientEnquirySummary[]>([]);
     const [summaryLoading, setSummaryLoading] = useState(false);
@@ -221,14 +226,14 @@ export default function CreateEstimateModal({
     const [vendorNames, setVendorNames] = useState<VendorName[]>([]);
     const [vendorNamesLoading, setVendorNamesLoading] = useState(false);
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(
-        initialData ? { clientName: initialData.client?.name, title: initialData.title } : null
+        initialData ? { clientName: initialData.client?.name, title: initialData.title } : null,
     );
     const requestRef = useRef(0);
     const enquiryPrefillCache = useRef(
         new Map<
             string,
             { prefill: (Partial<EstimateDto> & { enquiryId?: string }) | undefined; id?: string }
-        >()
+        >(),
     );
 
     useEffect(() => {
@@ -287,7 +292,7 @@ export default function CreateEstimateModal({
                 console.error("Failed to load client enquiry summary", error);
                 if (!cancelled) {
                     setSummaryError(
-                        error instanceof Error ? error.message : "Unable to load enquiries summary"
+                        error instanceof Error ? error.message : "Unable to load enquiries summary",
                     );
                     setClientSummaries([]);
                 }
@@ -343,7 +348,7 @@ export default function CreateEstimateModal({
     const mapEnquiryToPrefill = useCallback(
         (
             record: Record<string, unknown> | null | undefined,
-            fallback?: { id?: string; clientId?: string; clientName?: string; title?: string }
+            fallback?: { id?: string; clientId?: string; clientName?: string; title?: string },
         ) => {
             if (!record) return undefined;
 
@@ -398,80 +403,78 @@ export default function CreateEstimateModal({
             const rawItems = pick<Record<string, unknown>>(["items"]);
             const cleanedItems =
                 rawItems && typeof rawItems === "object"
-                    ? Object.entries(rawItems).reduce<Record<string, EstimateItem[]>>(
-                          (acc, [category, entries]) => {
-                              if (!Array.isArray(entries)) return acc;
-                              acc[category] = entries.map((item, index) => {
-                                  const content = item as Record<string, unknown>;
-                                  const identifier = content.id ?? `${category}-${index}`;
-                                  const description =
-                                      typeof content.description === "string"
-                                          ? content.description
-                                          : typeof content.item === "string"
-                                          ? content.item
-                                          : "Line item";
-                                  const specification =
-                                      typeof content.specification === "string"
-                                          ? content.specification
-                                          : undefined;
-                                  const rawDays =
-                                      toNumber(content.days) ?? toNumber(content.duration) ?? 1;
-                                  const rawSqft =
-                                      toNumber(content.sqft) ?? toNumber(content.quantity) ?? 1;
-                                  const rawRate =
-                                      toNumber(content.rate) ?? toNumber(content.unitCost) ?? 0;
-                                  const rawQuantity = toNumber(content.quantity) ?? rawSqft ?? 1;
-                                  const rawUnitCost = toNumber(content.unitCost) ?? rawRate ?? 0;
-                                  const rawTotal = toNumber(content.total);
+                    ? Object.entries(rawItems as Record<string, unknown>).reduce<
+                          Record<string, EstimateItem[]>
+                      >((acc, [category, entries]) => {
+                          if (!Array.isArray(entries)) return acc;
+                          acc[category] = entries.map((item, index) => {
+                              const content = item as Record<string, unknown>;
+                              const identifier = content.id ?? `${category}-${index}`;
+                              const description =
+                                  typeof content.description === "string"
+                                      ? content.description
+                                      : typeof content.item === "string"
+                                        ? content.item
+                                        : "Line item";
+                              const specification =
+                                  typeof content.specification === "string"
+                                      ? content.specification
+                                      : undefined;
+                              const rawDays =
+                                  toNumber(content.days) ?? toNumber(content.duration) ?? 1;
+                              const rawSqft =
+                                  toNumber(content.sqft) ?? toNumber(content.quantity) ?? 1;
+                              const rawRate =
+                                  toNumber(content.rate) ?? toNumber(content.unitCost) ?? 0;
+                              const rawQuantity = toNumber(content.quantity) ?? rawSqft ?? 1;
+                              const rawUnitCost = toNumber(content.unitCost) ?? rawRate ?? 0;
+                              const rawTotal = toNumber(content.total);
 
-                                  const safeDays =
-                                      typeof rawDays === "number" &&
-                                      Number.isFinite(rawDays) &&
-                                      rawDays > 0
-                                          ? rawDays
-                                          : 1;
-                                  const safeSqft =
-                                      typeof rawSqft === "number" &&
-                                      Number.isFinite(rawSqft) &&
-                                      rawSqft > 0
-                                          ? rawSqft
-                                          : 1;
-                                  const safeRate =
-                                      typeof rawRate === "number" && Number.isFinite(rawRate)
-                                          ? rawRate
-                                          : 0;
-                                  const safeQuantity =
-                                      typeof rawQuantity === "number" &&
-                                      Number.isFinite(rawQuantity) &&
-                                      rawQuantity > 0
-                                          ? rawQuantity
-                                          : safeSqft;
-                                  const safeUnitCost =
-                                      typeof rawUnitCost === "number" &&
-                                      Number.isFinite(rawUnitCost)
-                                          ? rawUnitCost
-                                          : safeRate;
-                                  const safeTotal =
-                                      typeof rawTotal === "number" && Number.isFinite(rawTotal)
-                                          ? Number(rawTotal.toFixed(2))
-                                          : Number((safeDays * safeSqft * safeRate).toFixed(2));
+                              const safeDays =
+                                  typeof rawDays === "number" &&
+                                  Number.isFinite(rawDays) &&
+                                  rawDays > 0
+                                      ? rawDays
+                                      : 1;
+                              const safeSqft =
+                                  typeof rawSqft === "number" &&
+                                  Number.isFinite(rawSqft) &&
+                                  rawSqft > 0
+                                      ? rawSqft
+                                      : 1;
+                              const safeRate =
+                                  typeof rawRate === "number" && Number.isFinite(rawRate)
+                                      ? rawRate
+                                      : 0;
+                              const safeQuantity =
+                                  typeof rawQuantity === "number" &&
+                                  Number.isFinite(rawQuantity) &&
+                                  rawQuantity > 0
+                                      ? rawQuantity
+                                      : safeSqft;
+                              const safeUnitCost =
+                                  typeof rawUnitCost === "number" && Number.isFinite(rawUnitCost)
+                                      ? rawUnitCost
+                                      : safeRate;
+                              const safeTotal =
+                                  typeof rawTotal === "number" && Number.isFinite(rawTotal)
+                                      ? Number(rawTotal.toFixed(2))
+                                      : Number((safeDays * safeSqft * safeRate).toFixed(2));
 
-                                  return {
-                                      id: String(identifier),
-                                      description,
-                                      specification,
-                                      days: safeDays,
-                                      sqft: safeSqft,
-                                      rate: safeRate,
-                                      quantity: safeQuantity,
-                                      unitCost: safeUnitCost,
-                                      total: safeTotal,
-                                  };
-                              });
-                              return acc;
-                          },
-                          {}
-                      )
+                              return {
+                                  id: String(identifier),
+                                  description,
+                                  specification,
+                                  days: safeDays,
+                                  sqft: safeSqft,
+                                  rate: safeRate,
+                                  quantity: safeQuantity,
+                                  unitCost: safeUnitCost,
+                                  total: safeTotal,
+                              };
+                          });
+                          return acc;
+                      }, {})
                     : undefined;
 
             const rawStatus = pick<string>(["status", "enquiryStatus"]);
@@ -513,7 +516,7 @@ export default function CreateEstimateModal({
                 items: cleanedItems,
             };
         },
-        []
+        [],
     );
 
     const loadEnquiryForSelection = useCallback(
@@ -542,11 +545,11 @@ export default function CreateEstimateModal({
                     enquiryTitle: title,
                 });
                 const response = await apiRequest(
-                    `${API_ENDPOINTS.enquiries.list}?${params.toString()}`
+                    `${API_ENDPOINTS.enquiries.list}?${params.toString()}`,
                 );
                 if (!response.ok) {
                     throw new Error(
-                        `Unable to load enquiry for ${clientName} • ${title}. (${response.status})`
+                        `Unable to load enquiry for ${clientName} • ${title}. (${response.status})`,
                     );
                 }
 
@@ -618,7 +621,7 @@ export default function CreateEstimateModal({
                 const resolvedId = nextPrefill.enquiryId ?? fallbackId;
                 if (!resolvedId) {
                     throw new Error(
-                        "The selected enquiry did not include an identifier. Please try another enquiry or refresh."
+                        "The selected enquiry did not include an identifier. Please try another enquiry or refresh.",
                     );
                 }
                 enquiryPrefillCache.current.set(cacheKey, { prefill: nextPrefill, id: resolvedId });
@@ -650,7 +653,7 @@ export default function CreateEstimateModal({
                 }
             }
         },
-        [mapEnquiryToPrefill, selectedClientId]
+        [mapEnquiryToPrefill, selectedClientId],
     );
 
     useEffect(() => {
@@ -691,8 +694,8 @@ export default function CreateEstimateModal({
                         Number.isFinite(rawSqft) && rawSqft > 0
                             ? rawSqft
                             : Number.isFinite(rawQuantity)
-                            ? rawQuantity
-                            : 1;
+                              ? rawQuantity
+                              : 1;
                     const rate = Number.isFinite(rawRate) ? rawRate : rawUnitCost;
                     const vendor = typeof item.vendor === "string" ? item.vendor : "";
 
@@ -740,12 +743,12 @@ export default function CreateEstimateModal({
             pocContactNumber: prefillData?.pocContactNumber ?? "",
             enquiryPoC: prefillData?.enquiryPoC ?? "",
         }),
-        [prefillData]
+        [prefillData],
     );
 
     const totalAmount = useMemo(
         () => lines.reduce((sum, line) => sum + line.days * line.sqft * line.rate, 0),
-        [lines]
+        [lines],
     );
 
     const titlesForSelectedClient = useMemo(() => {
@@ -826,7 +829,7 @@ export default function CreateEstimateModal({
                 ? { clientName: clientSummaries.find(c => c.clientId === nextClientId)?.clientName }
                 : null;
         },
-        [clientSummaries]
+        [clientSummaries],
     );
 
     const handleEnquiryTitleChange = useCallback(
@@ -845,7 +848,7 @@ export default function CreateEstimateModal({
             }
 
             const selectedEnquiry = titlesForSelectedClient.find(
-                e => e.enquiryId === nextEnquiryId
+                e => e.enquiryId === nextEnquiryId,
             );
             if (!selectedEnquiry) return;
 
@@ -867,12 +870,12 @@ export default function CreateEstimateModal({
             selectedClientId,
             titlesForSelectedClient,
             clientSummaries,
-        ]
+        ],
     );
 
     const handleSubmit = async (
         values: typeof initialForm,
-        helpers: FormikHelpers<typeof initialForm>
+        helpers: FormikHelpers<typeof initialForm>,
     ) => {
         setIsSaving(true);
         helpers.setStatus(null);
@@ -895,7 +898,7 @@ export default function CreateEstimateModal({
             const resolvedClientId = prefillData.client?.id ?? selectedClientId;
             if (!resolvedClientId) {
                 helpers.setStatus(
-                    "The selected enquiry is missing a client id. Please refresh and try again."
+                    "The selected enquiry is missing a client id. Please refresh and try again.",
                 );
                 toast.error("Client id unavailable", {
                     description: "We couldn't find the client reference for this enquiry.",
@@ -935,7 +938,7 @@ export default function CreateEstimateModal({
                     acc[category] = bucket;
                     return acc;
                 },
-                {}
+                {},
             );
 
             const uiItemsForFallback = lines.reduce<Record<string, EstimateItem[]>>((acc, line) => {
@@ -1016,7 +1019,7 @@ export default function CreateEstimateModal({
             };
 
             toast.success(
-                isEditing ? "Estimate updated successfully" : "Estimate created successfully"
+                isEditing ? "Estimate updated successfully" : "Estimate created successfully",
             );
             onSaved(fallback);
             onClose();
@@ -1032,731 +1035,561 @@ export default function CreateEstimateModal({
     if (!isOpen) return null;
 
     return (
-        <div
-            className="fixed inset-0 bg-black/30 flex items-start md:items-center justify-center z-50"
-            onClick={event => event.target === event.currentTarget && !isSaving && onClose()}
+        <Modal
+            open={isOpen}
+            onClose={() => !isSaving && onClose()}
+            size="xxl"
+            title={initialData?.id ? "Edit Estimate" : "Create Estimate"}
+            description={
+                initialData?.id
+                    ? "Update estimate details below."
+                    : "Choose an enquiry to instantly prefill the estimate details."
+            }
         >
-            <div className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-y-auto">
-                <Formik
-                    initialValues={initialForm}
-                    enableReinitialize
-                    validationSchema={validationSchema}
-                    onSubmit={handleSubmit}
-                >
-                    {({ values, setFieldValue, status }) => (
-                        <Form>
-                            <header className="px-6 py-4 border-b flex items-start justify-between gap-4 sticky top-0 bg-white">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3">
-                                        <h2 className="text-xl font-semibold">
-                                            {initialData?.id ? "Edit Estimate" : "Create Estimate"}
-                                        </h2>
-                                        {initialData?.version && (
-                                            <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                                                {initialData.version}
-                                            </span>
-                                        )}
-                                        {initialData?.estimateStatus && (
-                                            <span
-                                                className={`text-xs font-medium px-2 py-1 rounded ${
-                                                    initialData.estimateStatus === "FINAL"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : initialData.estimateStatus ===
-                                                          "UNDER_CLIENT_REVIEW"
-                                                        ? "bg-blue-100 text-blue-800"
-                                                        : "bg-gray-100 text-gray-700"
-                                                }`}
-                                            >
-                                                {initialData.estimateStatus.replace(/_/g, " ")}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        {initialData?.id
-                                            ? "Update estimate details below."
-                                            : "Choose an enquiry to instantly prefill the estimate details."}
-                                    </p>
+            <Formik
+                initialValues={initialForm}
+                enableReinitialize
+                validationSchema={validationSchema}
+                onSubmit={handleSubmit}
+            >
+                {({ status }) => (
+                    <Form>
+                        <ModalBody className="flex flex-col gap-4">
+                            {status && (
+                                <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+                                    {status}
                                 </div>
-                                <button
-                                    type="button"
-                                    className="text-gray-400 hover:text-gray-600 text-xl"
-                                    onClick={onClose}
-                                    disabled={isSaving}
-                                >
-                                    ×
-                                </button>
-                            </header>
+                            )}
 
-                            <div className="px-6 py-4 space-y-6">
-                                {status && (
-                                    <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
-                                        {status}
-                                    </div>
-                                )}
-
-                                <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                        <div className="w-full md:max-w-md">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                Source enquiry
-                                            </Label>
-                                            <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
-                                                <select
-                                                    value={selectedClientId}
-                                                    onChange={handleClientChange}
-                                                    disabled={summaryLoading || isFetchingEnquiry}
-                                                    className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                >
-                                                    <option value="">
-                                                        {summaryLoading
+                            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                    <div className="w-full md:max-w-md">
+                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                            Source enquiry
+                                        </Label>
+                                        <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
+                                            <FormikFieldSelect
+                                                name="clientId"
+                                                options={[
+                                                    {
+                                                        label: summaryLoading
                                                             ? "Loading clients…"
-                                                            : "Pick a client…"}
-                                                    </option>
-                                                    {clientSummaries.map(summary => (
-                                                        <option
-                                                            key={summary.clientId}
-                                                            value={summary.clientId}
-                                                        >
-                                                            {summary.clientName}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
-                                                    <select
-                                                        value={selectedEnquiryId ?? ""}
-                                                        onChange={handleEnquiryTitleChange}
-                                                        disabled={
-                                                            !selectedClientId ||
-                                                            summaryLoading ||
-                                                            isFetchingEnquiry ||
-                                                            titlesForSelectedClient.length === 0
-                                                        }
-                                                        className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    >
-                                                        <option value="">
-                                                            {!selectedClientId
+                                                            : "Pick a client…",
+                                                        value: "",
+                                                    },
+                                                    ...clientSummaries.map(summary => ({
+                                                        label: summary.clientName,
+                                                        value: summary.clientId,
+                                                    })),
+                                                ]}
+                                                isDisabled={summaryLoading || isFetchingEnquiry}
+                                                onChange={handleClientChange}
+                                                wrapperClassName="flex-1"
+                                            />
+                                            <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
+                                                <FormikFieldSelect
+                                                    name="enquiryId"
+                                                    options={[
+                                                        {
+                                                            label: !selectedClientId
                                                                 ? "Select a client first"
                                                                 : titlesForSelectedClient.length
-                                                                ? "Pick an enquiry title…"
-                                                                : "No enquiries available"}
-                                                        </option>
-                                                        {titlesForSelectedClient.map(enquiry => (
-                                                            <option
-                                                                key={enquiry.enquiryId}
-                                                                value={enquiry.enquiryId}
-                                                            >
-                                                                {enquiry.title}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    {selectedEnquiryId && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={isFetchingEnquiry}
-                                                            onClick={clearEnquirySelection}
-                                                        >
-                                                            Clear
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <p className="mt-2 text-xs text-muted-foreground">
-                                                {enquiryStatusMessage}
-                                            </p>
-                                        </div>
-                                        <div className="text-left md:text-right">
-                                            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                Estimate total
-                                            </span>
-                                            <p className="text-xl font-semibold text-blue-600">
-                                                ₹{totalAmount.toFixed(2)}
-                                            </p>
-                                            {prefillData?.client?.name && (
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    Client • {prefillData.client.name}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 space-y-2">
-                                        <Label
-                                            htmlFor="title"
-                                            className="text-sm font-medium text-gray-700"
-                                        >
-                                            Event title
-                                        </Label>
-                                        <Field
-                                            as={Input}
-                                            id="title"
-                                            name="title"
-                                            placeholder="e.g. Birthday party"
-                                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm shadow-inner focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        <ErrorMessage
-                                            name="title"
-                                            component="div"
-                                            className="text-sm text-red-600"
-                                        />
-                                    </div>
-                                    <div className="mt-4 space-y-2">
-                                        <Label
-                                            htmlFor="highlvelRequirement"
-                                            className="text-sm font-medium text-gray-700"
-                                        >
-                                            Project summary
-                                        </Label>
-                                        <Field
-                                            as="textarea"
-                                            id="highlvelRequirement"
-                                            name="highlvelRequirement"
-                                            rows={3}
-                                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm shadow-inner focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="Describe the goal of this estimate"
-                                        />
-                                        <ErrorMessage
-                                            name="highlvelRequirement"
-                                            component="div"
-                                            className="text-sm text-red-600"
-                                        />
-                                    </div>
-                                </section>
-
-                                <section className="grid gap-4 md:grid-cols-2">
-                                    <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
-                                        <h4 className="text-sm font-semibold text-gray-700">
-                                            Event schedule
-                                        </h4>
-                                        <div className="mt-3 grid gap-3">
-                                            <div>
-                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                    Enquiry Date
-                                                </Label>
-                                                <DatePicker
-                                                    selected={values.enquiryDate ?? null}
-                                                    onChange={(date: Date | null) =>
-                                                        setFieldValue("enquiryDate", date)
+                                                                  ? "Pick an enquiry title…"
+                                                                  : "No enquiries available",
+                                                            value: "",
+                                                        },
+                                                        ...titlesForSelectedClient.map(enquiry => ({
+                                                            label: enquiry.title,
+                                                            value: enquiry.enquiryId,
+                                                        })),
+                                                    ]}
+                                                    isDisabled={
+                                                        !selectedClientId ||
+                                                        summaryLoading ||
+                                                        isFetchingEnquiry ||
+                                                        titlesForSelectedClient.length === 0
                                                     }
-                                                    showTimeSelect
-                                                    timeIntervals={15}
-                                                    dateFormat="MMM d, yyyy h:mm aa"
-                                                    placeholderText="Pick enquiry date"
-                                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm"
+                                                    onChange={handleEnquiryTitleChange}
+                                                    wrapperClassName="flex-1"
                                                 />
-                                            </div>
-                                            <div className="grid gap-3 md:grid-cols-2">
-                                                <div>
-                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                        Event Start
-                                                    </Label>
-                                                    <DatePicker
-                                                        selected={values.fromDate ?? null}
-                                                        onChange={(date: Date | null) =>
-                                                            setFieldValue("fromDate", date)
-                                                        }
-                                                        showTimeSelect
-                                                        timeIntervals={15}
-                                                        dateFormat="MMM d, yyyy h:mm aa"
-                                                        placeholderText="Pick start"
-                                                        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                        Event End
-                                                    </Label>
-                                                    <DatePicker
-                                                        selected={values.toDate ?? null}
-                                                        onChange={(date: Date | null) =>
-                                                            setFieldValue("toDate", date)
-                                                        }
-                                                        showTimeSelect
-                                                        timeIntervals={15}
-                                                        dateFormat="MMM d, yyyy h:mm aa"
-                                                        placeholderText="Pick end"
-                                                        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm"
-                                                    />
-                                                </div>
+                                                {selectedEnquiryId && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        disabled={isFetchingEnquiry}
+                                                        onClick={clearEnquirySelection}
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
+                                        <p className="mt-2 text-xs text-muted-foreground">
+                                            {enquiryStatusMessage}
+                                        </p>
                                     </div>
-
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                        <h4 className="text-sm font-semibold text-gray-700">
-                                            Logistics
-                                        </h4>
-                                        <div className="mt-3 grid gap-3">
-                                            <div>
-                                                <Label
-                                                    htmlFor="status"
-                                                    className="text-xs uppercase tracking-wide text-muted-foreground"
-                                                >
-                                                    Status
-                                                </Label>
-                                                <Field
-                                                    as="select"
-                                                    id="status"
-                                                    name="status"
-                                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm"
-                                                >
-                                                    {statusOptions.map(option => (
-                                                        <option
-                                                            key={option.value}
-                                                            value={option.value}
-                                                        >
-                                                            {option.label}
-                                                        </option>
-                                                    ))}
-                                                </Field>
-                                                <ErrorMessage
-                                                    name="status"
-                                                    component="div"
-                                                    className="mt-1 text-sm text-red-600"
-                                                />
-                                            </div>
-                                            <div className="grid gap-3 md:grid-cols-2">
-                                                <div>
-                                                    <Label
-                                                        htmlFor="venue"
-                                                        className="text-xs uppercase tracking-wide text-muted-foreground"
-                                                    >
-                                                        Venue
-                                                    </Label>
-                                                    <Field
-                                                        as={Input}
-                                                        id="venue"
-                                                        name="venue"
-                                                        placeholder="Enter venue"
-                                                        className="mt-1"
-                                                    />
-                                                    <ErrorMessage
-                                                        name="venue"
-                                                        component="div"
-                                                        className="mt-1 text-sm text-red-600"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Label
-                                                        htmlFor="location"
-                                                        className="text-xs uppercase tracking-wide text-muted-foreground"
-                                                    >
-                                                        Location
-                                                    </Label>
-                                                    <Field
-                                                        as={Input}
-                                                        id="location"
-                                                        name="location"
-                                                        placeholder="Enter event location"
-                                                        className="mt-1"
-                                                    />
-                                                    <ErrorMessage
-                                                        name="location"
-                                                        component="div"
-                                                        className="mt-1 text-sm text-red-600"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div className="text-left md:text-right">
+                                        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                                            Estimate total
+                                        </span>
+                                        <p className="text-xl font-semibold text-blue-600">
+                                            ₹{totalAmount.toFixed(2)}
+                                        </p>
+                                        {prefillData?.client?.name && (
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                Client • {prefillData.client.name}
+                                            </p>
+                                        )}
                                     </div>
-                                </section>
+                                </div>
+                                <FormikFieldInput
+                                    name="title"
+                                    label="Event title"
+                                    placeholder="e.g. Birthday party"
+                                    wrapperClassName="mt-4"
+                                />
+                                <FormikFieldTextArea
+                                    name="highlvelRequirement"
+                                    label="Project summary"
+                                    rows={3}
+                                    placeholder="Describe the goal of this estimate"
+                                    wrapperClassName="mt-4"
+                                />
+                            </section>
 
-                                <section className="rounded-xl border border-gray-200 bg-white p-4">
+                            <section className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
                                     <h4 className="text-sm font-semibold text-gray-700">
-                                        Key contacts
+                                        Event schedule
                                     </h4>
-                                    <div className="mt-3 grid gap-3 md:grid-cols-3">
-                                        <div>
-                                            <Label
-                                                htmlFor="clientPoC"
-                                                className="text-xs uppercase tracking-wide text-muted-foreground"
-                                            >
-                                                Client POC
-                                            </Label>
-                                            <Field
-                                                as={Input}
-                                                id="clientPoC"
-                                                name="clientPoC"
-                                                placeholder="Client point of contact"
-                                                className="mt-1"
+                                    <div className="mt-3 grid gap-3">
+                                        <FormikFieldDatePicker
+                                            name="enquiryDate"
+                                            label="Enquiry Date"
+                                            placeholderText="Pick enquiry date"
+                                        />
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            <FormikFieldDatePicker
+                                                name="fromDate"
+                                                label="Event Start"
+                                                placeholderText="Pick start"
                                             />
-                                            <ErrorMessage
-                                                name="clientPoC"
-                                                component="div"
-                                                className="mt-1 text-sm text-red-600"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label
-                                                htmlFor="pocContactNumber"
-                                                className="text-xs uppercase tracking-wide text-muted-foreground"
-                                            >
-                                                POC Contact Number
-                                            </Label>
-                                            <Field
-                                                as={Input}
-                                                id="pocContactNumber"
-                                                name="pocContactNumber"
-                                                placeholder="1234567890"
-                                                maxLength={10}
-                                                className="mt-1"
-                                            />
-                                            <ErrorMessage
-                                                name="pocContactNumber"
-                                                component="div"
-                                                className="mt-1 text-sm text-red-600"
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label
-                                                htmlFor="enquiryPoC"
-                                                className="text-xs uppercase tracking-wide text-muted-foreground"
-                                            >
-                                                Enquiry POC
-                                            </Label>
-                                            <Field
-                                                as={Input}
-                                                id="enquiryPoC"
-                                                name="enquiryPoC"
-                                                placeholder="Internal assignee"
-                                                className="mt-1"
+                                            <FormikFieldDatePicker
+                                                name="toDate"
+                                                label="Event End"
+                                                placeholderText="Pick end"
                                             />
                                         </div>
                                     </div>
-                                </section>
+                                </div>
 
-                                <section className="space-y-4">
-                                    <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                                            <div>
-                                                <h3 className="text-base font-semibold text-gray-900">
-                                                    Artifacts required
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground">
-                                                    List the services, equipment, and resources
-                                                    needed for this estimate.
-                                                </p>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() =>
-                                                    setLines(prev => {
-                                                        const lastCategory =
-                                                            prev.length > 0
-                                                                ? prev[prev.length - 1].category
-                                                                : "General";
-                                                        return [
-                                                            ...prev,
-                                                            {
-                                                                id: generateId(),
-                                                                category: lastCategory,
-                                                                item: "New item",
-                                                                specification: "",
-                                                                days: 1,
-                                                                sqft: 1,
-                                                                rate: 0,
-                                                                vendor: "",
-                                                            },
-                                                        ];
-                                                    })
-                                                }
-                                            >
-                                                + Add Item
-                                            </Button>
+                                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                                    <h4 className="text-sm font-semibold text-gray-700">
+                                        Logistics
+                                    </h4>
+                                    <div className="mt-3 grid gap-3">
+                                        <FormikFieldSelect
+                                            name="status"
+                                            label="Status"
+                                            options={statusOptions.map(s => ({
+                                                label: s.label,
+                                                value: s.value,
+                                            }))}
+                                        />
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            <FormikFieldInput
+                                                name="venue"
+                                                label="Venue"
+                                                placeholder="Enter venue"
+                                            />
+                                            <FormikFieldInput
+                                                name="location"
+                                                label="Location"
+                                                placeholder="Enter event location"
+                                            />
                                         </div>
+                                    </div>
+                                </div>
+                            </section>
 
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead>
-                                                    <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            No
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            Category
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            Item
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            Specification
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            Vendor
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            Days
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            SqFt No
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium">
-                                                            Rate
-                                                        </th>
-                                                        <th className="py-3 pr-3 font-medium text-right">
-                                                            Total
-                                                        </th>
-                                                        <th className="py-3 text-right font-medium">
-                                                            &nbsp;
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {lines.map((line, index) => (
-                                                        <tr
-                                                            key={line.id}
-                                                            className="border-b last:border-0"
-                                                        >
-                                                            <td className="py-3 pr-3 align-middle text-xs text-muted-foreground">
-                                                                {index + 1}
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <Input
-                                                                    value={line.category}
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          category:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <Input
-                                                                    value={line.item}
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          item: value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <Input
-                                                                    value={line.specification}
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          specification:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <select
-                                                                    value={line.vendor}
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          vendor: value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                    disabled={vendorNamesLoading}
-                                                                >
-                                                                    <option value="">
-                                                                        Select vendor...
+                            <section className="rounded-xl border border-gray-200 bg-white p-4">
+                                <h4 className="text-sm font-semibold text-gray-700">
+                                    Key contacts
+                                </h4>
+                                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                                    <FormikFieldInput
+                                        name="clientPoC"
+                                        label="Client POC"
+                                        placeholder="Client point of contact"
+                                    />
+                                    <FormikFieldInput
+                                        name="pocContactNumber"
+                                        label="POC Contact Number"
+                                        placeholder="1234567890"
+                                        maxLength={10}
+                                    />
+                                    <FormikFieldInput
+                                        name="enquiryPoC"
+                                        label="Enquiry POC"
+                                        placeholder="Internal assignee"
+                                    />
+                                </div>
+                            </section>
+
+                            <section className="space-y-4">
+                                <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <h3 className="text-base font-semibold text-gray-900">
+                                                Artifacts required
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                List the services, equipment, and resources needed
+                                                for this estimate.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                setLines(prev => {
+                                                    const lastCategory =
+                                                        prev.length > 0
+                                                            ? prev[prev.length - 1].category
+                                                            : "General";
+                                                    return [
+                                                        ...prev,
+                                                        {
+                                                            id: generateId(),
+                                                            category: lastCategory,
+                                                            item: "New item",
+                                                            specification: "",
+                                                            days: 1,
+                                                            sqft: 1,
+                                                            rate: 0,
+                                                            vendor: "",
+                                                        },
+                                                    ];
+                                                })
+                                            }
+                                        >
+                                            <PlusIcon size={16} className="mr-1" />
+                                            Add Item
+                                        </Button>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <Table
+                                            data={lines}
+                                            showRowNumbers
+                                            emptyMessage='No items added yet. Click "Add Item" to get started.'
+                                            columns={
+                                                [
+                                                    {
+                                                        key: "category",
+                                                        header: "Category",
+                                                        render: (_, index) => (
+                                                            <Input
+                                                                value={lines[index]?.category || ""}
+                                                                onChange={event => {
+                                                                    const value =
+                                                                        event.target.value;
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      category:
+                                                                                          value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                placeholder="Category"
+                                                            />
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "item",
+                                                        header: "Item",
+                                                        render: (_, index) => (
+                                                            <Input
+                                                                value={lines[index]?.item || ""}
+                                                                onChange={event => {
+                                                                    const value =
+                                                                        event.target.value;
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      item: value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                placeholder="Item name"
+                                                            />
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "specification",
+                                                        header: "Specification",
+                                                        render: (_, index) => (
+                                                            <Input
+                                                                value={
+                                                                    lines[index]?.specification ||
+                                                                    ""
+                                                                }
+                                                                onChange={event => {
+                                                                    const value =
+                                                                        event.target.value;
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      specification:
+                                                                                          value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                placeholder="Specification"
+                                                            />
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "vendor",
+                                                        header: "Vendor",
+                                                        render: (_, index) => (
+                                                            <select
+                                                                value={lines[index]?.vendor || ""}
+                                                                onChange={event => {
+                                                                    const value =
+                                                                        event.target.value;
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      vendor: value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                disabled={vendorNamesLoading}
+                                                            >
+                                                                <option value="">
+                                                                    Select vendor...
+                                                                </option>
+                                                                {vendorNames.map(v => (
+                                                                    <option
+                                                                        key={v.id}
+                                                                        value={v.name}
+                                                                    >
+                                                                        {v.name}
                                                                     </option>
-                                                                    {vendorNames.map(v => (
-                                                                        <option
-                                                                            key={v.id}
-                                                                            value={v.name}
-                                                                        >
-                                                                            {v.name}
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    value={line.days}
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          days: Number.isNaN(
-                                                                                              value
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    value={line.sqft}
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          sqft: Number.isNaN(
-                                                                                              value
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle">
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    step="0.01"
-                                                                    value={line.rate}
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          rate: Number.isNaN(
-                                                                                              value
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3 pr-3 align-middle text-right font-semibold">
+                                                                ))}
+                                                            </select>
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "days",
+                                                        header: "Days",
+                                                        align: "center",
+                                                        cellClassName: "w-20",
+                                                        render: (_, index) => (
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                value={lines[index]?.days || 0}
+                                                                onChange={event => {
+                                                                    const value = Number(
+                                                                        event.target.value,
+                                                                    );
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      days: Number.isNaN(
+                                                                                          value,
+                                                                                      )
+                                                                                          ? 0
+                                                                                          : value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                className="text-center"
+                                                            />
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "sqft",
+                                                        header: "SqFt No",
+                                                        align: "center",
+                                                        cellClassName: "w-20",
+                                                        render: (_, index) => (
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                value={lines[index]?.sqft || 0}
+                                                                onChange={event => {
+                                                                    const value = Number(
+                                                                        event.target.value,
+                                                                    );
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      sqft: Number.isNaN(
+                                                                                          value,
+                                                                                      )
+                                                                                          ? 0
+                                                                                          : value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                className="text-center"
+                                                            />
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "rate",
+                                                        header: "Rate",
+                                                        align: "right",
+                                                        cellClassName: "w-24",
+                                                        render: (_, index) => (
+                                                            <Input
+                                                                type="number"
+                                                                min={0}
+                                                                step="0.01"
+                                                                value={lines[index]?.rate || 0}
+                                                                onChange={event => {
+                                                                    const value = Number(
+                                                                        event.target.value,
+                                                                    );
+                                                                    setLines(prev =>
+                                                                        prev.map((l, idx) =>
+                                                                            idx === index
+                                                                                ? {
+                                                                                      ...l,
+                                                                                      rate: Number.isNaN(
+                                                                                          value,
+                                                                                      )
+                                                                                          ? 0
+                                                                                          : value,
+                                                                                  }
+                                                                                : l,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                                className="text-right"
+                                                            />
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "total",
+                                                        header: "Total",
+                                                        align: "right",
+                                                        cellClassName: "w-28 font-semibold",
+                                                        render: (_, index) => (
+                                                            <span className="text-sm">
                                                                 ₹
                                                                 {(
-                                                                    line.days *
-                                                                    line.sqft *
-                                                                    line.rate
+                                                                    lines[index]?.days *
+                                                                    lines[index]?.sqft *
+                                                                    lines[index]?.rate
                                                                 ).toFixed(2)}
-                                                            </td>
-                                                            <td className="py-3 text-right align-middle">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    disabled={lines.length === 1}
-                                                                    onClick={() =>
-                                                                        setLines(prev =>
-                                                                            prev.filter(
-                                                                                (_, idx) =>
-                                                                                    idx !== index
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Remove
-                                                                </Button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                            </span>
+                                                        ),
+                                                    },
+                                                    {
+                                                        key: "actions",
+                                                        header: "",
+                                                        align: "right",
+                                                        cellClassName: "text-right w-16",
+                                                        render: (_, index) => (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={lines.length === 1}
+                                                                onClick={() =>
+                                                                    setLines(prev =>
+                                                                        prev.filter(
+                                                                            (_, idx) =>
+                                                                                idx !== index,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                            >
+                                                                <TrashIcon
+                                                                    className="text-destructive"
+                                                                    size={16}
+                                                                />
+                                                            </Button>
+                                                        ),
+                                                    },
+                                                ] as Column<EstimateLine>[]
+                                            }
+                                        />
                                     </div>
-                                    <div className="flex justify-end rounded-xl bg-slate-900/90 px-5 py-4 text-sm text-slate-100">
-                                        <div className="flex items-center gap-3">
-                                            <span className="uppercase tracking-wide text-xs text-slate-300">
-                                                Cost Summary
-                                            </span>
-                                            <span className="text-base font-semibold">
-                                                ₹{totalAmount.toFixed(2)}
-                                            </span>
-                                        </div>
+                                </div>
+                                <div className="flex justify-end rounded-xl bg-slate-900/90 px-5 py-4 text-sm text-slate-100">
+                                    <div className="flex items-center gap-3">
+                                        <span className="uppercase tracking-wide text-xs text-slate-300">
+                                            Cost Summary
+                                        </span>
+                                        <span className="text-base font-semibold">
+                                            ₹{totalAmount.toFixed(2)}
+                                        </span>
                                     </div>
-                                </section>
-                            </div>
+                                </div>
+                            </section>
+                        </ModalBody>
 
-                            <footer className="px-6 py-4 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={onClose}
-                                    disabled={isSaving}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={isSaving || isFetchingEnquiry}
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                    {isSaving
-                                        ? initialData?.id
-                                            ? "Updating..."
-                                            : "Saving..."
-                                        : isFetchingEnquiry
-                                        ? "Loading enquiry..."
-                                        : initialData?.id
+                        <ModalFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={isSaving}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSaving || isFetchingEnquiry}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                {isSaving
+                                    ? initialData?.id
+                                        ? "Updating..."
+                                        : "Saving..."
+                                    : isFetchingEnquiry
+                                      ? "Loading enquiry..."
+                                      : initialData?.id
                                         ? "Update Estimate"
                                         : "Save Estimate"}
-                                </Button>
-                            </footer>
-                        </Form>
-                    )}
-                </Formik>
-            </div>
-        </div>
+                            </Button>
+                        </ModalFooter>
+                    </Form>
+                )}
+            </Formik>
+        </Modal>
     );
 }

@@ -8,14 +8,14 @@ import { ReactNode } from "react";
 import { AppShellHeader, AppShellSidebar } from "@/components/layout";
 import { Access } from "@/components/access";
 import { usePathname } from "next/navigation";
-import { routePermissions } from "@/config/permissions";
+import { matchRoutePermission } from "@/lib/utils/permissions";
 
 export default function AppShellLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     console.log({ pathname });
 
     // Get permissions for current route
-    const currentRoutePermissions = routePermissions[pathname];
+    const currentRoutePermissions = matchRoutePermission(pathname);
 
     return (
         <ProtectedRoute>

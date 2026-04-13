@@ -1,14 +1,17 @@
 "use client";
 
 import React from "react";
-import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
+import { Formik, Form, FormikHelpers, FieldArray } from "formik";
 import * as Yup from "yup";
-import { Button } from "@/components/ui-old/button";
-import { Input } from "@/components/ui-old/input";
-import { Label } from "@/components/ui-old/label";
-import { VendorFormData, CreateVendorModalProps } from "@/types/vendor";
+import { Button } from "@/components/ui/button";
+import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { Table, type Column } from "@/components/ui/table";
+import { FormikFieldInput } from "@/components/ui/formik-field-input";
+import { VendorFormData, CreateVendorModalProps, VendorItem } from "@/types/vendor";
 import { apiRequest } from "@/lib/api/api-client";
 import { toast } from "sonner";
+import { TrashIcon } from "@/components/ui/icons";
+import { FormikFieldTextArea } from "./ui/formik-field-textarea";
 
 const validationSchema = Yup.object({
     name: Yup.string().required("Vendor name is required"),
@@ -25,36 +28,32 @@ const validationSchema = Yup.object({
     phone: Yup.string()
         .matches(/^\d{10}$/, "Phone number must be exactly 10 digits")
         .required("Phone number is required"),
+    items: Yup.array().of(
+        Yup.object({
+            item: Yup.string().required("Item name is required"),
+            count: Yup.number().min(1, "Count must be at least 1").required("Count is required"),
+            pricePerItem: Yup.number()
+                .min(0, "Price must be 0 or greater")
+                .required("Price per item is required"),
+            description: Yup.string().optional(),
+        }),
+    ),
 });
 
-export default function CreateVendorModal({
-    isOpen,
-    onClose,
-    onSubmit,
-    editData,
-    mode = "create",
-}: CreateVendorModalProps) {
-    const isEdit = mode === "edit" || !!editData?.id;
-
-    const initialValues: VendorFormData = editData
-        ? {
-              ...editData,
-              gst: editData.gst ?? 0,
-              tds: editData.tds ?? 0,
-              gstCertificate: editData.gstCertificate ?? "",
-          }
-        : {
-              name: "",
-              billingAddress: "",
-              gst: 0,
-              tds: 0,
-              gstCertificate: "",
-              phone: "",
-          };
+export default function CreateVendorModal({ isOpen, onClose, onSubmit }: CreateVendorModalProps) {
+    const initialValues: VendorFormData = {
+        name: "",
+        billingAddress: "",
+        gst: 0,
+        tds: 0,
+        gstCertificate: "",
+        phone: "",
+        items: [],
+    };
 
     const handleSubmit = async (
         values: VendorFormData,
-        { setSubmitting, setStatus }: FormikHelpers<VendorFormData>
+        { setSubmitting, setStatus }: FormikHelpers<VendorFormData>,
     ) => {
         try {
             setStatus(null);
@@ -66,29 +65,26 @@ export default function CreateVendorModal({
                 tds: Number(values.tds),
                 gstCertificate: values.gstCertificate || "",
                 phone: values.phone,
-                items: values.items || [],
+                items: (values.items || []).map(item => ({
+                    item: item.item,
+                    count: Number(item.count),
+                    pricePerItem: Number(item.pricePerItem),
+                    description: item.description || "",
+                })),
             };
 
-            const url =
-                isEdit && editData?.id
-                    ? `/api/vendors/${encodeURIComponent(String(editData.id))}`
-                    : `/api/vendors`;
-            const method = isEdit ? "PUT" : "POST";
-
-            const res = await apiRequest(url, {
-                method,
+            const res = await apiRequest("/api/vendors", {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
             if (!res.ok) {
-                const text = await res.text().catch(() => "");
-                throw new Error(
-                    text || `Failed to ${isEdit ? "update" : "create"} vendor: ${res.status}`
-                );
+                await res.text().catch(() => "");
+                throw new Error(`Failed to create vendor: ${res.status}`);
             }
 
-            toast.success(`Vendor ${isEdit ? "updated" : "created"} successfully`);
+            toast.success("Vendor created successfully");
             onSubmit();
             onClose();
         } catch (err) {
@@ -100,230 +96,206 @@ export default function CreateVendorModal({
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-start md:items-center justify-center z-50"
-            onClick={e => e.target === e.currentTarget && onClose()}
+        <Modal
+            open={isOpen}
+            onClose={onClose}
+            title="Add New Vendor"
+            description="Fill in the vendor details below"
+            size="xxl"
         >
-            <div className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0">
-                <Formik
-                    initialValues={initialValues}
-                    enableReinitialize
-                    validationSchema={validationSchema}
-                    onSubmit={handleSubmit}
-                >
-                    {({ isSubmitting, status }) => (
-                        <Form>
-                            {/* Header */}
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded bg-orange-100 flex items-center justify-center">
-                                        🚚
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-semibold">
-                                            {isEdit ? "Edit Vendor" : "Add New Vendor"}
-                                        </h2>
-                                        <p className="text-sm text-gray-600">
-                                            {isEdit
-                                                ? "Update vendor details"
-                                                : "Fill in the vendor details below"}
-                                        </p>
-                                    </div>
+            <Formik
+                initialValues={initialValues}
+                enableReinitialize
+                validationSchema={validationSchema}
+                onSubmit={handleSubmit}
+            >
+                {({ isSubmitting, status, values }) => (
+                    <Form>
+                        <ModalBody className="grid gap-3 max-h-[70vh] overflow-y-auto">
+                            {status && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                    {status}
                                 </div>
-                                <button
-                                    onClick={onClose}
-                                    className="text-gray-400 hover:text-gray-600 text-xl"
-                                    type="button"
-                                >
-                                    ×
-                                </button>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <FormikFieldInput
+                                    name="name"
+                                    label="Vendor Name"
+                                    placeholder="Enter vendor name"
+                                />
+                                <FormikFieldInput
+                                    name="phone"
+                                    label="Phone Number"
+                                    placeholder="1234567890 (10 digits)"
+                                    maxLength={10}
+                                />
+                            </div>
+                            <FormikFieldTextArea
+                                name="billingAddress"
+                                label="Billing Address"
+                                placeholder="Enter complete billing address"
+                            />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <FormikFieldInput
+                                    name="gst"
+                                    label="GST (%)"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    placeholder="e.g., 18"
+                                />
+                                <FormikFieldInput
+                                    name="tds"
+                                    label="TDS (%)"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    placeholder="e.g., 2"
+                                />
                             </div>
 
-                            <div className="pt-4 space-y-4">
-                                {status && (
-                                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                                        {status}
-                                    </div>
-                                )}
+                            <FormikFieldInput
+                                name="gstCertificate"
+                                label="GST Certificate Number"
+                                placeholder="e.g., 22AAAAA0000A1Z5"
+                            />
 
-                                {/* Vendor Name */}
-                                <div>
-                                    <Label htmlFor="name">
-                                        Vendor Name <span className="text-red-600">*</span>
-                                    </Label>
-                                    <Field
-                                        as={Input}
-                                        id="name"
-                                        name="name"
-                                        placeholder="Enter vendor name"
-                                        className="mt-1"
-                                    />
-                                    <ErrorMessage
-                                        name="name"
-                                        component="div"
-                                        className="mt-1 text-sm text-red-600"
-                                    />
-                                </div>
+                            {/* Vendor Items Section */}
+                            <div className="border-t border-border pt-3 mt-2">
+                                <FieldArray name="items">
+                                    {({ push, remove }) => (
+                                        <div className="space-y-3">
+                                            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                                <div>
+                                                    <h3 className="text-base font-semibold text-gray-900">
+                                                        Vendor Items
+                                                    </h3>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        List the items provided by this vendor.
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        push({
+                                                            item: "",
+                                                            count: 1,
+                                                            pricePerItem: 0,
+                                                            description: "",
+                                                        })
+                                                    }
+                                                >
+                                                    Add Item
+                                                </Button>
+                                            </div>
 
-                                {/* Phone */}
-                                <div>
-                                    <Label htmlFor="phone">
-                                        Phone Number <span className="text-red-600">*</span>
-                                    </Label>
-                                    <Field name="phone">
-                                        {({
-                                            field,
-                                            form,
-                                        }: {
-                                            field: { name: string; value: string };
-                                            form: {
-                                                setFieldValue: (
-                                                    name: string,
-                                                    value: string
-                                                ) => void;
-                                            };
-                                        }) => (
-                                            <Input
-                                                {...field}
-                                                id="phone"
-                                                type="tel"
-                                                placeholder="1234567890 (10 digits)"
-                                                maxLength={10}
-                                                className="mt-1"
-                                                onChange={e => {
-                                                    const value = e.target.value
-                                                        .replace(/\D/g, "")
-                                                        .slice(0, 10);
-                                                    form.setFieldValue("phone", value);
-                                                }}
-                                            />
-                                        )}
-                                    </Field>
-                                    <ErrorMessage
-                                        name="phone"
-                                        component="div"
-                                        className="mt-1 text-sm text-red-600"
-                                    />
-                                </div>
-
-                                {/* Billing Address */}
-                                <div>
-                                    <Label htmlFor="billingAddress">
-                                        Billing Address <span className="text-red-600">*</span>
-                                    </Label>
-                                    <Field
-                                        as="textarea"
-                                        id="billingAddress"
-                                        name="billingAddress"
-                                        rows={3}
-                                        placeholder="Enter complete billing address"
-                                        className="mt-1 w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none border-gray-300"
-                                    />
-                                    <ErrorMessage
-                                        name="billingAddress"
-                                        component="div"
-                                        className="mt-1 text-sm text-red-600"
-                                    />
-                                </div>
-
-                                {/* GST and TDS */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="gst">
-                                            GST (%) <span className="text-red-600">*</span>
-                                        </Label>
-                                        <Field
-                                            as={Input}
-                                            id="gst"
-                                            name="gst"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                            placeholder="e.g., 18"
-                                            className="mt-1"
-                                        />
-                                        <ErrorMessage
-                                            name="gst"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="tds">
-                                            TDS (%) <span className="text-red-600">*</span>
-                                        </Label>
-                                        <Field
-                                            as={Input}
-                                            id="tds"
-                                            name="tds"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                            placeholder="e.g., 2"
-                                            className="mt-1"
-                                        />
-                                        <ErrorMessage
-                                            name="tds"
-                                            component="div"
-                                            className="mt-1 text-sm text-red-600"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* GST Certificate */}
-                                <div>
-                                    <Label htmlFor="gstCertificate">GST Certificate Number</Label>
-                                    <Field
-                                        as={Input}
-                                        id="gstCertificate"
-                                        name="gstCertificate"
-                                        placeholder="e.g., 22AAAAA0000A1Z5"
-                                        className="mt-1"
-                                    />
-                                    <ErrorMessage
-                                        name="gstCertificate"
-                                        component="div"
-                                        className="mt-1 text-sm text-red-600"
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Optional - Enter the GST registration number if available
-                                    </p>
-                                </div>
+                                            <div className="overflow-x-auto">
+                                                <Table
+                                                    data={values.items || []}
+                                                    showRowNumbers
+                                                    emptyMessage='No vendor items added yet. Click "Add Item" to get started.'
+                                                    columns={[
+                                                        {
+                                                            key: "item",
+                                                            header: "Item",
+                                                            render: (_, index) => (
+                                                                <FormikFieldInput
+                                                                    name={`items.${index}.item`}
+                                                                    placeholder="Item name"
+                                                                    inputClassName="w-full"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "count",
+                                                            header: "Count",
+                                                            align: "center",
+                                                            cellClassName: "w-24",
+                                                            render: (_, index) => (
+                                                                <FormikFieldInput
+                                                                    name={`items.${index}.count`}
+                                                                    type="number"
+                                                                    min="1"
+                                                                    placeholder="0"
+                                                                    inputClassName="w-full text-center"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "pricePerItem",
+                                                            header: "Price/Item",
+                                                            align: "right",
+                                                            cellClassName: "w-32",
+                                                            render: (_, index) => (
+                                                                <FormikFieldInput
+                                                                    name={`items.${index}.pricePerItem`}
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    placeholder="0.00"
+                                                                    inputClassName="w-full text-right"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "description",
+                                                            header: "Description",
+                                                            render: (_, index) => (
+                                                                <FormikFieldInput
+                                                                    name={`items.${index}.description`}
+                                                                    placeholder="Description (optional)"
+                                                                    inputClassName="w-full"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "actions",
+                                                            header: "",
+                                                            align: "right",
+                                                            cellClassName: "text-right",
+                                                            render: (_, index) => (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0 text-muted-foreground text-destructive"
+                                                                    onClick={() => remove(index)}
+                                                                >
+                                                                    <TrashIcon size={16} />
+                                                                </Button>
+                                                            ),
+                                                        },
+                                                    ]}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </FieldArray>
                             </div>
-
-                            {/* Footer */}
-                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                                <Button
-                                    variant="outline"
-                                    onClick={onClose}
-                                    type="button"
-                                    disabled={isSubmitting}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="bg-orange-600 hover:bg-orange-700"
-                                >
-                                    {isSubmitting
-                                        ? isEdit
-                                            ? "Updating..."
-                                            : "Creating..."
-                                        : isEdit
-                                        ? "Update Vendor"
-                                        : "Add Vendor"}
-                                </Button>
-                            </div>
-                        </Form>
-                    )}
-                </Formik>
-            </div>
-        </div>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button isLoading={isSubmitting} type="submit">
+                                Add Vendor
+                            </Button>
+                        </ModalFooter>
+                    </Form>
+                )}
+            </Formik>
+        </Modal>
     );
 }
