@@ -1,30 +1,30 @@
-import Sidebar from "@/components/sidebar";
 import { EnquiriesProvider } from "@/context/enquiries";
 import NavigationLoader from "@/components/navigation-loader";
 import { EstimatePrefillProvider } from "@/context/estimate-prefill";
 import { EventPrefillProvider } from "@/context/event-prefill";
 import ProtectedRoute from "@/components/protected-route";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ReactNode } from "react";
+import { AppShellHeader, AppShellSidebar } from "@/components/layout";
 
-export default function AppShellLayout({ children }: { children: React.ReactNode }) {
+export default function AppShellLayout({ children }: { children: ReactNode }) {
     return (
         <ProtectedRoute>
-            <div className="min-h-screen flex">
-                <NavigationLoader />
-                <Sidebar />
-                <main className="flex-1 min-h-screen p-6 md:p-0 md:ml-60 relative">
-                    {/* Floating theme toggle for the header area */}
-                    <div className="absolute top-4 right-4 z-[100] md:top-6 md:right-6">
-                        <ThemeToggle />
-                    </div>
-                    <EventPrefillProvider>
-                        <EstimatePrefillProvider>
-                            <EnquiriesProvider>
-                                <div className="page-enter">{children}</div>
-                            </EnquiriesProvider>
-                        </EstimatePrefillProvider>
-                    </EventPrefillProvider>
-                </main>
+            <div className="flex h-screen flex-col overflow-hidden">
+                <AppShellHeader />
+                <div className="flex min-h-0 flex-1">
+                    <AppShellSidebar />
+                    <main className="flex-1 overflow-y-auto bg-background">
+                        <EventPrefillProvider>
+                            <EstimatePrefillProvider>
+                                <EnquiriesProvider>
+                                    <div className="mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+                                        {children}
+                                    </div>
+                                </EnquiriesProvider>
+                            </EstimatePrefillProvider>
+                        </EventPrefillProvider>
+                    </main>
+                </div>
             </div>
         </ProtectedRoute>
     );

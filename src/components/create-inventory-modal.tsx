@@ -1,48 +1,55 @@
-"use client"
+"use client";
 
-import React from "react"
-import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik"
-import * as Yup from "yup"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { InventoryFormData, CreateInventoryModalProps } from "@/types/inventory"
-import { apiRequest } from "@/lib/api-client"
-import { toast } from "sonner"
-import { API_ENDPOINTS } from "@/lib/endpoint"
+import React from "react";
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
+import * as Yup from "yup";
+import { Button } from "@/components/ui-old/button";
+import { Input } from "@/components/ui-old/input";
+import { Label } from "@/components/ui-old/label";
+import { InventoryFormData, CreateInventoryModalProps } from "@/types/inventory";
+import { apiRequest } from "@/lib/api/api-client";
+import { toast } from "sonner";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
 
 const validationSchema = Yup.object({
-    itemName: Yup.string().required('Item name is required'),
-    category: Yup.string().required('Category is required'),
+    itemName: Yup.string().required("Item name is required"),
+    category: Yup.string().required("Category is required"),
     spec: Yup.string().optional(),
     dimensions: Yup.string().optional(),
-    quantity: Yup.number()
-        .min(0, 'Quantity must be 0 or greater')
-        .required('Quantity is required'),
-    price: Yup.number()
-        .min(0, 'Price must be 0 or greater')
-        .required('Price is required'),
-})
+    quantity: Yup.number().min(0, "Quantity must be 0 or greater").required("Quantity is required"),
+    price: Yup.number().min(0, "Price must be 0 or greater").required("Price is required"),
+});
 
-export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editData, mode = 'create' }: CreateInventoryModalProps) {
-    const isEdit = mode === 'edit' || !!editData?.id
+export default function CreateInventoryModal({
+    isOpen,
+    onClose,
+    onSubmit,
+    editData,
+    mode = "create",
+}: CreateInventoryModalProps) {
+    const isEdit = mode === "edit" || !!editData?.id;
 
-    const initialValues: InventoryFormData = editData ? {
-        ...editData,
-        quantity: editData.quantity ?? 0,
-        price: editData.price ?? 0,
-    } : {
-        itemName: '',
-        category: '',
-        spec: '',
-        dimensions: '',
-        quantity: 0,
-        price: 0,
-    }
+    const initialValues: InventoryFormData = editData
+        ? {
+              ...editData,
+              quantity: editData.quantity ?? 0,
+              price: editData.price ?? 0,
+          }
+        : {
+              itemName: "",
+              category: "",
+              spec: "",
+              dimensions: "",
+              quantity: 0,
+              price: 0,
+          };
 
-    const handleSubmit = async (values: InventoryFormData, { setSubmitting, setStatus }: FormikHelpers<InventoryFormData>) => {
+    const handleSubmit = async (
+        values: InventoryFormData,
+        { setSubmitting, setStatus }: FormikHelpers<InventoryFormData>
+    ) => {
         try {
-            setStatus(null)
+            setStatus(null);
 
             const payload = {
                 ...(isEdit && editData?.id ? { id: editData.id } : {}),
@@ -52,37 +59,41 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                 dimensions: values.dimensions,
                 quantity: Number(values.quantity),
                 price: Number(values.price),
-            }
+            };
 
-            const url = isEdit && editData?.id
-                ? API_ENDPOINTS.inventory.detail(editData.id)
-                : API_ENDPOINTS.inventory.list
-            const method = isEdit ? 'PUT' : 'POST'
+            const url =
+                isEdit && editData?.id
+                    ? API_ENDPOINTS.inventory.detail(editData.id)
+                    : API_ENDPOINTS.inventory.list;
+            const method = isEdit ? "PUT" : "POST";
 
             const res = await apiRequest(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
 
             if (!res.ok) {
-                const text = await res.text().catch(() => '')
-                throw new Error(text || `Failed to ${isEdit ? 'update' : 'create'} inventory item: ${res.status}`)
+                const text = await res.text().catch(() => "");
+                throw new Error(
+                    text ||
+                        `Failed to ${isEdit ? "update" : "create"} inventory item: ${res.status}`
+                );
             }
 
-            toast.success(`Inventory item ${isEdit ? 'updated' : 'created'} successfully`)
-            onSubmit()
-            onClose()
+            toast.success(`Inventory item ${isEdit ? "updated" : "created"} successfully`);
+            onSubmit();
+            onClose();
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to save inventory item'
-            setStatus(message)
-            toast.error(message)
+            const message = err instanceof Error ? err.message : "Failed to save inventory item";
+            setStatus(message);
+            toast.error(message);
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
         }
-    }
+    };
 
-    if (!isOpen) return null
+    if (!isOpen) return null;
 
     return (
         <div
@@ -91,7 +102,7 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
         >
             <div
                 className="mt-12 md:mt-0 bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl hide-scrollbar mx-4 md:mx-0"
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
             >
                 <Formik
                     initialValues={initialValues}
@@ -103,7 +114,9 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                         <Form>
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-xl font-semibold">
-                                    {mode === 'create' ? 'Add Inventory Item' : 'Edit Inventory Item'}
+                                    {mode === "create"
+                                        ? "Add Inventory Item"
+                                        : "Edit Inventory Item"}
                                 </h2>
                                 <button
                                     type="button"
@@ -130,7 +143,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                         placeholder="Enter item name"
                                         className="mt-1"
                                     />
-                                    <ErrorMessage name="itemName" component="div" className="mt-1 text-sm text-red-600" />
+                                    <ErrorMessage
+                                        name="itemName"
+                                        component="div"
+                                        className="mt-1 text-sm text-red-600"
+                                    />
                                 </div>
 
                                 <div>
@@ -142,7 +159,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                         placeholder="Enter category"
                                         className="mt-1"
                                     />
-                                    <ErrorMessage name="category" component="div" className="mt-1 text-sm text-red-600" />
+                                    <ErrorMessage
+                                        name="category"
+                                        component="div"
+                                        className="mt-1 text-sm text-red-600"
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -155,7 +176,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                             placeholder="Enter specification"
                                             className="mt-1"
                                         />
-                                        <ErrorMessage name="spec" component="div" className="mt-1 text-sm text-red-600" />
+                                        <ErrorMessage
+                                            name="spec"
+                                            component="div"
+                                            className="mt-1 text-sm text-red-600"
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="dimensions">Dimensions</Label>
@@ -166,7 +191,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                             placeholder="Enter dimensions"
                                             className="mt-1"
                                         />
-                                        <ErrorMessage name="dimensions" component="div" className="mt-1 text-sm text-red-600" />
+                                        <ErrorMessage
+                                            name="dimensions"
+                                            component="div"
+                                            className="mt-1 text-sm text-red-600"
+                                        />
                                     </div>
                                 </div>
 
@@ -181,7 +210,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                             placeholder="0"
                                             className="mt-1"
                                         />
-                                        <ErrorMessage name="quantity" component="div" className="mt-1 text-sm text-red-600" />
+                                        <ErrorMessage
+                                            name="quantity"
+                                            component="div"
+                                            className="mt-1 text-sm text-red-600"
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="price">Price</Label>
@@ -193,7 +226,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                             placeholder="0.00"
                                             className="mt-1"
                                         />
-                                        <ErrorMessage name="price" component="div" className="mt-1 text-sm text-red-600" />
+                                        <ErrorMessage
+                                            name="price"
+                                            component="div"
+                                            className="mt-1 text-sm text-red-600"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -212,7 +249,11 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                                     disabled={isSubmitting}
                                     className="bg-blue-600 hover:bg-blue-700"
                                 >
-                                    {isSubmitting ? 'Saving...' : (mode === 'create' ? 'Add Item' : 'Save Changes')}
+                                    {isSubmitting
+                                        ? "Saving..."
+                                        : mode === "create"
+                                        ? "Add Item"
+                                        : "Save Changes"}
                                 </Button>
                             </div>
                         </Form>
@@ -220,5 +261,5 @@ export default function CreateInventoryModal({ isOpen, onClose, onSubmit, editDa
                 </Formik>
             </div>
         </div>
-    )
+    );
 }

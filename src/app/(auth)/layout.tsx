@@ -1,24 +1,19 @@
-"use client"
+"use client";
 
-import Image from "next/image"
+import Image from "next/image";
 
 /**
  * Shared layout for auth routes (login, forgot-password): gradient background,
  * left-side banner image on desktop, right-side content area.
  * Route group (auth) keeps URLs as /login and /forgot-password.
  */
-export default function AuthLayout({
-    children,
-}: {
-    children: React.ReactNode
-}) {
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
     return (
         <>
             <div
                 className="relative min-h-screen w-full"
                 style={{
-                    background:
-                        "linear-gradient(135deg, #859fc7 0%, #d7dbdd 60%, #FFD1DC 100%)",
+                    background: "linear-gradient(135deg, #859fc7 0%, #d7dbdd 60%, #FFD1DC 100%)",
                 }}
             >
                 <div className="absolute inset-0 z-0 w-full h-full lg:hidden">
@@ -67,5 +62,5 @@ export default function AuthLayout({
                 `}</style>
             </div>
         </>
-    )
+    );
 }

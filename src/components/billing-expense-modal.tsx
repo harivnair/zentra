@@ -1,60 +1,65 @@
-'use client'
+"use client";
 
-import React, { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { apiRequest } from '@/lib/api-client'
-import { API_ENDPOINTS } from '@/lib/endpoint'
-import { toast } from 'sonner'
+import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui-old/button";
+import { Input } from "@/components/ui-old/input";
+import { Label } from "@/components/ui-old/label";
+import { toast } from "sonner";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { apiRequest } from "@/lib/api/api-client";
 
 interface BillingExpenseModalProps {
-    isOpen: boolean
-    onClose: () => void
+    isOpen: boolean;
+    onClose: () => void;
     eventData: {
-        id?: string
-        billingAddress?: string
-        pan?: string
-        gst?: number
-        tds?: number
-        serviceCharge?: number
-        advanceAmt?: number
-        discounts?: number
+        id?: string;
+        billingAddress?: string;
+        pan?: string;
+        gst?: number;
+        tds?: number;
+        serviceCharge?: number;
+        advanceAmt?: number;
+        discounts?: number;
         client?: {
-            gst?: string
-            pan?: string
-            [key: string]: unknown
-        }
-        [key: string]: unknown
-    }
-    onSave: () => void
+            gst?: string;
+            pan?: string;
+            [key: string]: unknown;
+        };
+        [key: string]: unknown;
+    };
+    onSave: () => void;
 }
 
-export function BillingExpenseModal({ isOpen, onClose, eventData, onSave }: BillingExpenseModalProps) {
-    const [billingAddress, setBillingAddress] = useState('')
-    const [pan, setPan] = useState('')
-    const [clientGst, setClientGst] = useState('')
-    const [gst, setGst] = useState(0)
-    const [tds, setTds] = useState(0)
-    const [serviceCharge, setServiceCharge] = useState(0)
-    const [advanceAmt, setAdvanceAmt] = useState(0)
-    const [discounts, setDiscounts] = useState(0)
-    const [saving, setSaving] = useState(false)
+export function BillingExpenseModal({
+    isOpen,
+    onClose,
+    eventData,
+    onSave,
+}: BillingExpenseModalProps) {
+    const [billingAddress, setBillingAddress] = useState("");
+    const [pan, setPan] = useState("");
+    const [clientGst, setClientGst] = useState("");
+    const [gst, setGst] = useState(0);
+    const [tds, setTds] = useState(0);
+    const [serviceCharge, setServiceCharge] = useState(0);
+    const [advanceAmt, setAdvanceAmt] = useState(0);
+    const [discounts, setDiscounts] = useState(0);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        if (!isOpen) return
-        setBillingAddress(eventData?.billingAddress || '')
-        setPan(eventData?.pan || '')
-        setClientGst(eventData?.client?.gst || '')
-        setGst(eventData?.gst || 0)
-        setTds(eventData?.tds || 0)
-        setServiceCharge(eventData?.serviceCharge || 0)
-        setAdvanceAmt(eventData?.advanceAmt || 0)
-        setDiscounts(eventData?.discounts || 0)
-    }, [isOpen, eventData])
+        if (!isOpen) return;
+        setBillingAddress(eventData?.billingAddress || "");
+        setPan(eventData?.pan || "");
+        setClientGst(eventData?.client?.gst || "");
+        setGst(eventData?.gst || 0);
+        setTds(eventData?.tds || 0);
+        setServiceCharge(eventData?.serviceCharge || 0);
+        setAdvanceAmt(eventData?.advanceAmt || 0);
+        setDiscounts(eventData?.discounts || 0);
+    }, [isOpen, eventData]);
 
     const handleSave = async () => {
-        setSaving(true)
+        setSaving(true);
         try {
             const updatedEvent = {
                 ...eventData,
@@ -69,29 +74,29 @@ export function BillingExpenseModal({ isOpen, onClose, eventData, onSave }: Bill
                     ...eventData?.client,
                     gst: clientGst,
                 },
-            }
+            };
 
             const res = await apiRequest(API_ENDPOINTS.events.list, {
-                method: 'POST',
+                method: "POST",
                 body: JSON.stringify(updatedEvent),
-            })
+            });
 
             if (res.ok) {
-                toast.success('Billing details saved successfully')
-                onSave()
-                onClose()
+                toast.success("Billing details saved successfully");
+                onSave();
+                onClose();
             } else {
-                toast.error('Failed to save billing details')
+                toast.error("Failed to save billing details");
             }
         } catch (err) {
-            console.error('Error saving billing details:', err)
-            toast.error('Error saving billing details')
+            console.error("Error saving billing details:", err);
+            toast.error("Error saving billing details");
         } finally {
-            setSaving(false)
+            setSaving(false);
         }
-    }
+    };
 
-    if (!isOpen) return null
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -103,13 +108,22 @@ export function BillingExpenseModal({ isOpen, onClose, eventData, onSave }: Bill
                     aria-label="Close modal"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                        />
                     </svg>
                 </button>
 
                 <div className="mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Billing & Expenses</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">Manage billing address, tax details, and financial information.</p>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        Billing & Expenses
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Manage billing address, tax details, and financial information.
+                    </p>
                 </div>
 
                 <div className="space-y-5">
@@ -228,10 +242,10 @@ export function BillingExpenseModal({ isOpen, onClose, eventData, onSave }: Bill
                         disabled={saving}
                         className="bg-blue-600 text-white hover:bg-blue-700"
                     >
-                        {saving ? 'Saving...' : 'Save Billing Details'}
+                        {saving ? "Saving..." : "Save Billing Details"}
                     </Button>
                 </div>
             </div>
         </div>
-    )
+    );
 }

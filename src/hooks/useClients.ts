@@ -1,38 +1,38 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Client } from '@/types/client'
-import { apiRequest } from '@/lib/api-client'
+import { useState, useEffect } from "react";
+import { Client } from "@/types/client";
+import { apiRequest } from "@/lib/api/api-client";
 
 export function useClients() {
-    const [clients, setClients] = useState<Client[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+    const [clients, setClients] = useState<Client[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchClients = async () => {
         try {
-            setLoading(true)
-            setError(null)
-            const response = await apiRequest('/api/clients')
+            setLoading(true);
+            setError(null);
+            const response = await apiRequest("/api/clients");
 
             if (!response.ok) {
-                throw new Error(`Failed to fetch clients: ${response.statusText}`)
+                throw new Error(`Failed to fetch clients: ${response.statusText}`);
             }
 
-            const data = await response.json()
-            setClients(data)
+            const data = await response.json();
+            setClients(data);
         } catch (err) {
-            console.error('Error fetching clients:', err)
-            setError(err instanceof Error ? err.message : 'Failed to fetch clients')
-            setClients([])
+            console.error("Error fetching clients:", err);
+            setError(err instanceof Error ? err.message : "Failed to fetch clients");
+            setClients([]);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     useEffect(() => {
-        fetchClients()
-    }, [])
+        fetchClients();
+    }, []);
 
-    return { clients, loading, error, refresh: fetchClients }
+    return { clients, loading, error, refresh: fetchClients };
 }

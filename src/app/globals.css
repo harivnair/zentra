@@ -1,994 +1,267 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Dark mode variant mapped to data-theme attribute.
+ * Allows `dark:` utilities when [data-theme="dark"] is set on <html>.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* ── Font is loaded via next/font/google in layout.tsx (Inter) ── */
+/* ==========================================================================
+   Theme System — Derived from public/logo.svg
+   ==========================================================================
+   Logo palette (source of truth):
+     Deep Rose:   #AB3857  rgb(171, 56, 87)
+     Medium Rose: #D15F79  rgb(209, 95, 121)
+     Light Pink:  #E892A2  rgb(232, 146, 162)
+     Off-white:   #F7F6F6  rgb(247, 246, 246)
 
+   To re-theme the app, update the CSS variables below.
+   All component styles derive from these tokens — no hard-coded colors elsewhere.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   LIGHT MODE
+   -------------------------------------------------------------------------- */
+:root,
+[data-theme="light"] {
+    color-scheme: light;
+
+    /* --- Core palette --- */
+    --primary: #ab3857;
+    --primary-hover: #943050;
+    --primary-active: #7d2844;
+    --primary-light: #fbeef1;
+    --primary-foreground: #ffffff;
+
+    --secondary: #f4d5dc;
+    --secondary-hover: #edbecc;
+    --secondary-foreground: #7a2740;
+
+    --accent: #d15f79;
+    --accent-hover: #c4506c;
+    --accent-foreground: #ffffff;
+
+    --destructive: #dc2626;
+    --destructive-hover: #b91c1c;
+    --destructive-foreground: #ffffff;
+
+    /* --- Surfaces --- */
+    --background: #faf8f9;
+    --foreground: #1a1225;
+    --surface: #ffffff;
+    --surface-elevated: #ffffff;
+
+    /* --- Text --- */
+    --muted: #f5eff2;
+    --muted-foreground: #8a7b85;
+
+    /* --- Border --- */
+    --border: #e8dfe3;
+    --border-hover: #d1c5cb;
+
+    /* --- Focus ring --- */
+    --ring: #d15f79;
+
+    /* --- Semantic --- */
+    --success: #16a34a;
+    --success-light: #dcfce7;
+    --warning: #d97706;
+    --warning-light: #fef3c7;
+    --error: #dc2626;
+    --error-light: #fee2e2;
+    --info: #2563eb;
+    --info-light: #dbeafe;
+
+    /* --- Button component tokens ---
+     Aliases that map to the semantic palette. Override these to customise
+     button appearance without touching the global palette. */
+    --btn-primary-bg: var(--primary);
+    --btn-primary-text: var(--primary-foreground);
+    --btn-primary-hover: var(--primary-hover);
+    --btn-secondary-bg: var(--secondary);
+    --btn-secondary-text: var(--secondary-foreground);
+    --btn-secondary-hover: var(--secondary-hover);
+    --btn-outline-border: var(--border-hover);
+    --btn-outline-text: var(--accent);
+    --btn-outline-hover-bg: var(--primary-light);
+    --btn-outline-hover-border: var(--primary);
+    --btn-ghost-text: var(--muted-foreground);
+    --btn-ghost-hover-bg: var(--muted);
+    --btn-ghost-hover-text: var(--accent);
+    --btn-destructive-bg: var(--destructive);
+    --btn-destructive-text: var(--destructive-foreground);
+    --btn-destructive-hover: var(--destructive-hover);
+
+    /* --- Input component tokens --- */
+    --input-bg: var(--surface);
+    --input-border: var(--border);
+    --input-text: var(--foreground);
+    --input-placeholder: var(--muted-foreground);
+    --input-focus-border: var(--accent);
+    --input-focus-ring: color-mix(in oklch, var(--ring) 18%, transparent);
+    --input-error-border: var(--error);
+    --input-error-ring: color-mix(in oklch, var(--error) 18%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   DARK MODE — refined adaptation, not a simple inversion
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* --- Core palette --- */
+    --primary: #bf4a67;
+    --primary-hover: #cc5f7a;
+    --primary-active: #d97389;
+    --primary-light: #2a1a20;
+    --primary-foreground: #ffffff;
+
+    --secondary: #2e1e24;
+    --secondary-hover: #3d2a32;
+    --secondary-foreground: #e892a2;
+
+    --accent: #e892a2;
+    --accent-hover: #f0a8b5;
+    --accent-foreground: #1a1220;
+
+    --destructive: #ef4444;
+    --destructive-hover: #f87171;
+    --destructive-foreground: #ffffff;
+
+    /* --- Surfaces --- */
+    --background: #0f0b12;
+    --foreground: #f5eef0;
+    --surface: #1a1520;
+    --surface-elevated: #231d28;
+
+    /* --- Text --- */
+    --muted: #1e1824;
+    --muted-foreground: #8a7e85;
+
+    /* --- Border --- */
+    --border: #2d2530;
+    --border-hover: #3d3540;
+
+    /* --- Focus ring --- */
+    --ring: #bf4a67;
+
+    /* --- Semantic --- */
+    --success: #22c55e;
+    --success-light: #14301f;
+    --warning: #f59e0b;
+    --warning-light: #2d2410;
+    --error: #ef4444;
+    --error-light: #2d1414;
+    --info: #3b82f6;
+    --info-light: #141e2d;
+
+    /* Dark-mode overrides for button tokens (inherits rest via var()) */
+    --btn-destructive-hover: #f87171;
+
+    /* Dark-mode overrides for input tokens */
+    --input-focus-ring: color-mix(in oklch, var(--ring) 22%, transparent);
+    --input-error-ring: color-mix(in oklch, var(--error) 22%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Tailwind v4 theme token registration
+   Maps CSS variables → Tailwind utility classes (bg-primary, text-foreground…)
+   -------------------------------------------------------------------------- */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+    /* Core */
+    --color-primary: var(--primary);
+    --color-primary-hover: var(--primary-hover);
+    --color-primary-active: var(--primary-active);
+    --color-primary-light: var(--primary-light);
+    --color-primary-foreground: var(--primary-foreground);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-hover: var(--secondary-hover);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-destructive: var(--destructive);
+    --color-destructive-hover: var(--destructive-hover);
+    --color-destructive-foreground: var(--destructive-foreground);
+
+    /* Surfaces */
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-surface: var(--surface);
+    --color-surface-elevated: var(--surface-elevated);
+
+    /* Text */
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+
+    /* Border */
+    --color-border: var(--border);
+    --color-border-hover: var(--border-hover);
+
+    /* Ring */
+    --color-ring: var(--ring);
+
+    /* Input */
+    --color-input: var(--input-border);
+    --color-input-ring: var(--input-focus-ring);
+
+    /* Semantic */
+    --color-success: var(--success);
+    --color-success-light: var(--success-light);
+    --color-warning: var(--warning);
+    --color-warning-light: var(--warning-light);
+    --color-error: var(--error);
+    --color-error-light: var(--error-light);
+    --color-info: var(--info);
+    --color-info-light: var(--info-light);
+
+    /* Fonts */
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
 }
 
-/* ═══════════════════════════════════════
-   DESIGN TOKENS
-   ═══════════════════════════════════════ */
-:root {
-  --radius: 0.75rem;
-
-  /* Brand palette — slate/indigo */
-  --background: oklch(0.97 0.004 248);
-  --foreground: oklch(0.17 0.015 255);
-  --card: oklch(1 0 0 / 72%);
-  --card-foreground: oklch(0.17 0.015 255);
-  --popover: oklch(1 0 0 / 85%);
-  --popover-foreground: oklch(0.17 0.015 255);
-  --primary: oklch(0.52 0.19 262);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.95 0.01 255 / 75%);
-  --secondary-foreground: oklch(0.3 0.02 255);
-  --muted: oklch(0.95 0.006 248 / 80%);
-  --muted-foreground: oklch(0.52 0.02 255);
-  --accent: oklch(0.94 0.02 260 / 70%);
-  --accent-foreground: oklch(0.3 0.06 262);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.88 0.008 250 / 70%);
-  --input: oklch(0.91 0.008 250 / 60%);
-  --ring: oklch(0.52 0.19 262 / 40%);
-  --chart-1: oklch(0.6 0.2 262);
-  --chart-2: oklch(0.6 0.15 190);
-  --chart-3: oklch(0.65 0.2 140);
-  --chart-4: oklch(0.7 0.18 55);
-  --chart-5: oklch(0.6 0.22 30);
-  --sidebar: oklch(0.19 0.03 260 / 88%);
-  --sidebar-foreground: oklch(0.95 0.01 250);
-  --sidebar-primary: oklch(0.52 0.19 262);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.28 0.04 260);
-  --sidebar-accent-foreground: oklch(0.95 0.01 250);
-  --sidebar-border: oklch(0.28 0.03 260 / 50%);
-  --sidebar-ring: oklch(0.52 0.19 262 / 40%);
-  /* Custom brand LAB colors */
-  --app-primary: lab(53 67.05 -2.57);
-  --app-primary-hover: lab(45 60 -2.57);
-  --app-secondary: lab(50 -24.09 -33.95);
-  /* Fluent acrylic blur amounts */
-  --acrylic-blur: 24px;
-  --glass-blur: 14px;
-  --mica-blur: 8px;
-  /* Fluent reveal opacities */
-  --reveal-opacity: 0.08;
-  --reveal-border-opacity: 0.18;
-}
-
-:root.dark {
-  --background: oklch(0.24 0.005 250);
-  --foreground: oklch(0.94 0.005 250);
-  --card: oklch(0.26 0.005 250 / 60%);
-  --card-foreground: oklch(0.94 0.005 250);
-  --popover: oklch(0.25 0.005 250 / 85%);
-  --popover-foreground: oklch(0.94 0.005 250);
-  --border: oklch(0.32 0.005 250 / 80%);
-  --input: oklch(0.28 0.005 250 / 50%);
-  --muted: oklch(0.28 0.005 250 / 60%);
-  --muted-foreground: oklch(0.70 0.005 250);
-}
-
-.fluent-body {
-  background:
-    radial-gradient(ellipse 80% 60% at 20% -10%, oklch(0.78 0.08 260 / 35%) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 10%, oklch(0.80 0.06 200 / 25%) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, oklch(0.82 0.05 290 / 20%) 0%, transparent 60%),
-    oklch(0.965 0.004 248);
-  background-attachment: fixed;
-}
-
-:root.dark .fluent-body {
-  background:
-    radial-gradient(ellipse 80% 60% at 20% -10%, oklch(0.30 0.02 260 / 30%) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 10%, oklch(0.28 0.02 200 / 25%) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, oklch(0.32 0.02 290 / 25%) 0%, transparent 60%),
-    oklch(0.22 0.005 250);
-  background-attachment: fixed;
-}
-
-/* ═══════════════════════════════════════
-   CUSTOM SCROLLBAR (FLUENT STYLE)
-   ═══════════════════════════════════════ */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: oklch(0 0 0 / 15%);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: oklch(0 0 0 / 25%);
-}
-
-/* For Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(0 0 0 / 15%) transparent;
-}
-
-/* ═══════════════════════════════════════
-   BASE & TYPOGRAPHY
-   ═══════════════════════════════════════ */
-@layer base {
-
-  *,
-  *::before,
-  *::after {
-    @apply border-border outline-ring/50;
-    box-sizing: border-box;
-  }
-
-  html {
-    font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
+/* --------------------------------------------------------------------------
+   Base styles & Responsive foundations
+   -------------------------------------------------------------------------- */
+html {
     scroll-behavior: smooth;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-size: 0.9375rem;
-    font-weight: 400;
-    line-height: 1.6;
-    letter-spacing: 0em;
-  }
-
-  h1 {
-    font-size: 1.875rem;
-    font-weight: 700;
-    line-height: 1.25;
-    letter-spacing: -0.025em;
-  }
-
-  h2 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: -0.02em;
-  }
-
-  h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.35;
-    letter-spacing: -0.015em;
-  }
-
-  h4 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    line-height: 1.4;
-  }
-
-  h5 {
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-
-  p {
-    line-height: 1.65;
-    margin-bottom: 0;
-  }
-
-  label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-  }
-
-  button,
-  [role="button"],
-  a,
-  summary,
-  select {
-    cursor: pointer;
-  }
-
-  button,
-  input,
-  select,
-  textarea {
-    font-family: inherit;
-    font-size: 0.9375rem;
-    line-height: 1.5;
-  }
-
-  table {
-    font-size: 0.875rem;
-  }
-
-  th {
-    font-weight: 600;
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  td {
-    font-size: 0.875rem;
-  }
-
-  :focus-visible {
-    outline: 2px solid oklch(0.52 0.19 262 / 60%);
-    outline-offset: 2px;
-    border-radius: 6px;
-  }
-}
-
-/* ═══════════════════════════════════════
-   ANIMATIONS  (all easing optimized for
-   "instant feel" with short durations)
-   ═══════════════════════════════════════ */
-
-/* ── Keyframes ───────────────────────── */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInRight {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes shimmer {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes pulseSubtle {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
-}
-
-@keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-
-  60% {
-    opacity: 1;
-    transform: scale(1.04);
-  }
-
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes countUp {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.9);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* ── Animation classes ───────────────── */
-.animate-fade-in {
-  animation: fadeIn 0.2s ease both;
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.25s ease both;
-}
-
-.animate-fade-in-down {
-  animation: fadeInDown 0.2s ease both;
-}
-
-.animate-fade-in-right {
-  animation: fadeInRight 0.25s ease both;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-slide-in-right {
-  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-bounce-in {
-  animation: bounceIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-count-up {
-  animation: countUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-pulse-subtle {
-  animation: pulseSubtle 1.8s ease-in-out infinite;
-}
-
-/* ── Staggered children ──────────────── */
-.stagger-children>*,
-.stagger-rows>tr,
-.stagger-rows>* {
-  animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.stagger-children>*:nth-child(1),
-.stagger-rows>*:nth-child(1) {
-  animation-delay: 0.04s;
-}
-
-.stagger-children>*:nth-child(2),
-.stagger-rows>*:nth-child(2) {
-  animation-delay: 0.08s;
-}
-
-.stagger-children>*:nth-child(3),
-.stagger-rows>*:nth-child(3) {
-  animation-delay: 0.12s;
-}
-
-.stagger-children>*:nth-child(4),
-.stagger-rows>*:nth-child(4) {
-  animation-delay: 0.16s;
-}
-
-.stagger-children>*:nth-child(5),
-.stagger-rows>*:nth-child(5) {
-  animation-delay: 0.20s;
-}
-
-.stagger-children>*:nth-child(6),
-.stagger-rows>*:nth-child(6) {
-  animation-delay: 0.24s;
-}
-
-.stagger-children>*:nth-child(7),
-.stagger-rows>*:nth-child(7) {
-  animation-delay: 0.28s;
-}
-
-.stagger-children>*:nth-child(8),
-.stagger-rows>*:nth-child(8) {
-  animation-delay: 0.32s;
-}
-
-.stagger-children>*:nth-child(n+9),
-.stagger-rows>*:nth-child(n+9) {
-  animation-delay: 0.36s;
-}
-
-/* ── Fluent Zebra & Hover (Tables/Lists) */
-.stagger-rows>*,
-.stagger-children>* {
-  transition: background-color 0.15s ease;
-}
-
-.stagger-rows>*:nth-child(even),
-.stagger-children>*:nth-child(even) {
-  background-color: oklch(0 0 0 / 2%) !important;
-}
-
-:root.dark .stagger-rows>*:nth-child(even),
-:root.dark .stagger-children>*:nth-child(even) {
-  background-color: oklch(1 1 1 / 3%) !important;
-}
-
-@media (hover: hover) {
-
-  .stagger-rows>*:hover,
-  .stagger-children>*:hover {
-    background-color: oklch(0 0 0 / 4%) !important;
-  }
-
-  :root.dark .stagger-rows>*:hover,
-  :root.dark .stagger-children>*:hover {
-    background-color: oklch(1 1 1 / 6%) !important;
-  }
-}
-
-/* ── Page/section entrance ───────────── */
-/* IMPORTANT: must NOT use a transform here. A CSS transform creates a
-   new containing block; position:fixed children (modals, drawers) would
-   then be positioned relative to this div rather than the viewport,
-   causing them to appear off-centre. Use opacity-only fade instead. */
-.page-enter {
-  animation: fadeIn 0.22s ease both;
-}
-
-/* ═══════════════════════════════════════
-   FLUENT DESIGN — ACRYLIC / GLASS
-   ═══════════════════════════════════════
-   Three material tiers, inspired by Windows Fluent:
-   • .acrylic  — strongest blur, most opaque (sidebars, headers)
-   • .glass    — medium blur, lighter (cards, panels, modals)
-   • .mica     — subtle tint layer (main content area, tables)
-   ══════════════════════════════════════= */
-
-/* ── Acrylic — deep frosted glass ────── */
-.acrylic {
-  background: oklch(1 0 0 / 65%);
-  backdrop-filter: blur(var(--acrylic-blur)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--acrylic-blur)) saturate(180%);
-  border: 1px solid oklch(1 0 0 / 45%);
-  box-shadow:
-    0 2px 8px oklch(0 0 0 / 6%),
-    0 0 0 1px oklch(1 0 0 / 30%) inset;
-}
-
-:root.dark .acrylic {
-  background: oklch(0.25 0.005 250 / 65%);
-  border: 1px solid oklch(1 1 1 / 10%);
-  box-shadow:
-    0 2px 8px oklch(0 0 0 / 40%),
-    0 0 0 1px oklch(1 1 1 / 8%) inset;
-}
-
-/* ── Glass — medium frosted surface ─── */
-.glass {
-  background: oklch(1 0 0 / 52%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid oklch(1 0 0 / 38%);
-  box-shadow:
-    0 1px 4px oklch(0 0 0 / 5%),
-    0 0 0 1px oklch(1 0 0 / 22%) inset;
-}
-
-:root.dark .glass {
-  background: oklch(0.22 0.005 250 / 50%);
-  border: 1px solid oklch(1 1 1 / 8%);
-  box-shadow:
-    0 1px 4px oklch(0 0 0 / 45%),
-    0 0 0 1px oklch(1 1 1 / 5%) inset;
-}
-
-/* ── Mica — lightest atmospheric tint ── */
-.mica {
-  background: oklch(1 0 0 / 35%);
-  backdrop-filter: blur(var(--mica-blur)) saturate(130%);
-  -webkit-backdrop-filter: blur(var(--mica-blur)) saturate(130%);
-  border: 1px solid oklch(1 0 0 / 28%);
-}
-
-:root.dark .mica {
-  background: oklch(0.22 0.005 250 / 30%);
-  border: 1px solid oklch(1 1 1 / 5%);
-}
-
-/* ── Fluent Reveal hover effect ──────── */
-/* A radial gradient follows the mouse; in CSS we approximate with
-   a brightening ring on :hover. Real pointer-tracking needs JS. */
-.reveal {
-  position: relative;
-  overflow: hidden;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.reveal::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 50%,
-      oklch(1 0 0 / 14%) 0%,
-      transparent 70%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.reveal:hover::before {
-  opacity: 1;
-}
-
-.reveal:hover {
-  box-shadow: 0 0 0 1px oklch(1 0 0 / var(--reveal-border-opacity)) inset;
-}
-
-/* Reveal for dark surfaces */
-.reveal-dark::before {
-  background: radial-gradient(circle at 50% 50%,
-      oklch(1 0 0 / 10%) 0%,
-      transparent 70%);
-}
-
-/* Reveal for light surfaces (sidebar links) */
-.reveal-light::before {
-  background: radial-gradient(circle at 50% 50%,
-      oklch(0 0 0 / 4%) 0%,
-      transparent 70%);
-}
-
-/* ── Dark acrylic (sidebar) ──────────── */
-.acrylic-dark {
-  background: oklch(0.18 0.04 265 / 82%);
-  backdrop-filter: blur(var(--acrylic-blur)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--acrylic-blur)) saturate(180%);
-  border-right: 1px solid oklch(1 0 0 / 8%);
-  box-shadow: 2px 0 12px oklch(0 0 0 / 12%);
-}
-
-/* ── Light acrylic (sidebar) ─────────── */
-.acrylic-light {
-  background: oklch(0.97 0.005 250 / 45%);
-  backdrop-filter: blur(var(--acrylic-blur)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--acrylic-blur)) saturate(180%);
-  border-right: 1px solid oklch(0 0 0 / 5%);
-  box-shadow: 2px 0 12px oklch(0 0 0 / 2%);
-}
-
-:root.dark .acrylic-light {
-  background: oklch(0.18 0.005 250 / 70%);
-  border-right: 1px solid oklch(1 1 1 / 8%);
-  box-shadow: 2px 0 12px oklch(0 0 0 / 50%);
-}
-
-/* ═══════════════════════════════════════
-   SURFACE & CARD COMPONENTS (now glass)
-   ═══════════════════════════════════════ */
-.surface {
-  background: oklch(1 0 0 / 60%);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid oklch(1 0 0 / 42%);
-  border-radius: 0.875rem;
-  box-shadow:
-    0 1px 3px oklch(0 0 0 / 5%),
-    0 0 0 1px oklch(1 0 0 / 25%) inset;
-  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
-}
-
-:root.dark .surface {
-  background: oklch(0.22 0.005 250 / 55%);
-  border: 1px solid oklch(1 1 1 / 10%);
-  box-shadow:
-    0 1px 3px oklch(0 0 0 / 60%),
-    0 0 0 1px oklch(1 1 1 / 6%) inset;
-}
-
-/* ═══════════════════════════════════════
-   GLOBAL DARK MODE TAILWIND & COMPONENT OVERRIDES
-   All theme switch logic is centralized here for easy configuration.
-   ═══════════════════════════════════════ */
-
-/* 1. Core Structural Overrides */
-:is(.dark, [data-theme="dark"]) .bg-white,
-:is(.dark, [data-theme="dark"]) .bg-slate-50,
-:is(.dark, [data-theme="dark"]) .bg-gray-50 {
-  background-color: transparent !important;
-}
-
-:is(.dark, [data-theme="dark"]) .hover\:bg-gray-50:hover,
-:is(.dark, [data-theme="dark"]) .hover\:bg-slate-50:hover {
-  background-color: var(--muted) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .hover\:bg-gray-100:hover,
-:is(.dark, [data-theme="dark"]) .hover\:bg-slate-100:hover {
-  background-color: var(--muted) !important;
-}
-
-/* 2. Text Color Overrides mapped to variables */
-:is(.dark, [data-theme="dark"]) .text-gray-900,
-:is(.dark, [data-theme="dark"]) .text-slate-900,
-:is(.dark, [data-theme="dark"]) .text-gray-800,
-:is(.dark, [data-theme="dark"]) .text-slate-800 {
-  color: var(--foreground) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .text-gray-700,
-:is(.dark, [data-theme="dark"]) .text-slate-700 {
-  color: var(--foreground) !important;
-  opacity: 0.9;
-}
-
-:is(.dark, [data-theme="dark"]) .text-gray-600,
-:is(.dark, [data-theme="dark"]) .text-slate-600,
-:is(.dark, [data-theme="dark"]) .text-gray-500,
-:is(.dark, [data-theme="dark"]) .text-slate-500 {
-  color: var(--muted-foreground) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .text-gray-400,
-:is(.dark, [data-theme="dark"]) .text-slate-400 {
-  color: var(--muted-foreground) !important;
-  opacity: 0.7;
-}
-
-/* 3. Form Inputs & Dropdowns contrast fix */
-:is(.dark, [data-theme="dark"]) input:not([type="checkbox"]):not([type="radio"]),
-:is(.dark, [data-theme="dark"]) select,
-:is(.dark, [data-theme="dark"]) textarea {
-  background-color: var(--input) !important;
-  color: var(--foreground) !important;
-  border-color: var(--border) !important;
-}
-
-:is(.dark, [data-theme="dark"]) option {
-  background-color: var(--background);
-  color: var(--foreground);
-}
-
-/* 4. React Select (CreatableSelect) dark mode fix */
-:is(.dark, [data-theme="dark"]) .react-select__control,
-:is(.dark, [data-theme="dark"]) [class*="-control"] {
-  background-color: var(--input) !important;
-  border-color: var(--border) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__single-value,
-:is(.dark, [data-theme="dark"]) [class*="-singleValue"],
-:is(.dark, [data-theme="dark"]) .react-select__input-container,
-:is(.dark, [data-theme="dark"]) [class*="-Input"] {
-  color: var(--foreground) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__input,
-:is(.dark, [data-theme="dark"]) [class*="-Input"] input {
-  color: var(--foreground) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__placeholder,
-:is(.dark, [data-theme="dark"]) [class*="-placeholder"] {
-  color: var(--muted-foreground) !important;
-  opacity: 0.8 !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__menu,
-:is(.dark, [data-theme="dark"]) [class*="-menu"] {
-  background-color: oklch(0.24 0.005 250) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: 0 4px 12px oklch(0 0 0 / 60%) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__menu-list,
-:is(.dark, [data-theme="dark"]) [class*="-MenuList"] {
-  background-color: oklch(0.24 0.005 250) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__option,
-:is(.dark, [data-theme="dark"]) [class*="-option"] {
-  color: var(--foreground) !important;
-  background-color: transparent !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__option--is-focused,
-:is(.dark, [data-theme="dark"]) [class*="-option"][id*="focused"] {
-  background-color: var(--muted) !important;
-}
-
-:is(.dark, [data-theme="dark"]) .react-select__option--is-selected,
-:is(.dark, [data-theme="dark"]) [class*="-option"][aria-selected="true"] {
-  background-color: var(--primary) !important;
-  color: var(--primary-foreground) !important;
-}
-
-.surface-hover:hover {
-  background: oklch(1 0 0 / 72%);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow:
-    0 8px 24px oklch(0 0 0 / 9%),
-    0 0 0 1px oklch(1 0 0 / 35%) inset;
-  transform: translateY(-2px);
-}
-
-.surface-active:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 5%);
-}
-
-/* ═══════════════════════════════════════
-   INTERACTIVE UTILITIES
-   ═══════════════════════════════════════ */
-
-/* Lift on hover */
-.lift {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 10%);
-}
-
-/* Subtle scale on press */
-.press:active {
-  transform: scale(0.97);
-  transition: transform 0.1s ease;
-}
-
-/* Smooth underline on hover */
-.hover-underline {
-  position: relative;
-}
-
-.hover-underline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  width: 0;
-  height: 1.5px;
-  background: currentColor;
-  transition: width 0.2s ease;
-}
-
-.hover-underline:hover::after {
-  width: 100%;
-}
-
-/* ═══════════════════════════════════════
-   TABLE
-   ═══════════════════════════════════════ */
-.data-table th {
-  padding: 0.75rem 1rem;
-  background: oklch(0.97 0.005 250);
-  border-bottom: 1px solid oklch(0.9 0.008 250);
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid oklch(0.94 0.005 250);
-  vertical-align: middle;
-}
-
-.data-table tbody tr {
-  transition: background 0.12s ease;
-}
-
-.data-table tbody tr:hover {
-  background: oklch(0.975 0.008 260);
-}
-
-/* ═══════════════════════════════════════
-   STATUS PILL
-   ═══════════════════════════════════════ */
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  transition: transform 0.1s ease, opacity 0.1s ease;
-}
-
-/* ═══════════════════════════════════════
-   SHIMMER SKELETON
-   ═══════════════════════════════════════ */
-.skeleton {
-  position: relative;
-  overflow: hidden;
-  background: oklch(0.93 0.005 248);
-  border-radius: 0.5rem;
-}
-
-.skeleton::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg,
-      transparent 0%,
-      oklch(1 0 0 / 60%) 40%,
-      transparent 100%);
-  animation: shimmer 1.4s ease-in-out infinite;
-  transform: translateX(-100%);
-}
-
-/* ═══════════════════════════════════════
-   SCROLLBARS
-   ═══════════════════════════════════════ */
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.thin-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(0.82 0.01 250) transparent;
-}
-
-.thin-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.thin-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.thin-scrollbar::-webkit-scrollbar-thumb {
-  background: oklch(0.82 0.01 250);
-  border-radius: 99px;
-}
-
-/* ═══════════════════════════════════════
-   INPUT — modern flat style
-   ═══════════════════════════════════════ */
-.input-modern {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1.5px solid oklch(0.88 0.01 250);
-  background: oklch(0.985 0.003 250);
-  font-size: 0.875rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.input-modern:focus {
-  outline: none;
-  border-color: oklch(0.52 0.19 262);
-  box-shadow: 0 0 0 3px oklch(0.52 0.19 262 / 12%);
-}
-
-/* ═══════════════════════════════════════
-   MODAL / OVERLAY TRANSITIONS
-   ═══════════════════════════════════════ */
-.modal-backdrop {
-  animation: fadeIn 0.15s ease both;
-}
-
-.modal-panel {
-  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* ═══════════════════════════════════════
-   MISC UTILITIES
-   ═══════════════════════════════════════ */
-.section-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: oklch(0.55 0.02 255);
-}
-
-.bg-video::-webkit-media-controls {
-  display: none !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bg-video {
-    display: none !important;
-  }
-}
-
-@media (max-width: 767px) {
-  .bg-video {
-    display: none !important;
-  }
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+}
+
+/* Minimum 44px touch targets on touch devices (WCAG 2.5.5) */
+@media (pointer: coarse) {
+    button,
+    [role="button"],
+    a,
+    select,
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* Scrollbar tinting */
+@supports (scrollbar-color: auto) {
+    * {
+        scrollbar-color: var(--border-hover) transparent;
+    }
 }

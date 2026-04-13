@@ -1,52 +1,49 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button"
-import { LoadingButton } from "@/components/ui/loading-button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth"
-import { toast } from "sonner"
+import { Button, LinkText } from "@/components/ui";
+import { Input } from "@/components/ui/input";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/context/auth";
+import { toast } from "sonner";
 
 export default function LoginPage() {
-    const router = useRouter()
-    const { login, isAuthenticated, isLoading: authLoading } = useAuth()
-    const [showPassword, setShowPassword] = useState(false)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [userID, setUserID] = useState("")
-    const [password, setPassword] = useState("")
+    const router = useRouter();
+    const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [userID, setUserID] = useState("");
+    const [password, setPassword] = useState("");
 
     useEffect(() => {
         if (!authLoading && isAuthenticated) {
-            router.push("/dashboard")
+            router.push("/dashboard");
         }
-    }, [isAuthenticated, authLoading, router])
+    }, [isAuthenticated, authLoading, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        setError(null)
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
         try {
-            await login(userID, password)
-            toast.success("Login successful! Redirecting to dashboard...")
-            router.push("/dashboard")
+            await login(userID, password);
+            toast.success("Login successful! Redirecting to dashboard...");
+            router.push("/dashboard");
         } catch (err) {
             const errorMessage =
-                err instanceof Error ? err.message : "Login failed. Please try again."
-            setError(errorMessage)
+                err instanceof Error ? err.message : "Login failed. Please try again.";
+            setError(errorMessage);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     const handleGoogleLogin = () => {
-        console.log("Login with Google")
-    }
+        console.log("Login with Google");
+    };
 
     return (
         <form
@@ -60,7 +57,7 @@ export default function LoginPage() {
             <div className="grid gap-2 text-center">
                 <div className="flex items-center justify-center">
                     <Image
-                        src="/zentra-logo.jpg"
+                        src="/logo.svg"
                         alt="zentra"
                         width={64}
                         height={64}
@@ -79,62 +76,43 @@ export default function LoginPage() {
             )}
             <div className="grid gap-4">
                 <div className="grid gap-2">
-                    <Label className="text-sm" htmlFor="userID">
-                        User ID
-                    </Label>
                     <Input
                         id="userID"
+                        label="User ID"
                         type="text"
                         placeholder="Enter your user ID"
                         required
                         value={userID}
-                        onChange={(e) => setUserID(e.target.value)}
-                        className="focus:ring-2 focus:ring-green-400 focus:border-green-400 placeholder:text-xs"
+                        onChange={e => setUserID(e.target.value)}
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label className="text-sm" htmlFor="password">
-                        Password
-                    </Label>
                     <div className="relative">
                         <Input
                             id="password"
+                            label="Password"
                             type={showPassword ? "text" : "password"}
                             required
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={e => setPassword(e.target.value)}
                             placeholder="Enter your password"
-                            className="focus:ring-2 focus:ring-green-400 focus:border-green-400 pr-10 placeholder:text-xs"
                         />
                         <button
                             type="button"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-xs"
+                            className="absolute right-2 top-[40px] text-gray-400 hover:text-gray-700 text-xs"
                             tabIndex={-1}
-                            onClick={() => setShowPassword((v) => !v)}
+                            onClick={() => setShowPassword(v => !v)}
                         >
                             {showPassword ? "Hide" : "Show"}
                         </button>
                     </div>
                     <div className="flex justify-end">
-                        <Link
-                            href="/forgot-password"
-                            className="inline-block text-xs underline"
-                            style={{
-                                color: "var(--app-secondary)",
-                                textDecoration: "none",
-                            }}
-                        >
+                        <LinkText href="/forgot-password" className=" text-xs">
                             Forgot your password?
-                        </Link>
+                        </LinkText>
                     </div>
                 </div>
-                <LoadingButton
-                    loading={loading}
-                    loadingLabel="Logging in..."
-                    className="border-0 bg-[var(--app-primary)] text-white hover:bg-[var(--app-primary-hover)] transition-colors"
-                >
-                    Login
-                </LoadingButton>
+                <Button isLoading={loading}>Login</Button>
                 <div className="flex items-center gap-2">
                     <div className="h-px bg-gray-300 flex-1" />
                     <span className="text-xs text-gray-500 font-medium">OR</span>
@@ -146,15 +124,10 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleGoogleLogin}
                 >
-                    <Image
-                        src="/icons/google-logo.svg"
-                        alt="Google"
-                        width={16}
-                        height={16}
-                    />
+                    <Image src="/icons/google-logo.svg" alt="Google" width={16} height={16} />
                     <span>Login with Google</span>
                 </Button>
             </div>
         </form>
-    )
+    );
 }

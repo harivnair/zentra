@@ -1,35 +1,62 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider } from "@/context/auth";
-import { ThemeProvider } from "@/components/theme-provider";
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
+import { siteConfig } from "@/config/site";
+import { ThemeScript } from "@/context/theme-provider";
+import { AppProviders } from "@/context/app-providers";
+import { Toaster } from "@/components/ui/toaster/sonner";
+
+const geistSans = Geist({
+    variable: "--font-geist-sans",
+    subsets: ["latin"],
 });
 
+const geistMono = Geist_Mono({
+    variable: "--font-geist-mono",
+    subsets: ["latin"],
+});
+
+const { name, description, ogImage, keywords, creator, url } = siteConfig;
+
 export const metadata: Metadata = {
-  title: "Zentra",
-  description: "Zentra Event Management",
-  icons: {
-    icon: "/zentra-logo.jpg",
-  },
+    title: name,
+    icons: {
+        icon: ogImage,
+    },
+    description: description,
+    keywords: keywords,
+    authors: [{ name: creator }],
+    openGraph: {
+        type: "website",
+        locale: "en_US",
+        url: url,
+        title: name,
+        description: description,
+        siteName: name,
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: name,
+        description: description,
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="antialiased fluent-body min-h-screen">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+    return (
+        <html
+            lang="en"
+            className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+            suppressHydrationWarning
+        >
+            <head>
+                <ThemeScript />
+            </head>
+            <body className="min-h-full flex flex-col bg-background text-foreground">
+                <AppProviders>
+                    {children}
+                    <Toaster />
+                </AppProviders>
+            </body>
+        </html>
+    );
 }
