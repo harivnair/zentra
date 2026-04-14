@@ -5,6 +5,7 @@ export interface User {
     phone: string;
     email: string;
     uid: string;
+    status?: "active" | "inactive";
     password?: string;
 }
 

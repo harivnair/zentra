@@ -35,18 +35,3 @@ export function truncate(text: string, maxLength: number): string {
 export function pluralize(count: number, singular: string, plural?: string): string {
     return count === 1 ? singular : (plural ?? `${singular}s`);
 }
-
-export function getUserNameInitials(name: string) {
-    return name
-        .split(" ")
-        .map(w => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-}
-
-export function getAvatarColor(id: string) {
-    let hash = 0;
-    for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
