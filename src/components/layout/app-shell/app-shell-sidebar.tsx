@@ -52,7 +52,7 @@ export function AppShellSidebar() {
     return (
         <aside
             className={cn(
-                "hidden shrink-0 flex-col border-r border-border bg-muted transition-[width] duration-100 ease-in-out lg:flex",
+                "hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-100 ease-in-out lg:flex",
                 collapsed ? "w-[68px]" : "w-64",
             )}
         >
@@ -83,7 +83,7 @@ export function AppShellSidebar() {
                                                 collapsed && "justify-center",
                                                 !collapsed && "px-3",
                                                 active
-                                                    ? "bg-white text-primary"
+                                                    ? "bg-primary-light text-primary"
                                                     : "text-muted-foreground hover:bg-surface hover:text-foreground",
                                             )}
                                         >

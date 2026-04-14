@@ -1,83 +1,63 @@
 import { CalendarEvent } from "@/types/event";
 
-export const DASHBOARD_STATS = [
-    { label: "Upcoming Events", value: "0" },
-    { label: "Total Events", value: "0" },
-    { label: "Pending Estimates", value: "0" },
-    { label: "Open Enquiries", value: "0" },
-    { label: "Client Bills", value: "0" },
-    { label: "Active this week", value: "0" },
-];
+export type IconName = "event" | "calendar" | "receipt" | "message" | "wallet" | "chart";
 
-export const SAMPLE_EVENTS: CalendarEvent[] = [
+export interface DashboardStat {
+    label: string;
+    value: string;
+    trend?: string;
+    icon: IconName;
+    iconColor: string;
+    iconBg: string;
+}
+
+export const DASHBOARD_STATS: DashboardStat[] = [
     {
-        id: "1",
-        title: "IBM Annual Day",
-        date: "2026-03-25",
-        client: "IBM Corp",
-        location: "Grand Ballroom",
-        status: "open",
-        asignee: "John Doe",
-        currentTask: "Stage setup",
+        label: "Upcoming Events",
+        value: "24",
+        trend: "+12%",
+        icon: "event",
+        iconColor: "text-blue-600",
+        iconBg: "bg-blue-50",
     },
     {
-        id: "2",
-        title: "Experion Team Meet",
-        date: "2026-03-28",
-        client: "Experion Technologies",
-        location: "Conference Hall A",
-        status: "open",
-        asignee: "Priya Nair",
-        currentTask: "Send invites",
+        label: "Total Events",
+        value: "156",
+        trend: "+8%",
+        icon: "calendar",
+        iconColor: "text-purple-600",
+        iconBg: "bg-purple-50",
     },
     {
-        id: "3",
-        title: "Product Launch",
-        date: "2026-03-12",
-        client: "TechStart Inc",
-        location: "Convention Center",
-        status: "completed",
-        asignee: "Alan Smith",
-        currentTask: "Event wrap-up",
+        label: "Pending Estimates",
+        value: "12",
+        trend: "-3%",
+        icon: "receipt",
+        iconColor: "text-orange-600",
+        iconBg: "bg-orange-50",
     },
     {
-        id: "4",
-        title: "Annual Gala Dinner",
-        date: "2026-04-05",
-        client: "Azure Foundation",
-        location: "Lakeside Resort",
-        status: "open",
-        asignee: "Sara Lee",
-        currentTask: "Menu finalization",
+        label: "Open Enquiries",
+        value: "8",
+        trend: "+5%",
+        icon: "message",
+        iconColor: "text-teal-600",
+        iconBg: "bg-teal-50",
     },
     {
-        id: "5",
-        title: "Team Building Retreat",
-        date: "2026-03-21",
-        client: "Innovate LLC",
-        location: "Mountain Lodge",
-        status: "open",
-        asignee: "Carlos Mendez",
-        currentTask: "Transport arrangement",
+        label: "Client Bills",
+        value: "42",
+        trend: "+18%",
+        icon: "wallet",
+        iconColor: "text-emerald-600",
+        iconBg: "bg-emerald-50",
     },
     {
-        id: "6",
-        title: "Startup Demo Day",
-        date: "2026-04-11",
-        client: "VentureHub",
-        location: "Tech Park",
-        status: "open",
-        asignee: "Maya Tan",
-        currentTask: "Tech checks",
-    },
-    {
-        id: "7",
-        title: "Wedding Reception",
-        date: "2026-03-30",
-        client: "Alexander Family",
-        location: "Rose Garden Venue",
-        status: "cancelled",
-        asignee: "N/A",
-        currentTask: "N/A",
+        label: "Active this week",
+        value: "6",
+        trend: "+2%",
+        icon: "chart",
+        iconColor: "text-indigo-600",
+        iconBg: "bg-indigo-50",
     },
 ];
