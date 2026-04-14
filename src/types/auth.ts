@@ -39,7 +39,15 @@ export type Scope =
     | "r:bills"
     | "w:bills"
     | "r:schedules"
-    | "w:schedules";
+    | "w:schedules"
+    | "r:dashboard"
+    | "w:dashboard"
+    | "r:expenses"
+    | "w:expenses"
+    | "r:checklists"
+    | "w:checklists"
+    | "r:clients"
+    | "w:clients";
 
 export type RoutePermission = {
     roles?: Role[];

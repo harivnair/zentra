@@ -18,68 +18,80 @@ export const roleScopeMap: Record<Exclude<Role, "super_admin">, Scope[]> = {
         "r:vendors",
         "w:vendors",
         "r:reports",
+        "w:reports",
         "r:bills",
         "w:bills",
         "r:schedules",
         "w:schedules",
         "r:users",
         "w:users",
+        "r:dashboard",
+        "w:dashboard",
+        "r:expenses",
+        "w:expenses",
+        "r:checklists",
+        "w:checklists",
+        "r:clients",
+        "w:clients",
     ],
     user: [
         "r:enquiries",
-        "w:enquiries",
         "r:estimates",
-        "w:estimates",
         "r:events",
-        "w:events",
         "r:inventory",
-        "w:inventory",
         "r:vendors",
+        "r:reports",
+        "r:bills",
+        "r:schedules",
+        "r:dashboard",
+        "r:expenses",
+        "r:checklists",
+        "r:clients",
     ],
-    customer: ["r:enquiries", "r:estimates", "r:events"],
+    customer: ["r:estimates", "r:events", "r:dashboard", "r:checklists"],
 };
 
 export const routePermissions: Record<string, RoutePermission> = {
     "/dashboard": {
-        roles: ["admin", "user", "customer"],
+        scopes: ["r:dashboard"],
     },
     "/users": {
-        roles: ["admin"],
+        scopes: ["r:users"],
     },
     "/enquiries": {
-        roles: ["admin", "user", "customer"],
+        scopes: ["r:enquiries"],
     },
     "/estimates": {
-        roles: ["admin", "user", "customer"],
+        scopes: ["r:estimates"],
     },
     "/events": {
-        roles: ["admin", "user", "customer"],
+        scopes: ["r:events"],
     },
     "/events/:id": {
-        roles: ["admin", "user", "customer"],
+        scopes: ["r:events"],
     },
     "/inventory": {
-        roles: ["admin", "user"],
+        scopes: ["r:inventory"],
     },
     "/vendors": {
-        roles: ["admin", "user"],
+        scopes: ["r:vendors"],
     },
     "/bills": {
-        roles: ["admin"],
+        scopes: ["r:bills"],
     },
     "/schedules": {
-        roles: ["admin", "user"],
+        scopes: ["r:schedules"],
     },
     "/reports": {
-        roles: ["admin"],
+        scopes: ["r:reports"],
     },
     "/expenses": {
-        roles: ["admin"],
+        scopes: ["r:expenses"],
     },
     "/checklists": {
-        roles: ["admin", "user"],
+        scopes: ["r:checklists"],
     },
     "/clients": {
-        roles: ["admin", "user"],
+        scopes: ["r:clients"],
     },
 };

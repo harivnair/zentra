@@ -15,6 +15,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { toast } from "sonner";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/navigation";
+import { Avatar } from "@/components/ui/avatar";
 
 const navIcons: Record<string, (props: IconProps) => React.JSX.Element> = {
     User: UserIcon,
@@ -23,7 +24,7 @@ const navIcons: Record<string, (props: IconProps) => React.JSX.Element> = {
 
 export function AppShellHeader() {
     const router = useRouter();
-    const { logout } = useAuth();
+    const { logout, user } = useAuth();
     const [menuOpen, setMenuOpen] = useState(false);
     const [changePasswordOpen, setChangePasswordOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -73,13 +74,7 @@ export function AppShellHeader() {
 
                         {/* User avatar / dropdown */}
                         <div className="relative hidden md:block" ref={menuRef}>
-                            <button
-                                onClick={() => setMenuOpen(v => !v)}
-                                className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-shadow hover:ring-2 hover:ring-primary/30 sm:h-9 sm:w-9"
-                                aria-label="User menu"
-                            >
-                                U
-                            </button>
+                            <Avatar useDefaultColor name={user?.name || "U"} />
 
                             {menuOpen && (
                                 <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-surface p-1 shadow-lg">

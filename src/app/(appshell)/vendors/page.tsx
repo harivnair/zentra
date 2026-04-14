@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MenuList, type MenuItem } from "@/components/ui";
+import { MenuList } from "@/components/ui";
 import { MoreVerticalIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import CreateVendorModal from "@/components/create-vendor-modal";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { KeyValueDisplay } from "@/components/ui/key-value-display";
 import { Table, Column as TableColumn } from "@/components/ui/table";
 import { downloadCSV } from "@/lib/utils/file";
+import { AccessButton } from "@/components/shared/access-button";
+import { MenuItem } from "@/types";
 
 type VendorItem = {
     item: string;
@@ -106,6 +108,7 @@ const columns = (
                     icon: <TrashIcon size={16} />,
                     onClick: () => onDelete(row),
                     className: "text-destructive focus:text-destructive",
+                    scopes: ["w:vendors"],
                 },
             ];
 
@@ -223,9 +226,13 @@ export default function VendorsPage() {
                         <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
                             Export
                         </Button>
-                        <Button className="w-full sm:w-auto" onClick={openCreateModal}>
+                        <AccessButton
+                            scope={["w:vendors"]}
+                            className="w-full sm:w-auto"
+                            onClick={openCreateModal}
+                        >
                             Create Vendor
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

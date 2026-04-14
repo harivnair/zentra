@@ -3,16 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-
-export interface MenuItem {
-    key: string;
-    label: string;
-    icon?: React.ReactNode;
-    onClick?: () => void;
-    disabled?: boolean;
-    className?: string;
-    dividerAfter?: boolean;
-}
+import { MenuItem } from "@/types";
+import { useAuth } from "@/context/auth";
+import { filterItemsByScope } from "@/lib/utils/permissions";
 
 export interface MenuListProps {
     items: MenuItem[];
@@ -36,6 +29,8 @@ export function MenuList({
     const portalRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState<"top" | "bottom">("bottom");
     const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+    const { user } = useAuth();
+    const filteredItems = filterItemsByScope(user, items);
 
     const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setOpen = onOpenChange || setInternalOpen;
@@ -95,9 +90,11 @@ export function MenuList({
 
     return (
         <div className="relative" ref={menuRef}>
-            <div onClick={handleTriggerClick} className="cursor-pointer">
-                {trigger}
-            </div>
+            {filteredItems.length > 0 && (
+                <div onClick={handleTriggerClick} className="inline-block">
+                    {trigger}
+                </div>
+            )}
 
             {isOpen &&
                 triggerRect &&
@@ -119,7 +116,7 @@ export function MenuList({
                                 align === "end" ? window.innerWidth - triggerRect.right : undefined,
                         }}
                     >
-                        {items.map(item => (
+                        {filteredItems.map(item => (
                             <div key={item.key}>
                                 <button
                                     onClick={() => handleItemClick(item.onClick)}

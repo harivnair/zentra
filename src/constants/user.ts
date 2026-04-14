@@ -10,10 +10,16 @@ export const userFormInitialValues: User = {
     password: "",
 };
 
+export const rolesLabelMap: Record<string, string> = {
+    admin: "Admin",
+    user: "User",
+    customer: "Customer",
+};
+
 export const userRoleOptions = [
-    { label: "Admin", value: "admin" },
-    { label: "User", value: "user" },
-    { label: "Customer", value: "customer" },
+    { label: rolesLabelMap.admin, value: "admin" },
+    { label: rolesLabelMap.user, value: "user" },
+    { label: rolesLabelMap.customer, value: "customer" },
 ];
 
 export const userSortOptions = [

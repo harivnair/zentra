@@ -5,7 +5,9 @@ import { toast } from "sonner";
 
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
-import { MenuList, type MenuItem } from "@/components/ui";
+import { Badge } from "@/components/ui/badge";
+import { MenuList } from "@/components/ui";
+import { Avatar } from "@/components/ui/avatar";
 import { MoreVerticalIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
 import CreateUserModal from "@/components/create-user-modal";
 import { PageHeader } from "@/components/ui";
@@ -15,12 +17,13 @@ import { UsersTableFilters } from "@/components/users-table-filters";
 import { ConfirmationModal } from "@/components/shared/confirmation-modal";
 import { User, UsersTableFiltersFormValues } from "@/types/user";
 import { DEFAULT_PAGE_SIZE } from "@/constants";
-import { APIResponse } from "@/types";
+import { APIResponse, MenuItem } from "@/types";
 import { usePagination } from "@/hooks/usePagination";
 import { downloadCSV } from "@/lib/utils/file";
 import { buildQueryUrl } from "@/lib/api/query-params";
-import { userFiltersInitialValues } from "@/constants/user";
+import { userFiltersInitialValues, rolesLabelMap } from "@/constants/user";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { AccessButton } from "@/components/shared/access-button";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
@@ -28,7 +31,15 @@ const columns = (onEdit: (user: User) => void, onDelete: (row: User) => void): C
     {
         key: "name",
         header: "Name",
-        render: row => row.name,
+        render: row => (
+            <div className="flex items-center gap-3">
+                <Avatar name={row.name} />
+                <div className="flex flex-col">
+                    <span className="font-medium">{row.name}</span>
+                    <span className="text-xs text-muted-foreground">{row.email}</span>
+                </div>
+            </div>
+        ),
     },
     {
         key: "username",
@@ -39,13 +50,27 @@ const columns = (onEdit: (user: User) => void, onDelete: (row: User) => void): C
     {
         key: "role",
         header: "Role",
-        render: row => row.role,
-        className: "text-muted-foreground",
+        render: row => {
+            const role = row.role.toLowerCase();
+            return <Badge variant="info">{rolesLabelMap[role] ?? row.role}</Badge>;
+        },
     },
     {
-        key: "email",
-        header: "Email",
-        render: row => row.email,
+        key: "status",
+        header: "Status",
+        render: row => {
+            const isActive = row.status === "active";
+            return (
+                <Badge variant={isActive ? "success" : "default"}>
+                    <span
+                        className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+                            isActive ? "bg-success" : "bg-muted-foreground"
+                        }`}
+                    />
+                    {isActive ? "Active" : "Inactive"}
+                </Badge>
+            );
+        },
         className: "text-muted-foreground",
     },
     {
@@ -65,6 +90,7 @@ const columns = (onEdit: (user: User) => void, onDelete: (row: User) => void): C
                     label: "Edit",
                     icon: <PencilIcon size={16} />,
                     onClick: () => onEdit(row),
+                    scopes: ["w:users"],
                 },
                 {
                     key: "delete",
@@ -72,6 +98,7 @@ const columns = (onEdit: (user: User) => void, onDelete: (row: User) => void): C
                     icon: <TrashIcon size={16} />,
                     onClick: () => onDelete(row),
                     className: "text-destructive focus:text-destructive",
+                    scopes: ["w:users"],
                 },
             ];
 
@@ -217,9 +244,13 @@ export default function UsersPage() {
                         <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
                             Export
                         </Button>
-                        <Button className="w-full sm:w-auto" onClick={handleCreate}>
+                        <AccessButton
+                            className="w-full sm:w-auto"
+                            onClick={handleCreate}
+                            scope={["w:users"]}
+                        >
                             Create User
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

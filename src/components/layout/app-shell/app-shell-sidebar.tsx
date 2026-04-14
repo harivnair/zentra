@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { sideMenuNav } from "@/config/nav";
+import { useAuth } from "@/context/auth";
+import { filterMenuItems } from "@/lib/utils/permissions";
 import {
     DashboardIcon,
     MessageSquareIcon,
@@ -43,16 +45,19 @@ const navIcons: Record<string, (props: IconProps) => React.JSX.Element> = {
 export function AppShellSidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
+    const { user } = useAuth();
+
+    const filteredMenu = filterMenuItems(user, sideMenuNav);
 
     return (
         <aside
             className={cn(
                 "hidden shrink-0 flex-col border-r border-border bg-muted transition-[width] duration-100 ease-in-out lg:flex",
-                collapsed ? "w-[68px]" : "w-64"
+                collapsed ? "w-[68px]" : "w-64",
             )}
         >
             <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4">
-                {sideMenuNav.map(section => (
+                {filteredMenu.map(section => (
                     <div key={section.title}>
                         {!collapsed && (
                             <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -79,7 +84,7 @@ export function AppShellSidebar() {
                                                 !collapsed && "px-3",
                                                 active
                                                     ? "bg-white text-primary"
-                                                    : "text-muted-foreground hover:bg-surface hover:text-foreground"
+                                                    : "text-muted-foreground hover:bg-surface hover:text-foreground",
                                             )}
                                         >
                                             {Icon && <Icon size={18} />}

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import InventoryUsageModal from "@/components/inventory-usage-modal";
 import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { MenuList, type MenuItem } from "@/components/ui/menu-list";
+import { MenuList } from "@/components/ui/menu-list";
 import { MoreVerticalIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
 import CreateInventoryModal from "@/components/create-inventory-modal";
 import { Inventory, InventoryFormData, InventoryUsage } from "@/types/inventory";
@@ -15,6 +15,8 @@ import { ConfirmationModal } from "@/components/shared/confirmation-modal";
 import { cn } from "@/lib/utils/cn";
 import { PageHeader } from "@/components/ui";
 import { downloadCSV } from "@/lib/utils/file";
+import { AccessButton } from "@/components/shared/access-button";
+import { MenuItem } from "@/types";
 
 export default function InventoryPage() {
     const [inventory, setInventory] = useState<Inventory[]>([]);
@@ -193,6 +195,7 @@ export default function InventoryPage() {
                         label: "Edit",
                         icon: <PencilIcon size={16} />,
                         onClick: () => openEditModal(row),
+                        scopes: ["w:inventory"],
                     },
                     {
                         key: "delete",
@@ -200,6 +203,7 @@ export default function InventoryPage() {
                         icon: <TrashIcon size={16} />,
                         onClick: () => handleDelete(String(row.id)),
                         className: "text-destructive focus:text-destructive",
+                        scopes: ["w:inventory"],
                     },
                 ];
 
@@ -230,9 +234,13 @@ export default function InventoryPage() {
                         <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
                             Export
                         </Button>
-                        <Button className="w-full sm:w-auto" onClick={openCreateModal}>
+                        <AccessButton
+                            scope={["w:inventory"]}
+                            className="w-full sm:w-auto"
+                            onClick={openCreateModal}
+                        >
                             Add Inventory Item
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

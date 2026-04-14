@@ -3,15 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
-import {
-    Button,
-    MenuList,
-    type MenuItem,
-    PageHeader,
-    DataTable,
-    type Column,
-    Badge,
-} from "@/components/ui";
+import { Button, MenuList, PageHeader, DataTable, type Column, Badge } from "@/components/ui";
 import { MobileCardList } from "@/components/shared/mobile-card-list";
 import { ConfirmationModal } from "@/components/shared/confirmation-modal";
 import CreateEstimateModal from "@/components/create-estimate-modal";
@@ -20,6 +12,8 @@ import { EstimateDto, EstimateItem } from "@/types/estimate";
 import { useEstimatePrefill } from "@/context/estimate-prefill";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
+import { AccessButton } from "@/components/shared/access-button";
+import { MenuItem } from "@/types";
 
 type EstimateRecord = EstimateDto & {
     clientName?: string;
@@ -422,15 +416,6 @@ export default function EstimatesPage() {
                 render: row => {
                     const items: MenuItem[] = [
                         {
-                            key: "edit",
-                            label: "Edit",
-                            icon: <PencilIcon size={16} />,
-                            onClick: () => {
-                                setPrefill(row);
-                                setIsModalOpen(true);
-                            },
-                        },
-                        {
                             key: "versions",
                             label: "View Versions",
                             icon: <FileTextIcon size={16} />,
@@ -438,11 +423,22 @@ export default function EstimatesPage() {
                             disabled: !row.enquiryId,
                         },
                         {
+                            key: "edit",
+                            label: "Edit",
+                            icon: <PencilIcon size={16} />,
+                            onClick: () => {
+                                setPrefill(row);
+                                setIsModalOpen(true);
+                            },
+                            scopes: ["w:estimates"],
+                        },
+                        {
                             key: "delete",
                             label: "Delete",
                             icon: <TrashIcon size={16} />,
                             onClick: () => handleDeleteClick(row),
                             className: "text-destructive focus:text-destructive",
+                            scopes: ["w:estimates"],
                         },
                     ];
 
@@ -472,9 +468,13 @@ export default function EstimatesPage() {
                 description={`Manage all estimates. You have ${counts.open} open ${counts.open === 1 ? "estimate" : "estimates"}`}
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+                        <AccessButton
+                            scope={["w:estimates"]}
+                            className="w-full sm:w-auto"
+                            onClick={() => setIsModalOpen(true)}
+                        >
                             Create Estimate
-                        </Button>
+                        </AccessButton>
                     </div>
                 }
             />

@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/auth";
-import { roleScopeMap } from "@/config/permissions";
 import { Role, Scope } from "@/types/auth";
 import { ReactNode } from "react";
+import { hasPermission } from "@/lib/utils/permissions";
 
 interface AccessProps {
     roles?: Role[];
@@ -12,27 +12,8 @@ interface AccessProps {
 export const Access = ({ roles, scopes, children }: AccessProps) => {
     const { user } = useAuth();
 
-    // Calculate access permission
-    let hasAccess = false;
-    if (user) {
-        const userRole = user.role as Role;
-
-        // Check if user's role is in the allowed roles
-        const roleAllowed = !roles || roles.includes(userRole);
-
-        // Super admin has access to all scopes
-        if (userRole === "super_admin") {
-            hasAccess = roleAllowed;
-        } else {
-            // Get scopes for the user's role
-            const userScopes = roleScopeMap[userRole] || [];
-
-            // Check if all required scopes are available for the user's role
-            const scopeAllowed = !scopes || scopes.every(scope => userScopes.includes(scope));
-
-            hasAccess = roleAllowed && scopeAllowed;
-        }
-    }
+    // Calculate access permission using the utility function
+    const hasAccess = hasPermission(user, roles, scopes);
 
     // If children is a function (render prop pattern), call it with hasAccess
     if (typeof children === "function") {
