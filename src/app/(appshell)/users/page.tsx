@@ -21,7 +21,7 @@ import { APIResponse, MenuItem } from "@/types";
 import { usePagination } from "@/hooks/usePagination";
 import { downloadCSV } from "@/lib/utils/file";
 import { buildQueryUrl } from "@/lib/api/query-params";
-import { userFiltersInitialValues, rolesLabelMap } from "@/constants/user";
+import { userFiltersInitialValues, rolesLabelMap, statusLabelMap } from "@/constants/user";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { AccessButton } from "@/components/shared/access-button";
 
@@ -67,7 +67,7 @@ const columns = (onEdit: (user: User) => void, onDelete: (row: User) => void): C
                             isActive ? "bg-success" : "bg-muted-foreground"
                         }`}
                     />
-                    {isActive ? "Active" : "Inactive"}
+                    {isActive ? statusLabelMap.active : statusLabelMap.inactive}
                 </Badge>
             );
         },

@@ -7,7 +7,13 @@ import { toast } from "sonner";
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
 import { LinkText, MenuList } from "@/components/ui";
-import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
+import {
+    MoreVerticalIcon,
+    PencilIcon,
+    TrashIcon,
+    FileTextIcon,
+    CalendarIcon,
+} from "@/components/ui/icons";
 import { Copy } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -171,7 +177,17 @@ const columns = (
                             {row.title}
                         </span>
                     ) : (
-                        <LinkText href={`/events/${row.eventID}`}>{row.title}</LinkText>
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
+                                <CalendarIcon size={18} />
+                            </div>
+                            <div className="min-w-0">
+                                <LinkText href={`/events/${row.eventID}`}>{row.title}</LinkText>
+                                <p className="truncate text-xs text-muted-foreground">
+                                    {row.location}
+                                </p>
+                            </div>
+                        </div>
                     )}
                 </div>
             );

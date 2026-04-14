@@ -11,9 +11,14 @@ export const userFormInitialValues: User = {
 };
 
 export const rolesLabelMap: Record<string, string> = {
-    admin: "Admin",
-    user: "User",
-    customer: "Customer",
+    admin: "ADMIN",
+    user: "USER",
+    customer: "CUSTOMER",
+};
+
+export const statusLabelMap: Record<string, string> = {
+    active: "ACTIVE",
+    inactive: "INACTIVE",
 };
 
 export const userRoleOptions = [
