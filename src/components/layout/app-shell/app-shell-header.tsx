@@ -74,7 +74,13 @@ export function AppShellHeader() {
 
                         {/* User avatar / dropdown */}
                         <div className="relative hidden md:block" ref={menuRef}>
-                            <Avatar useDefaultColor name={user?.name || "U"} />
+                            <button
+                                onClick={() => setMenuOpen(v => !v)}
+                                className="cursor-pointer"
+                                aria-label="User menu"
+                            >
+                                <Avatar useDefaultColor name={user?.name || "U"} />
+                            </button>
 
                             {menuOpen && (
                                 <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-surface p-1 shadow-lg">
