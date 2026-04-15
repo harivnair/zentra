@@ -26,6 +26,7 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { downloadCSV } from "@/lib/utils/file";
 import { buildQueryUrl } from "@/lib/api/query-params";
 import { AccessButton } from "@/components/shared/access-button";
+import { Download, MessageSquarePlus } from "lucide-react";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
@@ -406,13 +407,19 @@ export default function EnquiriesPage() {
                 description={`Manage all enquiries. You have ${totalElements} ${totalElements === 1 ? "enquiry" : "enquiries"}`}
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
                             Export
                         </Button>
                         <AccessButton
                             scope={["w:enquiries"]}
                             className="w-full sm:w-auto"
                             onClick={handleCreate}
+                            icon={<MessageSquarePlus size={16} />}
                         >
                             Create Enquiry
                         </AccessButton>

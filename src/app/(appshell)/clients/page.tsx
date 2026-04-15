@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
 import { MenuList } from "@/components/ui";
-import { MoreVerticalIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
+import { MoreVerticalIcon, TrashIcon, FileTextIcon, UserPlusIcon } from "@/components/ui/icons";
 import CreateClientModal from "@/components/create-client-modal";
 import { PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -19,6 +19,7 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { downloadCSV } from "@/lib/utils/file";
 import { MenuItem } from "@/types";
 import { AccessButton } from "@/components/shared/access-button";
+import { Download } from "lucide-react";
 
 const columns = (
     onView: (row: Client) => void,
@@ -175,13 +176,19 @@ export default function ClientsPage() {
                 description="Manage all clients and their contact information"
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
                             Export
                         </Button>
                         <AccessButton
                             scope={["w:clients"]}
                             className="w-full sm:w-auto"
                             onClick={handleCreate}
+                            icon={<UserPlusIcon size={16} />}
                         >
                             Create Client
                         </AccessButton>

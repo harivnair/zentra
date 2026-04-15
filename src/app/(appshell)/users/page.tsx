@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MenuList } from "@/components/ui";
 import { Avatar } from "@/components/ui/avatar";
-import { MoreVerticalIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
+import { MoreVerticalIcon, PencilIcon, TrashIcon, UserPlusIcon } from "@/components/ui/icons";
 import CreateUserModal from "@/components/create-user-modal";
 import { PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -24,6 +24,7 @@ import { buildQueryUrl } from "@/lib/api/query-params";
 import { userFiltersInitialValues, rolesLabelMap, statusLabelMap } from "@/constants/user";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { AccessButton } from "@/components/shared/access-button";
+import { Download } from "lucide-react";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
@@ -241,13 +242,19 @@ export default function UsersPage() {
                 description="Manage all users and their roles"
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
                             Export
                         </Button>
                         <AccessButton
                             className="w-full sm:w-auto"
                             onClick={handleCreate}
                             scope={["w:users"]}
+                            icon={<UserPlusIcon size={16} />}
                         >
                             Create User
                         </AccessButton>

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils/cn";
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 type ButtonSize = "sm" | "md" | "lg";
@@ -8,6 +8,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: ButtonVariant;
     size?: ButtonSize;
     isLoading?: boolean;
+    icon?: ReactNode;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -35,6 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             isLoading = false,
             disabled,
             children,
+            icon,
             ...props
         },
         ref,
@@ -52,6 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             disabled={disabled || isLoading}
             {...props}
         >
+            {icon && <span className="inline-flex shrink-0 items-center">{icon}</span>}
             {isLoading && <Spinner />}
             {children}
         </button>

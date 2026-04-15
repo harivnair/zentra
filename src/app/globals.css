@@ -47,14 +47,14 @@
     --destructive-foreground: #ffffff;
 
     /* --- Surfaces --- */
-    --background: #faf8f9;
+    --background: #f8fafc;
     --foreground: #1a1225;
     --surface: #ffffff;
     --surface-elevated: #ffffff;
 
     /* --- Text --- */
     --muted: #f5eff2;
-    --muted-foreground: #8a7b85;
+    --muted-foreground: rgb(71 85 105 / 0.8);
 
     /* --- Border --- */
     --border: #e8dfe3;

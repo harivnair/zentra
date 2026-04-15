@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MenuList } from "@/components/ui";
-import { MoreVerticalIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
+import { MoreVerticalIcon, TrashIcon, FileTextIcon, StorePlusIcon } from "@/components/ui/icons";
 import CreateVendorModal from "@/components/create-vendor-modal";
 import { toast } from "sonner";
 import { apiRequest } from "@/lib/api/api-client";
@@ -17,6 +17,7 @@ import { Table, Column as TableColumn } from "@/components/ui/table";
 import { downloadCSV } from "@/lib/utils/file";
 import { AccessButton } from "@/components/shared/access-button";
 import { MenuItem } from "@/types";
+import { Download } from "lucide-react";
 
 type VendorItem = {
     item: string;
@@ -223,13 +224,19 @@ export default function VendorsPage() {
                 description={`Manage all vendors and their contact information.`}
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
                             Export
                         </Button>
                         <AccessButton
                             scope={["w:vendors"]}
                             className="w-full sm:w-auto"
                             onClick={openCreateModal}
+                            icon={<StorePlusIcon size={16} />}
                         >
                             Create Vendor
                         </AccessButton>

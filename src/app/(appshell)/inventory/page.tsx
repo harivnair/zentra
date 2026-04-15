@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/ui";
 import { downloadCSV } from "@/lib/utils/file";
 import { AccessButton } from "@/components/shared/access-button";
 import { MenuItem } from "@/types";
+import { Download, PackagePlus } from "lucide-react";
 
 export default function InventoryPage() {
     const [inventory, setInventory] = useState<Inventory[]>([]);
@@ -231,13 +232,19 @@ export default function InventoryPage() {
                 description="Manage your inventory items, track usage, and keep everything organized."
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
                             Export
                         </Button>
                         <AccessButton
                             scope={["w:inventory"]}
                             className="w-full sm:w-auto"
                             onClick={openCreateModal}
+                            icon={<PackagePlus size={16} />}
                         >
                             Add Inventory Item
                         </AccessButton>

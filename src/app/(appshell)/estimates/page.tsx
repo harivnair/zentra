@@ -14,6 +14,7 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
 import { AccessButton } from "@/components/shared/access-button";
 import { MenuItem } from "@/types";
+import { Download, FilePlus2Icon } from "lucide-react";
 
 type EstimateRecord = EstimateDto & {
     clientName?: string;
@@ -468,10 +469,19 @@ export default function EstimatesPage() {
                 description={`Manage all estimates. You have ${counts.open} open ${counts.open === 1 ? "estimate" : "estimates"}`}
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            // onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
+                            Export
+                        </Button>
                         <AccessButton
                             scope={["w:estimates"]}
                             className="w-full sm:w-auto"
                             onClick={() => setIsModalOpen(true)}
+                            icon={<FilePlus2Icon size={16} />}
                         >
                             Create Estimate
                         </AccessButton>
