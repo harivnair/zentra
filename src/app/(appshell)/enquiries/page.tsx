@@ -47,7 +47,7 @@ const columns = (
         header: "Event Details",
         render: row => (
             <div>
-                <div className="font-medium text-gray-900">{row.eventName || "-"}</div>
+                <div onClick={() => onView(row)} className="font-medium text-gray-900 cursor-pointer">{row.eventName || "-"}</div>
                 <div className="text-xs text-gray-500 mt-1">ID: {row.eventID || row.id}</div>
                 <div className="mt-1">
                     <Badge variant="info">{row.eventType || "Unknown"}</Badge>
@@ -529,13 +529,25 @@ export default function EnquiriesPage() {
                         <KeyValueDisplay
                             items={[
                                 {
+                                    key: "Enquiry ID",
+                                    value: selectedEnquiry.id || "-",
+                                },
+                                {
                                     key: "Title",
                                     value:
                                         selectedEnquiry.eventName || selectedEnquiry.title || "-",
                                 },
                                 {
+                                    key: "Status",
+                                    value: selectedEnquiry.status || "-",
+                                },
+                                {
+                                    key: "Event Type",
+                                    value: selectedEnquiry.eventType || "-",
+                                },
+                                {
                                     key: "Client",
-                                    value: selectedEnquiry.clientName || selectedEnquiry.client,
+                                    value: selectedEnquiry.clientName || selectedEnquiry.client || "-",
                                 },
                                 {
                                     key: "Enquiry Date",
@@ -544,16 +556,36 @@ export default function EnquiriesPage() {
                                         : "-",
                                 },
                                 {
-                                    key: "Schedule",
+                                    key: "Event Schedule",
                                     value: `${selectedEnquiry.fromDate ? new Date(selectedEnquiry.fromDate).toLocaleString() : "TBD"} → ${selectedEnquiry.toDate ? new Date(selectedEnquiry.toDate).toLocaleString() : "TBD"}`,
                                 },
                                 { key: "Venue", value: selectedEnquiry.venue || "-" },
                                 { key: "Location", value: selectedEnquiry.location || "-" },
                                 {
-                                    key: "POC",
+                                    key: "High-level Requirement",
+                                    value: selectedEnquiry.highlvelRequirement || "-",
+                                },
+                                {
+                                    key: "Enquiry POC",
                                     value: selectedEnquiry.poc || selectedEnquiry.enquiryPoC || "-",
                                 },
+                                {
+                                    key: "Enquiry POC Number",
+                                    value: selectedEnquiry.enquiryPoCNumber || "-",
+                                },
+                                {
+                                    key: "Event POC",
+                                    value: selectedEnquiry.eventPoC || "-",
+                                },
+                                {
+                                    key: "Event POC Number",
+                                    value: selectedEnquiry.eventPoCNumber || "-",
+                                },
                                 { key: "Assignee", value: selectedEnquiry.assignee || "-" },
+                                {
+                                    key: "Event ID",
+                                    value: selectedEnquiry.eventID || "-",
+                                },
                             ]}
                             columns={2}
                         />
