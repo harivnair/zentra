@@ -100,7 +100,7 @@ export default function DashboardPage() {
                         {DASHBOARD_STATS.map(stat => (
                             <Card
                                 key={stat.label}
-                                className="rounded-2xl border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+                                className="rounded-2xl border-slate-100 bg-surface shadow-sm transition-shadow hover:shadow-md"
                             >
                                 <CardContent className="sm:pt-3 sm:pb-2">
                                     <div className="mb-2 flex items-center gap-3">
@@ -109,7 +109,7 @@ export default function DashboardPage() {
                                         >
                                             {getIcon(stat.icon, 22)}
                                         </div>
-                                        <p className="text-sm font-medium text-slate-500">
+                                        <p className="text-sm font-medium text-slate-500 text-muted-foreground">
                                             {stat.label}
                                         </p>
                                     </div>
