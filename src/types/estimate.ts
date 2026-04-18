@@ -1,74 +1,83 @@
-export type EstimateStatus = "OPEN" | "CLOSED" | "CANCELLED"
+export type EstimateStatus =
+    | "CHECKLIST_COMPLETED"
+    | "PROJECT_POSTONED"
+    | "PROJECT_COMPLETED"
+    | "ESTIMATE_UNDER_REVIEW"
+    | "PROJECT_SETTLEMENT_IN_PROGRESS"
+    | "PROJECT_INPROGRESS"
+    | "ESTIMATE_INPROGRESS"
+    | "ENQUIRY_CREATED"
+    | "ESTIMATE_APPROVED";
 
 // Estimate versioning status
-export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL"
+export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL";
 
 export interface EstimateItem {
-    id: string
-    description: string
-    quantity: number
-    unitCost: number
-    total: number
-    specification?: string
-    days?: number
-    sqft?: number
-    rate?: number
-    vendor?: string
+    id: string;
+    description: string;
+    quantity: number;
+    unitCost: number;
+    total: number;
+    specification?: string;
+    days?: number;
+    sqft?: number;
+    rate?: number;
+    vendor?: string;
 }
 
 export interface EstimateDto {
-    id?: string
-    title?: string
-    highlvelRequirement: string
-    enquiryDate?: string | null
-    fromDate?: string | null
-    toDate?: string | null
-    status?: EstimateStatus
-    venue: string
-    location?: string
-    clientPoC: string
-    pocContactNumber: string
-    enquiryPoC?: string
+    id?: string;
+    title?: string;
+    highlvelRequirement: string;
+    enquiryDate?: string | null;
+    fromDate?: string | null;
+    toDate?: string | null;
+    status?: EstimateStatus;
+    venue: string;
+    location?: string;
+    clientPoC: string;
+    pocContactNumber: string;
+    enquiryPoC?: string;
     client?: {
-        id?: string
-        name?: string
-    }
-    items?: Record<string, EstimateItem[]>
+        id?: string;
+        name?: string;
+    };
+    items?: Record<string, EstimateItem[]>;
     // Versioning fields
-    enquiryId?: string
-    version?: string
-    estimateStatus?: EstimateVersionStatus
-    clonedFromEstimateId?: string | null
-    createdAt?: string
-    updatedAt?: string
+    enquiryId?: string;
+    version?: string;
+    estimateStatus?: EstimateVersionStatus;
+    clonedFromEstimateId?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface EstimateLineItemPayload {
-    item: string
-    serialNumber: number
-    count: number
-    pricePerItem: number
-    description?: string
-    vendor?: string
-    checkList?: string
-    days?: number
+    item: string;
+    serialNumber: number;
+    count: number;
+    pricePerItem: number;
+    description?: string;
+    vendor?: string;
+    checkList?: string;
+    days?: number;
 }
 
 export interface CreateEstimatePayload {
-    highlvelRequirement: string
-    enquiryDate?: string | null
-    fromDate?: string | null
-    toDate?: string | null
-    status: EstimateStatus
-    venue: string
-    clientPoC: string
-    pocContactNumber: string
-    enquiryPoC?: string
+    highlvelRequirement: string;
+    enquiryDate?: string | null;
+    fromDate?: string | null;
+    toDate?: string | null;
+    status: EstimateStatus;
+    venue: string;
+    clientPoC: string;
+    pocContactNumber: string;
+    enquiryPoC?: string;
     client: {
-        id: string
-    }
-    items: Record<string, EstimateLineItemPayload[]>
-    enquiryId: string
-    location?: string
-    title?: string
+        id: string;
+    };
+    items: Record<string, EstimateLineItemPayload[]>;
+    enquiryId: string;
+    location?: string;
+    title?: string;
 }

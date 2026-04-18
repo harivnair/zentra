@@ -25,9 +25,15 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { TrashIcon, PlusIcon } from "./ui";
 
 const statusOptions: { value: EstimateStatus; label: string }[] = [
-    { value: "OPEN", label: "Open" },
-    { value: "CLOSED", label: "Closed" },
-    { value: "CANCELLED", label: "Cancelled" },
+    { value: "CHECKLIST_COMPLETED", label: "Checklist completed" },
+    { value: "PROJECT_POSTONED", label: "Project postponed" },
+    { value: "PROJECT_COMPLETED", label: "Project completed" },
+    { value: "ESTIMATE_UNDER_REVIEW", label: "Estimate under review" },
+    { value: "PROJECT_SETTLEMENT_IN_PROGRESS", label: "Settlement in progress" },
+    { value: "PROJECT_INPROGRESS", label: "Project in progress" },
+    { value: "ESTIMATE_INPROGRESS", label: "Estimate in progress" },
+    { value: "ENQUIRY_CREATED", label: "Enquiry created" },
+    { value: "ESTIMATE_APPROVED", label: "Estimate approved" },
 ];
 
 type EstimateLine = {
@@ -478,12 +484,22 @@ export default function CreateEstimateModal({
                     : undefined;
 
             const rawStatus = pick<string>(["status", "enquiryStatus"]);
-            const allowedStatuses: EstimateStatus[] = ["OPEN", "CLOSED", "CANCELLED"];
+            const allowedStatuses: EstimateStatus[] = [
+                "CHECKLIST_COMPLETED",
+                "PROJECT_POSTONED",
+                "PROJECT_COMPLETED",
+                "ESTIMATE_UNDER_REVIEW",
+                "PROJECT_SETTLEMENT_IN_PROGRESS",
+                "PROJECT_INPROGRESS",
+                "ESTIMATE_INPROGRESS",
+                "ENQUIRY_CREATED",
+                "ESTIMATE_APPROVED",
+            ];
             const normalisedStatus = rawStatus ? rawStatus.toUpperCase() : undefined;
             const status =
                 normalisedStatus && allowedStatuses.includes(normalisedStatus as EstimateStatus)
                     ? (normalisedStatus as EstimateStatus)
-                    : "OPEN";
+                    : "ENQUIRY_CREATED";
 
             return {
                 enquiryId: persistedId,
@@ -736,7 +752,7 @@ export default function CreateEstimateModal({
             enquiryDate: normalizeDate(prefillData?.enquiryDate ?? null),
             fromDate: normalizeDate(prefillData?.fromDate ?? null),
             toDate: normalizeDate(prefillData?.toDate ?? null),
-            status: (prefillData?.status as EstimateStatus | undefined) ?? "OPEN",
+            status: (prefillData?.status as EstimateStatus | undefined) ?? "ENQUIRY_CREATED",
             location: prefillData?.location ?? "",
             venue: prefillData?.venue ?? "",
             clientPoC: prefillData?.clientPoC ?? prefillData?.client?.name ?? "",
@@ -1060,7 +1076,6 @@ export default function CreateEstimateModal({
                                     {status}
                                 </div>
                             )}
-
                             <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                                     <div className="w-full md:max-w-md">
