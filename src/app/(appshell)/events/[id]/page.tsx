@@ -10,29 +10,27 @@ import { ChecklistModal } from "@/components/checklist-modal";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
 import { EventResponse } from "@/types/event";
-
-// Event status label mapping (read-only)
-const STATUS_LABELS: Record<string, string> = {
-    ENQUIRY_CREATED: "Enquiry Created",
-    ESTIMATE_INPROGRESS: "Estimate In Progress",
-    ESTIMATE_UNDER_REVIEW: "Estimate Under Review",
-    ESTIMATE_APPROVED: "Estimate Approved",
-    PROJECT_INPROGRESS: "Project In Progress",
-    PROJECT_SETTLEMENT_IN_PROGRESS: "Project Settlement In Progress",
-    PROJECT_COMPLETED: "Project Completed",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-    ENQUIRY_CREATED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    ESTIMATE_INPROGRESS: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-    ESTIMATE_UNDER_REVIEW:
-        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    ESTIMATE_APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    PROJECT_INPROGRESS: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-    PROJECT_SETTLEMENT_IN_PROGRESS:
-        "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-    PROJECT_COMPLETED: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
-};
+import { Badge } from "@/components/ui/badge";
+import { STATUS_LABELS } from "@/constants/event";
+import {
+    CalendarDays,
+    MapPin,
+    User,
+    TrendingUp,
+    TrendingDown,
+    AlertCircle,
+    Wallet,
+    FileText,
+    Package,
+    History,
+    Receipt,
+    ClipboardCheck,
+    ChevronDown,
+    ArrowRight,
+    Edit3,
+    CheckCircle2,
+} from "lucide-react";
+import { Button } from "@/components/ui";
 
 export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = React.use(params);
@@ -44,11 +42,11 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     const [isExpensesModalOpen, setIsExpensesModalOpen] = useState(false);
     const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
     const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
+    const [expandedSection, setExpandedSection] = useState<string>("client");
     const fetchPromiseRef = React.useRef<Promise<EventResponse | null> | null>(null);
 
     const fetchEventData = React.useCallback(async () => {
         try {
-            // Reset the fetch promise to force a new fetch
             fetchPromiseRef.current = null;
 
             const queryParam = String(id).includes("_") ? id : id;
@@ -63,10 +61,8 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             const data = await fetchPromiseRef.current;
             if (!data) return;
 
-            // Store full event data
             setEventData(data);
 
-            // Set event title
             const title = data.title ?? `Event ${data.eventID || id}`;
             setEventTitle(String(title));
         } catch {
@@ -83,337 +79,505 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     const totalExpense = 0;
     const totalIncome = 0;
     let totalPendingAmount = 0;
-    let totalBalance = 0;
 
     if (Array.isArray(eventData?.categorySummary)) {
         eventData?.categorySummary.forEach(cat => {
             totalEstimatedCost += cat.totalAmount || 0;
             totalPendingAmount += cat.advanceAmount || 0;
-            totalBalance += cat.balance || 0;
         });
     }
 
-    return (
-        <div className="w-full p-4 sm:p-6 lg:p-8 min-h-screen">
-            {/* Breadcrumb */}
-            <nav className="text-sm text-muted-foreground mb-6">
-                Project &gt; <span className="font-medium text-foreground">{eventTitle}</span>
-            </nav>
+    const formatCurrency = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 
-            {/* Top Section: Event Info (Primary) + Client Details (Secondary) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                {/* Left: Event Primary Details */}
-                <div className="lg:col-span-1">
-                    {/* Event Name and Details Card */}
-                    <div className="surface p-6 h-full">
-                        <h2 className="text-2xl font-bold mb-6 pb-4 border-b border-border/50">
+    // Format event date for display
+    const formattedEventDate = eventData?.eventStartDate
+        ? new Date(eventData.eventStartDate).toLocaleDateString("en-IN", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+          })
+        : "";
+
+    // Format location/venue
+    const displayLocation = eventData?.location ?? eventData?.venue ?? "";
+
+    const toggleSection = (section: string) => {
+        setExpandedSection(prev => (prev === section ? "" : section));
+    };
+
+    const getBadgeVariant = (
+        status: string,
+    ): "default" | "success" | "warning" | "danger" | "info" => {
+        switch (status) {
+            case "ESTIMATE_APPROVED":
+            case "PROJECT_COMPLETED":
+                return "success";
+            case "ESTIMATE_INPROGRESS":
+            case "ESTIMATE_UNDER_REVIEW":
+            case "PROJECT_SETTLEMENT_IN_PROGRESS":
+                return "warning";
+            case "ENQUIRY_CREATED":
+            case "PROJECT_INPROGRESS":
+                return "info";
+            default:
+                return "default";
+        }
+    };
+
+    interface ActionCard {
+        id: string;
+        icon: React.ComponentType<{ className?: string }>;
+        title: string;
+        description: string;
+        linkLabel: string;
+        onClick: () => void;
+    }
+
+    const actionCards: ActionCard[] = [
+        {
+            id: "estimate",
+            icon: FileText,
+            title: "Estimate Creation",
+            description: "Generate and send professional quotes to your clients.",
+            linkLabel: "Create Estimate",
+            onClick: () => setIsProjectPlanningModalOpen(true),
+        },
+        {
+            id: "inventory",
+            icon: Package,
+            title: "Inventory List",
+            description: "Manage stock and vendor allocations for this event.",
+            linkLabel: "View List",
+            onClick: () => router.push("/inventory"),
+        },
+        {
+            id: "history",
+            icon: History,
+            title: "Estimate History",
+            description: "Review previous versions and approval timelines.",
+            linkLabel: "View History",
+            onClick: () => setIsEstimateHistoryModalOpen(true),
+        },
+        {
+            id: "expenses",
+            icon: Receipt,
+            title: "Expenses & Billing",
+            description: "Track invoices, vendor payments, and overheads.",
+            linkLabel: "Manage Expenses",
+            onClick: () => setIsExpensesModalOpen(true),
+        },
+        {
+            id: "billing",
+            icon: Receipt,
+            title: "Billing & Tax",
+            description: "Manage ledger and tax billing info.",
+            linkLabel: "Manage Billing",
+            onClick: () => setIsBillingModalOpen(true),
+        },
+        {
+            id: "checklist",
+            icon: ClipboardCheck,
+            title: "Event Checklist",
+            description: "Assign tasks and track execution milestones.",
+            linkLabel: "Open Tasks",
+            onClick: () => setIsChecklistModalOpen(true),
+        },
+    ];
+
+    return (
+        <div className="w-full min-h-screen bg-background">
+            {/* Hero Header Section */}
+            <section className="py-6 border-b border-border/20">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3 mb-1 flex-wrap">
+                            {eventData?.status && (
+                                <Badge variant={getBadgeVariant(eventData.status)}>
+                                    {STATUS_LABELS[eventData.status] ?? eventData.status}
+                                </Badge>
+                            )}
+                            {formattedEventDate && (
+                                <span className="text-muted-foreground text-xs font-medium flex items-center gap-1">
+                                    <CalendarDays className="w-3.5 h-3.5" />
+                                    {formattedEventDate}
+                                </span>
+                            )}
+                        </div>
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tighter">
                             {eventTitle}
                         </h2>
-
-                        {/* Event Details List */}
-                        <div className="space-y-6">
-                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                    Event Name
-                                </label>
-                                <p className="text-[15px] font-medium leading-tight">
-                                    {eventTitle}
-                                </p>
-                            </div>
-                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                    Start Date
-                                </label>
-                                <p className="text-[15px] font-medium leading-tight">
-                                    {eventData?.eventStartDate
-                                        ? new Date(eventData.eventStartDate).toLocaleDateString(
-                                              "en-IN",
-                                              {
-                                                  year: "numeric",
-                                                  month: "short",
-                                                  day: "numeric",
-                                                  hour: "2-digit",
-                                                  minute: "2-digit",
-                                              },
-                                          )
-                                        : "-"}
-                                </p>
-                            </div>
-                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                    End Date
-                                </label>
-                                <p className="text-[15px] font-medium leading-tight">
-                                    {eventData?.eventEndDate
-                                        ? new Date(eventData.eventEndDate).toLocaleDateString(
-                                              "en-IN",
-                                              {
-                                                  year: "numeric",
-                                                  month: "short",
-                                                  day: "numeric",
-                                                  hour: "2-digit",
-                                                  minute: "2-digit",
-                                              },
-                                          )
-                                        : "-"}
-                                </p>
-                            </div>
-                            <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                    Location
-                                </label>
-                                <p className="text-[15px] font-medium leading-tight">
-                                    {eventData?.location ?? eventData?.venue ?? "-"}
-                                </p>
-                            </div>
-                        </div>
+                        {displayLocation && (
+                            <p className="text-muted-foreground text-sm flex items-center gap-1.5">
+                                <MapPin className="w-4 h-4" />
+                                {displayLocation}
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex gap-3 flex-shrink-0">
+                        <Button
+                            onClick={() => setIsProjectPlanningModalOpen(true)}
+                            icon={<Edit3 size={16} />}
+                            variant="ghost"
+                        >
+                            Edit Project
+                        </Button>
+                        <Button icon={<CheckCircle2 size={16} />}>Approve Event</Button>
                     </div>
                 </div>
+            </section>
 
-                {/* Right: Client Details (Secondary) */}
-                <div className="lg:col-span-2">
-                    {eventData?.client && (
-                        <div className="surface p-6 h-full flex flex-col">
-                            <div className="flex items-start gap-4 mb-6 pb-4 border-b border-border/50">
-                                {/* Avatar */}
-                                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 border border-primary/20">
-                                    <span className="text-2xl font-bold">
-                                        {(eventData.client.name ?? "C")[0].toUpperCase()}
-                                    </span>
-                                </div>
-                                <div className="flex-1 mt-1">
-                                    <h3 className="text-xl font-bold">{eventData.client.name}</h3>
-                                    <p className="text-sm text-muted-foreground mt-0.5">
-                                        Client Details
-                                    </p>
-                                </div>
+            {/* Stats Overview Grid */}
+            <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 py-6">
+                <div className="bg-surface p-5 rounded-xl border border-border/20">
+                    <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        Estimated Cost
+                    </p>
+                    <p className="text-2xl font-bold text-primary tracking-tight">
+                        {formatCurrency(totalEstimatedCost)}
+                    </p>
+                </div>
+                <div className="bg-surface p-5 rounded-xl border border-border/20">
+                    <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <TrendingDown className="w-3.5 h-3.5" />
+                        Total Income
+                    </p>
+                    <p className="text-2xl font-bold text-success tracking-tight">
+                        {formatCurrency(totalIncome)}
+                    </p>
+                </div>
+                <div className="bg-surface p-5 rounded-xl border border-border/20">
+                    <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Total Expense
+                    </p>
+                    <p className="text-2xl font-bold text-destructive tracking-tight">
+                        {formatCurrency(totalExpense)}
+                    </p>
+                </div>
+                <div className="bg-surface p-5 rounded-xl border border-border/20">
+                    <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Wallet className="w-3.5 h-3.5" />
+                        Pending
+                    </p>
+                    <p className="text-2xl font-bold text-foreground tracking-tight">
+                        {formatCurrency(totalPendingAmount)}
+                    </p>
+                </div>
+                <div className="bg-gradient-to-br from-primary to-primary-hover p-5 rounded-xl text-white shadow-lg col-span-2 md:col-span-1">
+                    <p className="text-primary-foreground text-[11px] font-bold uppercase tracking-wider mb-2">
+                        Current Balance
+                    </p>
+                    <p className="text-2xl font-bold tracking-tight">
+                        {formatCurrency(Math.max(0, totalIncome - totalEstimatedCost))}
+                    </p>
+                </div>
+            </section>
+
+            {/* Main Layout: Client Details & Action Cards */}
+            <div className="pb-12">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
+                    {/* Left Column: Client Details & Sections */}
+                    <div className="lg:col-span-8 space-y-4">
+                        {/* Client Details Section */}
+                        {eventData?.client && (
+                            <div className="bg-surface rounded-xl border border-border/20 overflow-hidden">
+                                <button
+                                    onClick={() => toggleSection("client")}
+                                    className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                            <User className="w-5 h-5" />
+                                        </div>
+                                        <div className="text-left">
+                                            <h3 className="text-sm font-bold text-foreground">
+                                                Client Details
+                                            </h3>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Primary contact and billing info
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronDown
+                                        className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
+                                            expandedSection === "client" ? "rotate-180" : ""
+                                        }`}
+                                    />
+                                </button>
+                                {expandedSection === "client" && (
+                                    <div className="px-5 pb-5 pt-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-border/10 mt-2 pt-5">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Name
+                                            </p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {eventData.client.name ?? "-"}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Contact Person
+                                            </p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {eventData.client.poc ?? "-"}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Phone
+                                            </p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {eventData.client.phone ?? "-"}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Email
+                                            </p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {eventData.client.email ?? "-"}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1 sm:col-span-2">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Address
+                                            </p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {eventData.client.address ?? eventData.venue ?? "-"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+                        )}
 
-                            {/* Client Info Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 flex-1">
-                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                        Name
-                                    </label>
-                                    <p className="text-[15px] font-medium leading-tight">
-                                        {eventData.client.name ?? "-"}
-                                    </p>
-                                </div>
-                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                        Client Name
-                                    </label>
-                                    <p className="text-[15px] font-medium leading-tight">
-                                        {eventData.client.name ?? "-"}
-                                    </p>
-                                </div>
-                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                        Contact Person
-                                    </label>
-                                    <p className="text-[15px] font-medium leading-tight">
-                                        {eventData.client.poc ?? "-"}
-                                    </p>
-                                </div>
-                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                        Phone
-                                    </label>
-                                    <p className="text-[15px] font-medium leading-tight">
-                                        {eventData.client.phone ?? "-"}
-                                    </p>
-                                </div>
-                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                        Status
-                                    </label>
-                                    <div className="mt-1">
-                                        <span
-                                            className={`inline-block text-[11px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-md ${
-                                                STATUS_COLORS[eventData?.status ?? ""] ??
-                                                "bg-muted text-muted-foreground border border-border/50"
-                                            }`}
-                                        >
-                                            {STATUS_LABELS[eventData?.status ?? ""] ??
-                                                eventData?.status ??
-                                                "—"}
-                                        </span>
+                        {/* Event Details Section */}
+                        <div className="bg-surface rounded-xl border border-border/20 overflow-hidden">
+                            <button
+                                onClick={() => toggleSection("details")}
+                                className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground">
+                                        <CalendarDays className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h3 className="text-sm font-bold text-foreground">
+                                            Event Details
+                                        </h3>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Timeline and venue information
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="bg-muted/30 p-4 rounded-xl border border-border/40">
-                                    <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1.5">
-                                        Address
-                                    </label>
-                                    <p className="text-[15px] font-medium leading-tight">
-                                        {eventData.client.address ?? eventData.venue ?? "-"}
-                                    </p>
+                                <ChevronDown
+                                    className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
+                                        expandedSection === "details" ? "rotate-180" : ""
+                                    }`}
+                                />
+                            </button>
+                            {expandedSection === "details" && (
+                                <div className="px-5 pb-5 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border/10 mt-2 pt-5">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                            Start Date
+                                        </p>
+                                        <p className="text-sm font-medium text-foreground">
+                                            {eventData?.eventStartDate
+                                                ? new Date(
+                                                      eventData.eventStartDate,
+                                                  ).toLocaleDateString("en-IN", {
+                                                      year: "numeric",
+                                                      month: "short",
+                                                      day: "numeric",
+                                                      hour: "2-digit",
+                                                      minute: "2-digit",
+                                                  })
+                                                : "-"}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                            End Date
+                                        </p>
+                                        <p className="text-sm font-medium text-foreground">
+                                            {eventData?.eventEndDate
+                                                ? new Date(
+                                                      eventData.eventEndDate,
+                                                  ).toLocaleDateString("en-IN", {
+                                                      year: "numeric",
+                                                      month: "short",
+                                                      day: "numeric",
+                                                      hour: "2-digit",
+                                                      minute: "2-digit",
+                                                  })
+                                                : "-"}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                            Event ID
+                                        </p>
+                                        <p className="text-sm font-medium text-foreground">
+                                            {eventData?.eventID ?? "-"}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
-                    )}
+
+                        {/* Project Stats Section */}
+                        <div className="bg-surface rounded-xl border border-border/20 overflow-hidden">
+                            <button
+                                onClick={() => toggleSection("stats")}
+                                className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground">
+                                        <TrendingUp className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h3 className="text-sm font-bold text-foreground">
+                                            Project Stats
+                                        </h3>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Engagement and timeline metrics
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronDown
+                                    className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
+                                        expandedSection === "stats" ? "rotate-180" : ""
+                                    }`}
+                                />
+                            </button>
+                            {expandedSection === "stats" && (
+                                <div className="px-5 pb-5 pt-0 border-t border-border/10 mt-2 pt-5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Status
+                                            </p>
+                                            <div className="mt-1">
+                                                <Badge
+                                                    variant={getBadgeVariant(
+                                                        eventData?.status ?? "",
+                                                    )}
+                                                >
+                                                    {STATUS_LABELS[eventData?.status ?? ""] ??
+                                                        eventData?.status ??
+                                                        "—"}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Financial Overview Section */}
+                        <div className="bg-surface rounded-xl border border-border/20 overflow-hidden">
+                            <button
+                                onClick={() => toggleSection("financial")}
+                                className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors group"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                        <Wallet className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h3 className="text-sm font-bold text-foreground">
+                                            Financial Overview
+                                        </h3>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Breakdown of deposits and pending dues
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronDown
+                                    className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
+                                        expandedSection === "financial" ? "rotate-180" : ""
+                                    }`}
+                                />
+                            </button>
+                            {expandedSection === "financial" && (
+                                <div className="px-5 pb-5 pt-0 border-t border-border/10 mt-2 pt-5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Estimated Cost
+                                            </p>
+                                            <p className="text-lg font-semibold text-primary">
+                                                {formatCurrency(totalEstimatedCost)}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                                                Pending Amount
+                                            </p>
+                                            <p className="text-lg font-semibold text-foreground">
+                                                {formatCurrency(totalPendingAmount)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Column: Action Cards */}
+                    <div className="lg:col-span-4 space-y-4">
+                        {actionCards.map(card => {
+                            const isDisabled =
+                                card.id === "checklist" &&
+                                eventData?.status !== "ESTIMATE_APPROVED";
+                            const Icon = card.icon;
+                            return (
+                                <div
+                                    key={card.id}
+                                    className={`bg-surface p-6 rounded-xl border border-border/20 group transition-all ${
+                                        isDisabled
+                                            ? "opacity-60 saturate-50"
+                                            : "hover:bg-primary/5 cursor-pointer"
+                                    }`}
+                                    onClick={() => {
+                                        if (!isDisabled) {
+                                            card.onClick();
+                                        }
+                                    }}
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                                            <Icon className="w-5 h-5" />
+                                        </div>
+                                        <ArrowRight className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                    <h4 className="font-bold text-foreground mb-1">{card.title}</h4>
+                                    <p className="text-xs text-muted-foreground mb-4">
+                                        {card.description}
+                                    </p>
+                                    <span className="text-primary font-bold text-xs flex items-center gap-1">
+                                        {card.linkLabel} <ArrowRight className="w-3.5 h-3.5" />
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
-            {/* Stats Section */}
-            <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Stats</h3>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {/* Estimated Cost */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
-                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-                            Estimated Cost
-                        </label>
-                        <p className="text-2xl font-bold text-gray-900">
-                            ₹{totalEstimatedCost.toLocaleString()}
-                        </p>
-                    </div>
-
-                    {/* Income */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
-                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-                            Income
-                        </label>
-                        <p className="text-2xl font-bold text-gray-900">{totalIncome}</p>
-                    </div>
-
-                    {/* Expense */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-500">
-                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-                            Expense
-                        </label>
-                        <p className="text-2xl font-bold text-gray-900">{totalExpense}</p>
-                    </div>
-
-                    {/* Pending Amount */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-orange-500">
-                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-                            Pending Amount
-                        </label>
-                        <p className="text-2xl font-bold text-gray-900">
-                            ₹{totalPendingAmount.toLocaleString()}
-                        </p>
-                    </div>
-
-                    {/* Pending Amount (To Pay) */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-red-500">
-                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-                            Pending Amount (To Pay)
-                        </label>
-                        <p className="text-2xl font-bold text-red-600">
-                            ₹{totalBalance.toLocaleString()}
-                        </p>
-                    </div>
-
-                    {/* Balance Cash In hand */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-teal-500">
-                        <label className="text-xs text-gray-500 uppercase tracking-wide block mb-2">
-                            Balance Cash In hand
-                        </label>
-                        <p className="text-2xl font-bold text-teal-600">
-                            ₹{Math.max(0, totalIncome - totalEstimatedCost).toLocaleString()}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Report Cards Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                {/* Project Planning */}
-                <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Estimate creation</h4>
-                    <p className="text-xs opacity-90 mb-3">Project Items</p>
-                    <button
-                        onClick={() => setIsProjectPlanningModalOpen(true)}
-                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
-                    >
-                        Add Items →
-                    </button>
-                </div>
-
-                {/* Inventory List */}
-                <div className="bg-gradient-to-br from-gray-600 to-gray-700 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Inventory List</h4>
-                    <p className="text-xs opacity-90 mb-3">Report</p>
-                    <button
-                        onClick={() => router.push("/inventory")}
-                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
-                    >
-                        View List →
-                    </button>
-                </div>
-
-                {/* Estimate History */}
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Estimate History</h4>
-                    <p className="text-xs opacity-90 mb-3">Estimates</p>
-                    <button
-                        onClick={() => setIsEstimateHistoryModalOpen(true)}
-                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
-                    >
-                        View History →
-                    </button>
-                </div>
-
-                {/* Expenses */}
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Expenses</h4>
-                    <p className="text-xs opacity-90 mb-3">Manage Expenses</p>
-                    <button
-                        onClick={() => setIsExpensesModalOpen(true)}
-                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
-                    >
-                        Add Expenses →
-                    </button>
-                </div>
-
-                {/* Billing & Expenses */}
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
-                    <h4 className="font-semibold text-sm mb-2">Billing & Expenses</h4>
-                    <p className="text-xs opacity-90 mb-3">Tax & Billing Info</p>
-                    <button
-                        onClick={() => setIsBillingModalOpen(true)}
-                        className="text-xs font-medium hover:opacity-90 transition-opacity cursor-pointer"
-                    >
-                        Manage Billing →
-                    </button>
-                </div>
-
-                {/* Event Checklist */}
-                <div
-                    className={`bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-sm p-4 ${
-                        eventData?.status !== "ESTIMATE_APPROVED" ? "opacity-60 saturate-50" : ""
-                    }`}
-                >
-                    <h4 className="font-semibold text-sm mb-2">Event Checklist</h4>
-                    <p className="text-xs opacity-90 mb-3">Execution Tasks</p>
-                    <button
-                        onClick={() => setIsChecklistModalOpen(true)}
-                        disabled={eventData?.status !== "ESTIMATE_APPROVED"}
-                        className={`text-xs font-medium transition-opacity ${
-                            eventData?.status !== "ESTIMATE_APPROVED"
-                                ? "cursor-not-allowed opacity-50"
-                                : "hover:opacity-90 cursor-pointer"
-                        }`}
-                    >
-                        Manage Checklist →
-                    </button>
-                </div>
-            </div>
-
-            {/* Project Planning Modal */}
+            {/* Modals */}
             <ProjectPlanningModal
                 isOpen={isProjectPlanningModalOpen}
                 onClose={() => setIsProjectPlanningModalOpen(false)}
                 eventData={eventData || {}}
                 onSave={() => {
-                    // Reload event data after save
                     setIsProjectPlanningModalOpen(false);
                     fetchEventData();
                 }}
             />
 
-            {/* Estimate History Modal */}
             <EstimateHistoryModal
                 isOpen={isEstimateHistoryModalOpen}
                 onClose={() => setIsEstimateHistoryModalOpen(false)}
@@ -421,7 +585,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 eventID={eventData?.eventID || id}
             />
 
-            {/* Expenses Modal */}
             <ExpensesModal
                 isOpen={isExpensesModalOpen}
                 onClose={() => setIsExpensesModalOpen(false)}
@@ -432,7 +595,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 }}
             />
 
-            {/* Billing & Expenses Modal */}
             <BillingExpenseModal
                 isOpen={isBillingModalOpen}
                 onClose={() => setIsBillingModalOpen(false)}
@@ -443,7 +605,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 }}
             />
 
-            {/* Checklist Modal */}
             <ChecklistModal
                 isOpen={isChecklistModalOpen}
                 onClose={() => setIsChecklistModalOpen(false)}
