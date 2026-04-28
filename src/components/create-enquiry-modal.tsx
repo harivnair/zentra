@@ -52,9 +52,9 @@ const validationSchema = Yup.object({
     location: Yup.string().required("Location is required"),
     venue: Yup.string().required("Venue is required"),
     title: Yup.string().required("Event title is required").min(3, "Add at least 3 characters"),
-    highlvelRequirement: Yup.string()
-        .required("High level requirements are required")
-        .min(10, "Please provide more detailed requirements (at least 10 characters)"),
+    // highlvelRequirement: Yup.string()
+    //     .required("High level requirements are required")
+    //     .min(10, "Please provide more detailed requirements (at least 10 characters)"),
     clientPoC: Yup.string().optional(),
     enquiryPoCNumber: Yup.string()
         .required("Client POC contact number is required")

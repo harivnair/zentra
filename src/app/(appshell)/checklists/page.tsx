@@ -17,6 +17,7 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { downloadCSV } from "@/lib/utils/file";
 import { AccessButton } from "@/components/shared/access-button";
 import { MenuItem } from "@/types";
+import { Download, SquarePlus } from "lucide-react";
 
 const columns = (
     onView: (row: ChecklistFormData) => void,
@@ -201,13 +202,19 @@ export default function ChecklistsPage() {
                 description="Manage all event checklists and their status"
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-                        <Button variant="ghost" className="w-full sm:w-auto" onClick={handleExport}>
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
                             Export
                         </Button>
                         <AccessButton
                             scope={["w:checklists"]}
                             className="w-full sm:w-auto"
                             onClick={handleCreate}
+                            icon={<SquarePlus size={16} />}
                         >
                             Create Checklist
                         </AccessButton>

@@ -14,7 +14,7 @@ import {
     FileTextIcon,
     CalendarIcon,
 } from "@/components/ui/icons";
-import { Copy } from "lucide-react";
+import { CalendarPlus, Copy, Download } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -463,10 +463,19 @@ export default function EventsPage() {
                 description={`Manage all events. You have ${events.length} ${events.length === 1 ? "event" : "events"}`}
                 actions={
                     <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                        <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto"
+                            // onClick={handleExport}
+                            icon={<Download size={16} />}
+                        >
+                            Export
+                        </Button>
                         <AccessButton
                             scope={["w:events"]}
                             className="w-full sm:w-auto"
                             onClick={() => setIsModalOpen(true)}
+                            icon={<CalendarPlus size={16} />}
                         >
                             Create Event
                         </AccessButton>

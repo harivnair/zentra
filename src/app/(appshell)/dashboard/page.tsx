@@ -1,7 +1,7 @@
 "use client";
 import { Card, CardContent, PageHeader } from "@/components/ui";
 import { QuickActions } from "@/components/dashboard/quick-actions";
-import { DASHBOARD_STATS, type IconName } from "@/constants/dashboard";
+import { DASHBOARD_STATS, dashboardIcons } from "@/constants/dashboard";
 import { EventCalender } from "@/components/dashboard/event-calender";
 import { useAuth } from "@/context/auth";
 import {
@@ -10,7 +10,9 @@ import {
     MessageSquareIcon,
     WalletIcon,
     ChartLineIcon,
+    CalendarIcon,
 } from "@/components/ui/icons";
+import { DashboardIconName } from "@/types/dashboard";
 
 const hour = new Date().getHours();
 const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -24,8 +26,8 @@ const iconMap = {
     chart: ChartLineIcon,
 } as const;
 
-function getIcon(iconName: IconName, size = 24, className?: string) {
-    const IconComponent = iconMap[iconName] || CalendarSvgIcon;
+function getIcon(iconName: DashboardIconName, size = 24, className?: string) {
+    const IconComponent = dashboardIcons[iconName] || CalendarIcon;
     return <IconComponent size={size} className={className} />;
 }
 
