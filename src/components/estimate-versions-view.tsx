@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { EstimateDto, EstimateVersionStatus } from "@/types/estimate";
-import { Button } from "./ui-old/button";
-import { Copy, Send, CheckCircle, Edit, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Copy, Send, CheckCircle, Edit, ChevronDown, ChevronRight, Calendar } from "lucide-react";
 import { apiRequest } from "@/lib/api/api-client";
 import { toast } from "sonner";
+import { Button, Modal, ModalBody, ModalFooter } from "./ui";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { useRouter } from "next/navigation";
 
 interface EstimateVersionsViewProps {
     enquiryId: string;
     onVersionSelect?: (estimate: EstimateDto) => void;
-    onClose?: () => void;
+    onClose: () => void;
 }
 
 export function EstimateVersionsView({
@@ -18,6 +20,7 @@ export function EstimateVersionsView({
     onVersionSelect,
     onClose,
 }: EstimateVersionsViewProps) {
+    const router = useRouter();
     const [versions, setVersions] = useState<EstimateDto[]>([]);
     const [eventName, setEventName] = useState<string>("");
     const [loading, setLoading] = useState(true);
@@ -123,6 +126,58 @@ export function EstimateVersionsView({
         }
     };
 
+    const sortedVersions = useMemo(() => {
+        const parseVersion = (v: string) => parseInt(v?.replace("v", ""), 10) || 0;
+
+        return [...(versions || [])].sort((a, b) => {
+            // 1. Priority: FINAL first
+            if (a.estimateStatus !== b.estimateStatus) {
+                return b.estimateStatus === "FINAL" ? 1 : -1;
+            }
+
+            // 2. Secondary: version sorting
+            return parseVersion(a.version ?? "") - parseVersion(b.version ?? "");
+        });
+    }, [versions]);
+
+    const handleCreateEstimate = async (version: EstimateDto) => {
+        if (!version) return;
+        try {
+            const payload = {
+                title: version.title || version.highlvelRequirement || "Event",
+                eventStartDate: version.fromDate,
+                eventEndDate: version.toDate,
+                location: version.location,
+                venue: version.venue,
+                client: version.client?.id,
+                enquiryId: version.enquiryId,
+                estimateId: version.id,
+            };
+
+            const res = await apiRequest(API_ENDPOINTS.events.list, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => "");
+                throw new Error(`Failed to create event: ${res.status} ${errText}`);
+            }
+
+            const createdEvent = await res.json();
+
+            if (createdEvent) {
+                onClose();
+                toast.success("Event created from estimate");
+                router.push(`/events/${createdEvent.id}`); // Navigate to the newly created event's page
+            }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to create event";
+            toast.error(message);
+        }
+    };
+
     if (loading) {
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -134,28 +189,17 @@ export function EstimateVersionsView({
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
-                    <div>
-                        <h2 className="text-2xl font-semibold">Estimate Versions</h2>
-                        {eventName && <p className="text-sm text-gray-600 mt-1">{eventName}</p>}
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X size={24} />
-                    </button>
-                </div>
-
+        <Modal onClose={onClose} size="xxl" open title="Estimate Versions" description={eventName}>
+            <ModalBody>
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    {versions.length === 0 ? (
+                    {sortedVersions.length === 0 ? (
                         <p className="text-center text-gray-500 py-8">
                             No estimates found for this enquiry
                         </p>
                     ) : (
                         <div className="space-y-4">
-                            {versions.map(version => {
+                            {sortedVersions.map(version => {
                                 const isExpanded = expandedVersions.has(version.id || "");
                                 const isFinal = version.estimateStatus === "FINAL";
 
@@ -173,7 +217,7 @@ export function EstimateVersionsView({
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     onClick={() => toggleExpand(version.id || "")}
-                                                    className="text-gray-600 hover:text-gray-800"
+                                                    className="text-gray-600 hover:text-gray-800 cursor-pointer"
                                                 >
                                                     {isExpanded ? (
                                                         <ChevronDown size={20} />
@@ -307,6 +351,19 @@ export function EstimateVersionsView({
                                                     <Edit size={14} />
                                                     Edit
                                                 </Button>
+                                                {version.estimateStatus === "FINAL" && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        className="flex items-center gap-1"
+                                                        icon={<Calendar size={14} />}
+                                                        onClick={() =>
+                                                            handleCreateEstimate(version)
+                                                        }
+                                                    >
+                                                        Create Event
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
 
@@ -389,14 +446,12 @@ export function EstimateVersionsView({
                         </div>
                     )}
                 </div>
-
-                {/* Footer */}
-                <div className="border-t p-6 flex justify-end">
-                    <Button variant="outline" onClick={onClose}>
-                        Close
-                    </Button>
-                </div>
-            </div>
-        </div>
+            </ModalBody>
+            <ModalFooter>
+                <Button variant="outline" onClick={onClose}>
+                    Close
+                </Button>
+            </ModalFooter>
+        </Modal>
     );
 }

@@ -47,7 +47,12 @@ const columns = (
         header: "Event Details",
         render: row => (
             <div>
-                <div onClick={() => onView(row)} className="font-medium text-gray-900 cursor-pointer">{row.eventName || "-"}</div>
+                <div
+                    onClick={() => onView(row)}
+                    className="font-medium text-primary cursor-pointer hover:underline"
+                >
+                    {row.eventName || "-"}
+                </div>
                 <div className="text-xs text-gray-500 mt-1">ID: {row.eventID || row.id}</div>
                 <div className="mt-1">
                     <Badge variant="info">{row.eventType || "Unknown"}</Badge>
@@ -330,37 +335,35 @@ export default function EnquiriesPage() {
         setViewModalOpen(true);
     };
 
-    const handleCreateEvent = async () => {
+    const handleCreateEstimate = async () => {
         if (!selectedEnquiry) return;
         setEventSaving(true);
         try {
             const payload = {
                 title: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
-                eventName: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
-                enquiryDate: selectedEnquiry.date || new Date().toISOString(),
-                eventStartDate:
-                    selectedEnquiry.fromDate || selectedEnquiry.date || new Date().toISOString(),
-                eventEndDate:
-                    selectedEnquiry.toDate || selectedEnquiry.date || new Date().toISOString(),
-                eventID: selectedEnquiry.eventID,
-                location: selectedEnquiry.location || "",
-                venue: selectedEnquiry.venue || "",
                 status: "ENQUIRY_CREATED",
-                enquiryId: String(selectedEnquiry.id ?? ""),
+                enquiryDate: selectedEnquiry.date || new Date().toISOString(),
+                fromDate:
+                    selectedEnquiry.fromDate || selectedEnquiry.date || new Date().toISOString(),
+                toDate: selectedEnquiry.toDate || selectedEnquiry.date || new Date().toISOString(),
+                assignedTo: selectedEnquiry.assignee,
+                eventID: selectedEnquiry.eventID,
+                venue: selectedEnquiry.venue || "",
+                eventName: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
+                location: selectedEnquiry.location || "",
+                clientPoC: selectedEnquiry.poc || "",
+                enquiryPoCNumber: selectedEnquiry.enquiryPoCNumber || "",
+                eventPoCNumber: selectedEnquiry.eventPoCNumber || "",
+                eventPoC: selectedEnquiry.eventPoC || "",
                 client: {
-                    id: selectedEnquiry.client ? String(selectedEnquiry.client) : undefined,
-                    name: selectedEnquiry.clientName || undefined,
+                    id: selectedEnquiry.client,
                 },
-                vendor: undefined,
-                items: [],
-                categorySummary: [],
-                vendorSummary: [],
-                gst: 0,
-                tds: 0,
-                advanceAmt: 0,
+                enquiryId: String(selectedEnquiry.id ?? ""),
+                eventType: selectedEnquiry.eventType || "CORPORATE",
+                // linkedEventId: selectedEnquiry.eventID || null,
             };
 
-            const res = await apiRequest(API_ENDPOINTS.events.list, {
+            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -368,19 +371,20 @@ export default function EnquiriesPage() {
 
             if (!res.ok) {
                 const errText = await res.text().catch(() => "");
-                throw new Error(`Failed to create event: ${res.status} ${errText}`);
+                throw new Error(`Failed to create estimate: ${res.status} ${errText}`);
             }
 
-            const createdEvent = await res.json();
-            toast.success("Event created from enquiry");
+            const createdEstimate = await res.json();
+            // toast.success("Estimate created from enquiry");
             setViewModalOpen(false);
             setSelectedEnquiry(null);
 
-            if (createdEvent && (createdEvent.eventID || createdEvent.id)) {
-                router.push(`/events/${createdEvent.eventID || createdEvent.id}`);
+            if (createdEstimate) {
+                toast.success("Estimate created from enquiry");
+                router.push(`/estimates?enquiryId=${selectedEnquiry.id}`);
             }
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to create event";
+            const message = err instanceof Error ? err.message : "Failed to create estimate";
             toast.error(message);
         } finally {
             setEventSaving(false);
@@ -521,8 +525,7 @@ export default function EnquiriesPage() {
                     setSelectedEnquiry(null);
                 }}
                 title="Enquiry Details"
-                size="xl"
-                showCloseIcon
+                size="xxl"
             >
                 <ModalBody>
                     {selectedEnquiry && (
@@ -547,7 +550,8 @@ export default function EnquiriesPage() {
                                 },
                                 {
                                     key: "Client",
-                                    value: selectedEnquiry.clientName || selectedEnquiry.client || "-",
+                                    value:
+                                        selectedEnquiry.clientName || selectedEnquiry.client || "-",
                                 },
                                 {
                                     key: "Enquiry Date",
@@ -613,8 +617,8 @@ export default function EnquiriesPage() {
                             View Event
                         </Button>
                     ) : (
-                        <Button onClick={handleCreateEvent} disabled={eventSaving}>
-                            {eventSaving ? "Creating Event..." : "Create Event"}
+                        <Button onClick={handleCreateEstimate} disabled={eventSaving}>
+                            {eventSaving ? "Creating Estimate..." : "Create Estimate"}
                         </Button>
                     )}
                 </ModalFooter>

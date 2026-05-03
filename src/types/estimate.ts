@@ -7,7 +7,10 @@ export type EstimateStatus =
     | "PROJECT_INPROGRESS"
     | "ESTIMATE_INPROGRESS"
     | "ENQUIRY_CREATED"
-    | "ESTIMATE_APPROVED";
+    | "ESTIMATE_APPROVED"
+    | "OPEN"
+    | "CLOSED"
+    | "CANCELLED";
 
 // Estimate versioning status
 export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL";

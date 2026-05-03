@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import { Button, MenuList, PageHeader, DataTable, type Column, Badge } from "@/components/ui";
@@ -132,7 +133,8 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
 
 export default function EstimatesPage() {
     const { prefill: contextPrefill, clearPrefill } = useEstimatePrefill();
-
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [tab, setTab] = useState<StatusTab>("open");
     const [estimates, setEstimates] = useState<EstimateRecord[]>([]);
     const [loading, setLoading] = useState(false);
@@ -204,6 +206,22 @@ export default function EstimatesPage() {
             clearPrefill();
         }
     }, [contextPrefill, clearPrefill]);
+
+    // Handle opening estimate version view modal from URL query parameter
+    useEffect(() => {
+        const enquiryIdFromQuery = searchParams.get("enquiryId");
+
+        console.log({ enquiryIdFromQuery });
+
+        if (enquiryIdFromQuery) {
+            // Validate that the enquiryId is not empty
+            if (enquiryIdFromQuery.trim()) {
+                setVersionsViewEnquiryId(enquiryIdFromQuery);
+                // Clean up the query parameter from the URL
+                router.replace("/estimates");
+            }
+        }
+    }, [searchParams, router, estimates]);
 
     const counts = useMemo(() => {
         const counter: Record<StatusTab, number> = {
@@ -317,7 +335,9 @@ export default function EstimatesPage() {
                         onClick={() => row.enquiryId && setVersionsViewEnquiryId(row.enquiryId)}
                     >
                         <div className="flex items-center gap-2">
-                            <span>{row.highlvelRequirement || "Untitled Estimate"}</span>
+                            <span className="text-primary hover:underline">
+                                {row.highlvelRequirement || "Untitled Estimate"}
+                            </span>
                             {row.version && (
                                 <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
                                     {row.version}

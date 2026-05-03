@@ -290,7 +290,7 @@ export default function CreateEventModal({
 
             if (values.location) payload.location = values.location;
             if (values.venue) payload.venue = values.venue;
-            if (values.clientId) payload.client = { id: values.clientId };
+            if (values.clientId) payload.client = values.clientId;
             if (values.enquiryId) payload.enquiryId = values.enquiryId;
             if (values.estimateId) payload.estimateId = values.estimateId;
             if (values.enquiryDate) payload.enquiryDate = values.enquiryDate;
