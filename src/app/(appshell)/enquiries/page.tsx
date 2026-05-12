@@ -53,7 +53,7 @@ const columns = (
                 >
                     {row.eventName || "-"}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">ID: {row.eventID || row.id}</div>
+                <div className="text-xs text-gray-500 mt-1">ID: {row.eventID ?? "N/A"}</div>
                 <div className="mt-1">
                     <Badge variant="info">{row.eventType || "Unknown"}</Badge>
                 </div>
