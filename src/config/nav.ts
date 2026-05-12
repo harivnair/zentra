@@ -53,6 +53,7 @@ export const sideMenuNav: NavSection[] = [
     {
         title: "Operations",
         items: [
+            { title: "Estimates", href: "/estimates", icon: "FileText", scope: ["r:estimates"] },
             { title: "Events", href: "/events", icon: "Calendar", scope: ["r:events"] },
             { title: "Schedules", href: "/schedules", icon: "Clock", scope: ["r:schedules"] },
             {
@@ -67,7 +68,6 @@ export const sideMenuNav: NavSection[] = [
     {
         title: "Finances",
         items: [
-            { title: "Estimates", href: "/estimates", icon: "FileText", scope: ["r:estimates"] },
             { title: "Expenses", href: "/expenses", icon: "Wallet", scope: ["r:expenses"] },
             { title: "Bills", href: "/bills", icon: "Receipt", scope: ["r:bills"] },
             { title: "Reports", href: "/reports", icon: "BarChart", scope: ["r:reports"] },

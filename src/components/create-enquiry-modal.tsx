@@ -166,7 +166,7 @@ export default function CreateEnquiryModal({
 
             const requestBody: Record<string, unknown> = {
                 ...restValues,
-                client: clientId,
+                client: clientDisplayName,
                 enquiryDate: new Date().toISOString(),
                 eventName: values.title, // Send title as eventName to backend
             };

@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { FormikFieldInput } from "@/components/ui/formik-field-input";
 import { FormikFieldTextArea } from "@/components/ui/formik-field-textarea";
 import { FormikFieldDatePicker } from "@/components/ui/formik-field-date-picker";
-import { FormikFieldSelect } from "@/components/ui/formik-field-select";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Table, type Column } from "@/components/ui/table";
 import { Label } from "@/components/ui-old/label";
@@ -22,7 +21,8 @@ import {
 } from "@/types/estimate";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
-import { TrashIcon, PlusIcon } from "./ui";
+import { TrashIcon, PlusIcon, Select, FormikFieldSelect } from "./ui";
+import { resolve } from "path";
 
 const statusOptions: { value: EstimateStatus; label: string }[] = [
     { value: "CHECKLIST_COMPLETED", label: "Checklist completed" },
@@ -728,20 +728,6 @@ export default function CreateEstimateModal({
                 });
             });
         }
-        if (fromItems.length === 0) {
-            fromItems.push({
-                id: generateId(),
-                category: "General",
-                item: prefillData?.highlvelRequirement
-                    ? prefillData.highlvelRequirement
-                    : "New line item",
-                specification: "",
-                days: 1,
-                sqft: 1,
-                rate: 0,
-                vendor: "",
-            });
-        }
         setLines(fromItems);
     }, [isOpen, prefillData]);
 
@@ -794,7 +780,7 @@ export default function CreateEstimateModal({
         if (isFetchingEnquiry) return "Loading enquiry details…";
         if (prefillData?.enquiryId || selectedEnquiryId) {
             return currentPrefillLabel
-                ? `Prefilling from ${currentPrefillLabel}.`
+                ? `Prefilled from ${currentPrefillLabel}.`
                 : "Prefilling from the selected enquiry.";
         }
         return "Select an enquiry title to prefill the estimate fields.";
@@ -810,28 +796,36 @@ export default function CreateEstimateModal({
         titlesForSelectedClient.length,
     ]);
 
-    const clearEnquirySelection = useCallback(() => {
-        if (!prefillData && !selectedEnquiryId) {
+    const clearEnquirySelection = useCallback(
+        (isModalClose?: boolean) => {
+            if (!prefillData && !selectedEnquiryId) {
+                selectionRef.current = selectedClientId
+                    ? {
+                          clientName: clientSummaries.find(c => c.clientId === selectedClientId)
+                              ?.clientName,
+                      }
+                    : null;
+                return;
+            }
+
+            requestRef.current += 1;
+            setSelectedEnquiryId(undefined);
+            setPrefillData(undefined);
+            setIsFetchingEnquiry(false);
             selectionRef.current = selectedClientId
                 ? {
                       clientName: clientSummaries.find(c => c.clientId === selectedClientId)
                           ?.clientName,
                   }
                 : null;
-            return;
-        }
-
-        requestRef.current += 1;
-        setSelectedEnquiryId(undefined);
-        setPrefillData(undefined);
-        setIsFetchingEnquiry(false);
-        selectionRef.current = selectedClientId
-            ? { clientName: clientSummaries.find(c => c.clientId === selectedClientId)?.clientName }
-            : null;
-        toast("Selection cleared", {
-            description: "You can pick another enquiry to prefill the estimate.",
-        });
-    }, [prefillData, selectedClientId, selectedEnquiryId, clientSummaries]);
+            if (!isModalClose) {
+                toast.info("Selection cleared", {
+                    description: "You can pick another enquiry to prefill the estimate.",
+                });
+            }
+        },
+        [prefillData, selectedClientId, selectedEnquiryId, clientSummaries],
+    );
 
     const handleClientChange = useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -918,6 +912,21 @@ export default function CreateEstimateModal({
                 );
                 toast.error("Client id unavailable", {
                     description: "We couldn't find the client reference for this enquiry.",
+                });
+                setIsSaving(false);
+                return;
+            }
+
+            // Validate artifacts items
+            const invalidItems = lines.filter(line => {
+                const hasEmptyItem = !line.item || line.item.trim() === "";
+                const hasEmptyRate = !Number.isFinite(line.rate) || Number(line.rate) === 0;
+                return hasEmptyItem || hasEmptyRate;
+            });
+
+            if (invalidItems.length > 0) {
+                toast.error("Invalid artifacts", {
+                    description: "Each artifact requires an item name and a rate greater than 0.",
                 });
                 setIsSaving(false);
                 return;
@@ -1083,49 +1092,81 @@ export default function CreateEstimateModal({
                                             Source enquiry
                                         </Label>
                                         <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
-                                            <FormikFieldSelect
-                                                name="clientId"
+                                            <Select
                                                 options={[
-                                                    {
-                                                        label: summaryLoading
-                                                            ? "Loading clients…"
-                                                            : "Pick a client…",
-                                                        value: "",
-                                                    },
                                                     ...clientSummaries.map(summary => ({
                                                         label: summary.clientName,
                                                         value: summary.clientId,
                                                     })),
                                                 ]}
+                                                value={
+                                                    selectedClientId
+                                                        ? {
+                                                              label:
+                                                                  clientSummaries.find(
+                                                                      c =>
+                                                                          c.clientId ===
+                                                                          selectedClientId,
+                                                                  )?.clientName || selectedClientId,
+                                                              value: selectedClientId,
+                                                          }
+                                                        : null
+                                                }
                                                 isDisabled={summaryLoading || isFetchingEnquiry}
-                                                onChange={handleClientChange}
-                                                wrapperClassName="flex-1"
+                                                onChange={option => {
+                                                    if (option) {
+                                                        const event = {
+                                                            target: { value: option.value },
+                                                        } as React.ChangeEvent<HTMLSelectElement>;
+                                                        handleClientChange(event);
+                                                    }
+                                                }}
+                                                className="flex-1"
+                                                placeholder={
+                                                    summaryLoading
+                                                        ? "Loading clients…"
+                                                        : "Select client"
+                                                }
                                             />
                                             <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
-                                                <FormikFieldSelect
-                                                    name="enquiryId"
+                                                <Select
                                                     options={[
-                                                        {
-                                                            label: !selectedClientId
-                                                                ? "Select a client first"
-                                                                : titlesForSelectedClient.length
-                                                                  ? "Pick an enquiry title…"
-                                                                  : "No enquiries available",
-                                                            value: "",
-                                                        },
                                                         ...titlesForSelectedClient.map(enquiry => ({
                                                             label: enquiry.title,
                                                             value: enquiry.enquiryId,
                                                         })),
                                                     ]}
+                                                    value={
+                                                        selectedEnquiryId
+                                                            ? {
+                                                                  label:
+                                                                      titlesForSelectedClient.find(
+                                                                          e =>
+                                                                              e.enquiryId ===
+                                                                              selectedEnquiryId,
+                                                                      )?.title || selectedEnquiryId,
+                                                                  value: selectedEnquiryId,
+                                                              }
+                                                            : null
+                                                    }
                                                     isDisabled={
                                                         !selectedClientId ||
                                                         summaryLoading ||
                                                         isFetchingEnquiry ||
                                                         titlesForSelectedClient.length === 0
                                                     }
-                                                    onChange={handleEnquiryTitleChange}
-                                                    wrapperClassName="flex-1"
+                                                    onChange={option => {
+                                                        if (option) {
+                                                            const event = {
+                                                                target: { value: option.value },
+                                                            } as React.ChangeEvent<HTMLSelectElement>;
+                                                            handleEnquiryTitleChange(event);
+                                                        } else {
+                                                            clearEnquirySelection();
+                                                        }
+                                                    }}
+                                                    className="flex-1"
+                                                    placeholder="Select enquiry"
                                                 />
                                                 {selectedEnquiryId && (
                                                     <Button
@@ -1133,7 +1174,7 @@ export default function CreateEstimateModal({
                                                         variant="ghost"
                                                         size="sm"
                                                         disabled={isFetchingEnquiry}
-                                                        onClick={clearEnquirySelection}
+                                                        onClick={() => clearEnquirySelection()}
                                                     >
                                                         Clear
                                                     </Button>
@@ -1163,6 +1204,7 @@ export default function CreateEstimateModal({
                                     label="Event title"
                                     placeholder="e.g. Birthday party"
                                     wrapperClassName="mt-4"
+                                    disabled={!prefillData?.enquiryId}
                                 />
                                 <FormikFieldTextArea
                                     name="highlvelRequirement"
@@ -1170,6 +1212,7 @@ export default function CreateEstimateModal({
                                     rows={3}
                                     placeholder="Describe the goal of this estimate"
                                     wrapperClassName="mt-4"
+                                    disabled={!prefillData?.enquiryId}
                                 />
                             </section>
 
@@ -1183,17 +1226,20 @@ export default function CreateEstimateModal({
                                             name="enquiryDate"
                                             label="Enquiry Date"
                                             placeholderText="Pick enquiry date"
+                                            disabled={!prefillData?.enquiryId}
                                         />
                                         <div className="grid gap-3 md:grid-cols-2">
                                             <FormikFieldDatePicker
                                                 name="fromDate"
                                                 label="Event Start"
                                                 placeholderText="Pick start"
+                                                disabled={!prefillData?.enquiryId}
                                             />
                                             <FormikFieldDatePicker
                                                 name="toDate"
                                                 label="Event End"
                                                 placeholderText="Pick end"
+                                                disabled={!prefillData?.enquiryId}
                                             />
                                         </div>
                                     </div>
@@ -1211,17 +1257,20 @@ export default function CreateEstimateModal({
                                                 label: s.label,
                                                 value: s.value,
                                             }))}
+                                            isDisabled={!prefillData?.enquiryId}
                                         />
                                         <div className="grid gap-3 md:grid-cols-2">
                                             <FormikFieldInput
                                                 name="venue"
                                                 label="Venue"
                                                 placeholder="Enter venue"
+                                                disabled={!prefillData?.enquiryId}
                                             />
                                             <FormikFieldInput
                                                 name="location"
                                                 label="Location"
                                                 placeholder="Enter event location"
+                                                disabled={!prefillData?.enquiryId}
                                             />
                                         </div>
                                     </div>
@@ -1237,17 +1286,20 @@ export default function CreateEstimateModal({
                                         name="clientPoC"
                                         label="Client POC"
                                         placeholder="Client point of contact"
+                                        disabled={!prefillData?.enquiryId}
                                     />
                                     <FormikFieldInput
                                         name="pocContactNumber"
                                         label="POC Contact Number"
                                         placeholder="1234567890"
                                         maxLength={10}
+                                        disabled={!prefillData?.enquiryId}
                                     />
                                     <FormikFieldInput
                                         name="enquiryPoC"
                                         label="Enquiry POC"
                                         placeholder="Internal assignee"
+                                        disabled={!prefillData?.enquiryId}
                                     />
                                 </div>
                             </section>
@@ -1268,6 +1320,7 @@ export default function CreateEstimateModal({
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            disabled={!prefillData?.enquiryId}
                                             onClick={() =>
                                                 setLines(prev => {
                                                     const lastCategory =
@@ -1279,7 +1332,7 @@ export default function CreateEstimateModal({
                                                         {
                                                             id: generateId(),
                                                             category: lastCategory,
-                                                            item: "New item",
+                                                            item: "",
                                                             specification: "",
                                                             days: 1,
                                                             sqft: 1,
@@ -1382,12 +1435,26 @@ export default function CreateEstimateModal({
                                                     {
                                                         key: "vendor",
                                                         header: "Vendor",
+                                                        cellClassName: "w-25",
                                                         render: (_, index) => (
-                                                            <select
-                                                                value={lines[index]?.vendor || ""}
-                                                                onChange={event => {
+                                                            <Select
+                                                                options={vendorNames.map(v => ({
+                                                                    label: v.name,
+                                                                    value: v.name,
+                                                                }))}
+                                                                value={
+                                                                    lines[index]?.vendor
+                                                                        ? {
+                                                                              label: lines[index]
+                                                                                  ?.vendor,
+                                                                              value: lines[index]
+                                                                                  ?.vendor,
+                                                                          }
+                                                                        : null
+                                                                }
+                                                                onChange={option => {
                                                                     const value =
-                                                                        event.target.value;
+                                                                        option?.value || "";
                                                                     setLines(prev =>
                                                                         prev.map((l, idx) =>
                                                                             idx === index
@@ -1399,21 +1466,9 @@ export default function CreateEstimateModal({
                                                                         ),
                                                                     );
                                                                 }}
-                                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                disabled={vendorNamesLoading}
-                                                            >
-                                                                <option value="">
-                                                                    Select vendor...
-                                                                </option>
-                                                                {vendorNames.map(v => (
-                                                                    <option
-                                                                        key={v.id}
-                                                                        value={v.name}
-                                                                    >
-                                                                        {v.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
+                                                                isDisabled={vendorNamesLoading}
+                                                                placeholder="Vendor"
+                                                            />
                                                         ),
                                                     },
                                                     {
@@ -1425,7 +1480,11 @@ export default function CreateEstimateModal({
                                                             <Input
                                                                 type="number"
                                                                 min={0}
-                                                                value={lines[index]?.days || 0}
+                                                                value={
+                                                                    lines[index]?.days === 0
+                                                                        ? ""
+                                                                        : lines[index]?.days
+                                                                }
                                                                 onChange={event => {
                                                                     const value = Number(
                                                                         event.target.value,
@@ -1458,7 +1517,11 @@ export default function CreateEstimateModal({
                                                             <Input
                                                                 type="number"
                                                                 min={0}
-                                                                value={lines[index]?.sqft || 0}
+                                                                value={
+                                                                    lines[index]?.sqft === 0
+                                                                        ? ""
+                                                                        : lines[index]?.sqft
+                                                                }
                                                                 onChange={event => {
                                                                     const value = Number(
                                                                         event.target.value,
@@ -1492,7 +1555,11 @@ export default function CreateEstimateModal({
                                                                 type="number"
                                                                 min={0}
                                                                 step="0.01"
-                                                                value={lines[index]?.rate || 0}
+                                                                value={
+                                                                    lines[index]?.rate === 0
+                                                                        ? ""
+                                                                        : lines[index]?.rate
+                                                                }
                                                                 onChange={event => {
                                                                     const value = Number(
                                                                         event.target.value,
@@ -1542,7 +1609,6 @@ export default function CreateEstimateModal({
                                                                 type="button"
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                disabled={lines.length === 1}
                                                                 onClick={() =>
                                                                     setLines(prev =>
                                                                         prev.filter(
@@ -1581,7 +1647,11 @@ export default function CreateEstimateModal({
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={onClose}
+                                onClick={() => {
+                                    clearEnquirySelection(true);
+                                    setSelectedClientId("");
+                                    onClose();
+                                }}
                                 disabled={isSaving}
                             >
                                 Cancel
