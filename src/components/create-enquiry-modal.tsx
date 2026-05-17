@@ -55,17 +55,15 @@ const validationSchema = Yup.object({
     highlvelRequirement: Yup.string().required("High level requirements are required"),
     // .min(10, "Please provide more detailed requirements (at least 10 characters)"),
     clientPoC: Yup.string().optional(),
-    enquiryPoCNumber: Yup.string()
-        .required("Client POC contact number is required")
-        .matches(/^\d{10}$/, "Phone number must be exactly 10 digits"),
+    enquiryPoCNumber: Yup.string().required("Client POC contact number is required"),
+    // .matches(/^\d{10}$/, "Phone number must be exactly 10 digits"),
     eventPoC: Yup.string().optional(),
     enquiryPoC: Yup.string().optional(),
-    eventPoCNumber: Yup.string()
-        .optional()
-        .matches(/^\d{10}$/, {
-            message: "Phone number must be exactly 10 digits",
-            excludeEmptyString: true,
-        }),
+    eventPoCNumber: Yup.string().optional(),
+    // .matches(/^\d{10}$/, {
+    //     message: "Phone number must be exactly 10 digits",
+    //     excludeEmptyString: true,
+    // }),
     assignedTo: Yup.string().optional(),
 });
 
@@ -201,31 +199,6 @@ export default function CreateEnquiryModal({
             } else if (response.status !== 204) {
                 throw new Error("Received unexpected response when saving the enquiry.");
             }
-
-            const sourceEnquiry: Record<string, unknown> | null =
-                savedEnquiry ??
-                (isEdit && editData
-                    ? ({ ...editData } as unknown as Record<string, unknown>)
-                    : null);
-
-            const pick = <T,>(
-                record: Record<string, unknown> | null | undefined,
-                keys: string[],
-            ): T | undefined => {
-                if (!record) return undefined;
-                for (const key of keys) {
-                    if (key in record && record[key] !== undefined && record[key] !== null) {
-                        return record[key] as T;
-                    }
-                }
-                return undefined;
-            };
-
-            const persistedEnquiryId = (() => {
-                const raw = pick<string | number>(sourceEnquiry, ["id", "enquiryId", "enquiry_id"]);
-                if (raw === undefined || raw === null) return undefined;
-                return String(raw);
-            })();
 
             await Promise.resolve(onSubmit());
 

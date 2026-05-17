@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
         const headers = getBackendHeaders(request);
         const encodedId = encodeURIComponent(eventID);
         const url = `${upstream}/events/by-eventid?eventID=${encodedId}`;
-        console.log("[API] Proxy GET event detail (by-eventid) ->", url);
         const res = await fetch(url, { headers });
         const body = await res.text();
         const responseHeaders: Record<string, string> = {};

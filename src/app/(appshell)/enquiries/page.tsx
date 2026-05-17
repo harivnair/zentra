@@ -215,6 +215,8 @@ export default function EnquiriesPage() {
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
     const [eventSaving, setEventSaving] = useState(false);
+    const [estimateLoading, setEstimateLoading] = useState(false);
+    const [enquiryStatuses, setEnquiryStatuses] = useState<string>("");
 
     const enquiries = result?.content || [];
     const totalElements = result?.totalElements || 0;
@@ -268,6 +270,59 @@ export default function EnquiriesPage() {
     useEffect(() => {
         formik.submitForm();
     }, [values.search, values.status, values.sortBy, values.sortOrder]);
+
+    useEffect(() => {
+        if (!selectedEnquiry?.id) return;
+
+        const fetchEvents = async () => {
+            setEstimateLoading(true);
+
+            try {
+                // 1. Call Event API first
+                const eventUrl = API_ENDPOINTS.events.detail(
+                    selectedEnquiry.eventID || selectedEnquiry.id,
+                );
+
+                let hasEvent = false;
+
+                try {
+                    const eventRes = await apiRequest(eventUrl, { method: "GET" });
+
+                    // Adjust condition based on your API response structure
+                    if (eventRes.ok) {
+                        hasEvent = true;
+                        setEnquiryStatuses("EVENT_CREATED");
+                    }
+                } catch (error) {
+                    console.log("Event API failed:", error);
+                }
+
+                // 2. If no event found, call Estimate API
+                if (!hasEvent) {
+                    try {
+                        const estimateUrl = API_ENDPOINTS.estimates.byEnquiry(selectedEnquiry.id);
+
+                        const estimateRes = await apiRequest(estimateUrl, {
+                            method: "GET",
+                        });
+                        const body = await estimateRes.json();
+                        if (body?.estimates?.length > 0) {
+                            setEnquiryStatuses("ESTIMATE_CREATED");
+                        } else {
+                            setEnquiryStatuses("");
+                        }
+                    } catch (error) {
+                        console.log("Estimate API failed:", error);
+                        setEnquiryStatuses("");
+                    }
+                }
+            } finally {
+                setEstimateLoading(false);
+            }
+        };
+
+        fetchEvents();
+    }, [selectedEnquiry]);
 
     const handleCreate = () => {
         setEditEnquiry(null);
@@ -335,6 +390,13 @@ export default function EnquiriesPage() {
         setViewModalOpen(true);
     };
 
+    const openEstimatePage = () => {
+        if (!selectedEnquiry) return;
+        setViewModalOpen(false);
+        setSelectedEnquiry(null);
+        router.push(`/estimates?enquiryId=${selectedEnquiry.id}`);
+    };
+
     const handleCreateEstimate = async () => {
         if (!selectedEnquiry) return;
         setEventSaving(true);
@@ -351,16 +413,15 @@ export default function EnquiriesPage() {
                 venue: selectedEnquiry.venue || "",
                 eventName: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
                 location: selectedEnquiry.location || "",
-                clientPoC: selectedEnquiry.poc || "",
-                enquiryPoCNumber: selectedEnquiry.enquiryPoCNumber || "",
+                clientPoC: selectedEnquiry.clientPoC || "",
+                pocContactNumber: selectedEnquiry.enquiryPoCNumber || "",
                 eventPoCNumber: selectedEnquiry.eventPoCNumber || "",
                 eventPoC: selectedEnquiry.eventPoC || "",
-                client: {
-                    id: selectedEnquiry.client,
-                },
+                client: selectedEnquiry.client,
                 enquiryId: String(selectedEnquiry.id ?? ""),
                 eventType: selectedEnquiry.eventType || "CORPORATE",
-                // linkedEventId: selectedEnquiry.eventID || null,
+                highlvelRequirement: selectedEnquiry.highlvelRequirement || "",
+                enquiryPoC: selectedEnquiry.enquiryPoC || "",
             };
 
             const res = await apiRequest(API_ENDPOINTS.estimates.list, {
@@ -381,7 +442,7 @@ export default function EnquiriesPage() {
 
             if (createdEstimate) {
                 toast.success("Estimate created from enquiry");
-                router.push(`/estimates?enquiryId=${selectedEnquiry.id}`);
+                openEstimatePage();
             }
         } catch (err) {
             const message = err instanceof Error ? err.message : "Failed to create estimate";
@@ -523,6 +584,7 @@ export default function EnquiriesPage() {
                 onClose={() => {
                     setViewModalOpen(false);
                     setSelectedEnquiry(null);
+                    setEnquiryStatuses("");
                 }}
                 title="Enquiry Details"
                 size="xxl"
@@ -606,19 +668,31 @@ export default function EnquiriesPage() {
                     >
                         Close
                     </Button>
-                    {selectedEnquiry?.eventID ? (
+                    {selectedEnquiry && enquiryStatuses === "EVENT_CREATED" ? (
                         <Button
                             onClick={() => {
                                 setViewModalOpen(false);
                                 setSelectedEnquiry(null);
                                 router.push(`/events/${selectedEnquiry.eventID}`);
                             }}
+                            disabled={estimateLoading || eventSaving}
                         >
                             View Event
                         </Button>
                     ) : (
-                        <Button onClick={handleCreateEstimate} disabled={eventSaving}>
-                            {eventSaving ? "Creating Estimate..." : "Create Estimate"}
+                        <Button
+                            onClick={
+                                enquiryStatuses === "ESTIMATE_CREATED"
+                                    ? openEstimatePage
+                                    : handleCreateEstimate
+                            }
+                            disabled={eventSaving || estimateLoading}
+                        >
+                            {eventSaving
+                                ? "Creating Estimate..."
+                                : enquiryStatuses === "ESTIMATE_CREATED"
+                                  ? "View Estimate"
+                                  : "Create Estimate"}
                         </Button>
                     )}
                 </ModalFooter>

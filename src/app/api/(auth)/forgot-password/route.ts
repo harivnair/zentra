@@ -6,8 +6,6 @@ export async function POST(request: NextRequest) {
         const backendUrl = getBackendUrl();
         const body = await request.json();
 
-        console.log({ body }, "forgot-password request body");
-
         const response = await fetch(`${backendUrl}/users/generate-otp?email=${body.email}`, {
             method: "POST",
             headers: {

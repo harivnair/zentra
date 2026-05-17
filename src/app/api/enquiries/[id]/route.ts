@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
         }
 
         const headers = getBackendHeaders(request);
-        const res = await fetch(`${upstream}/enquiries/${encodeURIComponent(id)}`, { headers });
+        const res = await fetch(`${upstream}/enquiries/id?id=${encodeURIComponent(id)}`, {
+            headers,
+        });
+
         const responseBody = await res.text();
         const responseHeaders: Record<string, string> = {};
         const contentType = res.headers.get("content-type");

@@ -26,6 +26,9 @@ export interface EstimateItem {
     sqft?: number;
     rate?: number;
     vendor?: string;
+    pricePerItem?: number;
+    finalAmt?: number;
+    item?: string;
 }
 
 export interface EstimateDto {
@@ -41,10 +44,7 @@ export interface EstimateDto {
     clientPoC: string;
     pocContactNumber: string;
     enquiryPoC?: string;
-    client?: {
-        id?: string;
-        name?: string;
-    };
+    client?: string;
     items?: Record<string, EstimateItem[]>;
     // Versioning fields
     enquiryId?: string;
@@ -53,17 +53,20 @@ export interface EstimateDto {
     clonedFromEstimateId?: string | null;
     createdAt?: string;
     updatedAt?: string;
+    eventName?: string;
+    eventID?: string;
 }
 
 export interface EstimateLineItemPayload {
     item: string;
     serialNumber: number;
-    count: number;
+    quantity: number;
     pricePerItem: number;
     description?: string;
     vendor?: string;
     checkList?: string;
     days?: number;
+    finalAmt: number;
 }
 
 export interface CreateEstimatePayload {
@@ -76,11 +79,11 @@ export interface CreateEstimatePayload {
     clientPoC: string;
     pocContactNumber: string;
     enquiryPoC?: string;
-    client: {
-        id: string;
-    };
+    client: string;
     items: Record<string, EstimateLineItemPayload[]>;
     enquiryId: string;
     location?: string;
     title?: string;
+    eventName?: string;
+    eventID?: string;
 }

@@ -21,6 +21,7 @@ export interface TableProps<T> {
     className?: string;
     showRowNumbers?: boolean;
     emptyMessage?: string;
+    footer?: React.ReactNode;
 }
 
 export function Table<T>({
@@ -30,6 +31,7 @@ export function Table<T>({
     className,
     showRowNumbers = false,
     emptyMessage = "No data available.",
+    footer,
 }: TableProps<T>) {
     if (data.length === 0) {
         return (
@@ -45,7 +47,7 @@ export function Table<T>({
                 <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                         {showRowNumbers && (
-                            <th className="py-3 pr-3 font-medium text-xs text-muted-foreground">
+                            <th className="py-3 px-3 font-medium text-xs text-muted-foreground">
                                 No
                             </th>
                         )}
@@ -53,7 +55,7 @@ export function Table<T>({
                             <th
                                 key={column.key}
                                 className={cn(
-                                    "py-3 pr-3 font-medium",
+                                    "py-3 px-3 font-medium",
                                     column.align === "right"
                                         ? "text-right"
                                         : column.align === "center"
@@ -74,7 +76,7 @@ export function Table<T>({
                             className="border-b border-border last:border-0"
                         >
                             {showRowNumbers && (
-                                <td className="py-3 pr-3 align-middle text-xs text-muted-foreground">
+                                <td className="py-3 px-3 align-middle text-xs text-muted-foreground">
                                     {index + 1}
                                 </td>
                             )}
@@ -92,7 +94,7 @@ export function Table<T>({
                                     <td
                                         key={column.key}
                                         className={cn(
-                                            "py-3 pr-3 align-middle",
+                                            "py-3 px-3 align-middle",
                                             column.align === "right"
                                                 ? "text-right"
                                                 : column.align === "center"
@@ -121,6 +123,7 @@ export function Table<T>({
                         </tr>
                     ))}
                 </tbody>
+                {footer && <tfoot>{footer}</tfoot>}
             </table>
         </div>
     );

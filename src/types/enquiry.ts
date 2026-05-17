@@ -43,6 +43,7 @@ export interface Enquiry {
     eventPoCNumber?: string;
     location?: string;
     title?: string;
+    clientPoC?: string;
 }
 
 export interface EnquiriesTableFiltersFormValues {

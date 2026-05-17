@@ -22,7 +22,6 @@ import {
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { TrashIcon, PlusIcon, Select, FormikFieldSelect } from "./ui";
-import { resolve } from "path";
 
 const statusOptions: { value: EstimateStatus; label: string }[] = [
     { value: "CHECKLIST_COMPLETED", label: "Checklist completed" },
@@ -131,43 +130,43 @@ const normaliseClientSummaryPayload = (payload: unknown): ClientEnquirySummary[]
         );
 };
 
-const extractFirstEnquiryRecord = (payload: unknown): Record<string, unknown> | undefined => {
-    if (!payload) return undefined;
-    if (Array.isArray(payload)) {
-        return payload.find(item => item && typeof item === "object" && !Array.isArray(item)) as
-            | Record<string, unknown>
-            | undefined;
-    }
-    if (typeof payload === "object") {
-        const objectPayload = payload as Record<string, unknown>;
-        const candidateKeys = [
-            "content",
-            "items",
-            "data",
-            "enquiries",
-            "results",
-            "records",
-            "list",
-        ];
-        for (const key of candidateKeys) {
-            const value = objectPayload[key];
-            if (Array.isArray(value)) {
-                const first = value.find(
-                    item => item && typeof item === "object" && !Array.isArray(item),
-                );
-                if (first) return first as Record<string, unknown>;
-            }
-        }
+// const extractFirstEnquiryRecord = (payload: unknown): Record<string, unknown> | undefined => {
+//     if (!payload) return undefined;
+//     if (Array.isArray(payload)) {
+//         return payload.find(item => item && typeof item === "object" && !Array.isArray(item)) as
+//             | Record<string, unknown>
+//             | undefined;
+//     }
+//     if (typeof payload === "object") {
+//         const objectPayload = payload as Record<string, unknown>;
+//         const candidateKeys = [
+//             "content",
+//             "items",
+//             "data",
+//             "enquiries",
+//             "results",
+//             "records",
+//             "list",
+//         ];
+//         for (const key of candidateKeys) {
+//             const value = objectPayload[key];
+//             if (Array.isArray(value)) {
+//                 const first = value.find(
+//                     item => item && typeof item === "object" && !Array.isArray(item),
+//                 );
+//                 if (first) return first as Record<string, unknown>;
+//             }
+//         }
 
-        const hasUsefulField = ["id", "enquiryId", "title", "enquiryTitle"].some(
-            key => key in objectPayload,
-        );
-        if (hasUsefulField) {
-            return objectPayload;
-        }
-    }
-    return undefined;
-};
+//         const hasUsefulField = ["id", "enquiryId", "title", "enquiryTitle"].some(
+//             key => key in objectPayload,
+//         );
+//         if (hasUsefulField) {
+//             return objectPayload;
+//         }
+//     }
+//     return undefined;
+// };
 
 const generateId = () => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -190,7 +189,7 @@ const validationSchema = Yup.object({
     venue: Yup.string().required("Venue is required"),
     clientPoC: Yup.string().required("Client POC is required"),
     pocContactNumber: Yup.string()
-        .matches(/^\d{10}$/u, "Enter a 10 digit number")
+        // .matches(/^\d{10}$/u, "Enter a 10 digit number")
         .required("POC contact number is required"),
     enquiryPoC: Yup.string().optional(),
     status: Yup.mixed<EstimateStatus>()
@@ -219,7 +218,7 @@ export default function CreateEstimateModal({
     const [prefillData, setPrefillData] = useState<
         (Partial<EstimateDto> & { enquiryId?: string }) | undefined
     >(initialData);
-    const [selectedClientId, setSelectedClientId] = useState(initialData?.client?.id ?? "");
+    const [selectedClientId, setSelectedClientId] = useState(initialData?.client ?? "");
     const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | undefined>(
         initialData?.enquiryId,
     );
@@ -232,7 +231,7 @@ export default function CreateEstimateModal({
     const [vendorNames, setVendorNames] = useState<VendorName[]>([]);
     const [vendorNamesLoading, setVendorNamesLoading] = useState(false);
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(
-        initialData ? { clientName: initialData.client?.name, title: initialData.title } : null,
+        initialData ? { clientName: initialData.client, title: initialData.title } : null,
     );
     const requestRef = useRef(0);
     const enquiryPrefillCache = useRef(
@@ -245,10 +244,10 @@ export default function CreateEstimateModal({
     useEffect(() => {
         setPrefillData(initialData);
         setSelectedEnquiryId(initialData?.enquiryId);
-        setSelectedClientId(initialData?.client?.id ?? "");
-        if (initialData?.client?.id || initialData?.enquiryId) {
+        setSelectedClientId(initialData?.client ?? "");
+        if (initialData?.client || initialData?.enquiryId) {
             selectionRef.current = {
-                clientName: initialData?.client?.name ?? undefined,
+                clientName: initialData?.client ?? undefined,
                 title: initialData?.title ?? undefined,
             };
         } else {
@@ -257,8 +256,8 @@ export default function CreateEstimateModal({
     }, [initialData]);
 
     useEffect(() => {
-        if (initialData?.client?.name && initialData.title) {
-            const key = composeSelectionKey(initialData.client.name, initialData.title);
+        if (initialData?.client && initialData.title) {
+            const key = composeSelectionKey(initialData.client, initialData.title);
             enquiryPrefillCache.current.set(key, {
                 prefill: initialData,
                 id: initialData.enquiryId,
@@ -380,20 +379,17 @@ export default function CreateEstimateModal({
             if (savedClient && typeof savedClient === "object") {
                 const clientRecord = savedClient as { id?: string | number; name?: string };
                 if (clientRecord.id || clientRecord.name) {
-                    normalisedClient = {
-                        id: clientRecord.id ? String(clientRecord.id) : undefined,
-                        name: clientRecord.name,
-                    };
+                    normalisedClient = clientRecord.name;
                 }
             } else if (typeof savedClient === "string") {
-                normalisedClient = { name: savedClient };
+                normalisedClient = savedClient;
             }
 
             if (!normalisedClient) {
                 if (fallback?.clientId && fallback?.clientName) {
-                    normalisedClient = { id: fallback.clientId, name: fallback.clientName };
+                    normalisedClient = fallback.clientName;
                 } else if (fallback?.clientName) {
-                    normalisedClient = { name: fallback.clientName };
+                    normalisedClient = fallback.clientName;
                 }
             }
 
@@ -536,12 +532,10 @@ export default function CreateEstimateModal({
     );
 
     const loadEnquiryForSelection = useCallback(
-        async (selection: { clientName: string; title: string }) => {
-            const clientName = selection.clientName.trim();
-            const title = selection.title.trim();
-            if (!clientName || !title) return;
+        async (enquiryId: string) => {
+            if (!enquiryId) return;
 
-            const cacheKey = composeSelectionKey(clientName, title);
+            const cacheKey = composeSelectionKey(enquiryId, "");
             const cached = enquiryPrefillCache.current.get(cacheKey);
             if (cached?.prefill) {
                 setPrefillData(cached.prefill);
@@ -554,24 +548,14 @@ export default function CreateEstimateModal({
             setIsFetchingEnquiry(true);
 
             try {
-                const params = new URLSearchParams({
-                    page: "0",
-                    size: "1",
-                    clientName,
-                    enquiryTitle: title,
-                });
-                const response = await apiRequest(
-                    `${API_ENDPOINTS.enquiries.list}?${params.toString()}`,
-                );
+                const response = await apiRequest(API_ENDPOINTS.enquiries.detail(enquiryId ?? ""));
                 if (!response.ok) {
-                    throw new Error(
-                        `Unable to load enquiry for ${clientName} • ${title}. (${response.status})`,
-                    );
+                    throw new Error(`Unable to load selected enquiry. (${response.status})`);
                 }
 
                 const contentType = response.headers.get("content-type") ?? "";
                 const text = await response.text();
-                let parsed: unknown;
+                let parsed: Record<string, unknown> | null = null;
                 if (contentType.includes("application/json")) {
                     parsed = text ? JSON.parse(text) : null;
                 } else {
@@ -582,8 +566,7 @@ export default function CreateEstimateModal({
                     }
                 }
 
-                const record = extractFirstEnquiryRecord(parsed);
-                if (!record) {
+                if (!parsed) {
                     throw new Error("No matching enquiry data returned for this selection.");
                 }
 
@@ -600,37 +583,30 @@ export default function CreateEstimateModal({
 
                     const directKeys = ["id", "enquiryId", "enquiry_id", "identifier", "_id"];
                     for (const key of directKeys) {
-                        if (key in record) {
-                            const resolved = coerce((record as Record<string, unknown>)[key]);
+                        if (parsed && key in parsed) {
+                            const resolved = coerce((parsed as Record<string, unknown>)[key]);
                             if (resolved) return resolved;
                         }
                     }
 
-                    if (record.enquiry && typeof record.enquiry === "object") {
-                        const nested = coerce((record.enquiry as Record<string, unknown>).id);
+                    if (parsed && typeof parsed === "object") {
+                        const nested = coerce((parsed as Record<string, unknown>).id);
                         if (nested) return nested;
                     }
 
                     return undefined;
                 })();
 
-                const nextPrefill = mapEnquiryToPrefill(record, {
+                const nextPrefill = mapEnquiryToPrefill(parsed, {
                     id: fallbackId,
                     clientId: selectedClientId,
-                    clientName,
-                    title,
                 });
                 if (!nextPrefill) {
                     throw new Error("Enquiry response did not contain usable details.");
                 }
 
                 const currentSelection = selectionRef.current;
-                if (
-                    !currentSelection ||
-                    currentSelection.clientName !== clientName ||
-                    currentSelection.title !== title ||
-                    requestRef.current !== requestId
-                ) {
+                if (!currentSelection || requestRef.current !== requestId) {
                     return;
                 }
 
@@ -644,21 +620,16 @@ export default function CreateEstimateModal({
                 setPrefillData(nextPrefill);
                 setSelectedEnquiryId(resolvedId);
                 toast.success("Enquiry applied", {
-                    description: `Loaded details from ${clientName} • ${title}.`,
+                    description: `Loaded details from selected enquiry.`,
                 });
             } catch (error) {
                 const message =
                     error instanceof Error ? error.message : "Failed to load enquiry details.";
                 console.error("Failed to prefill estimate from enquiry selection", error);
                 const currentSelection = selectionRef.current;
-                if (
-                    currentSelection &&
-                    currentSelection.clientName === clientName &&
-                    currentSelection.title === title
-                ) {
+                if (currentSelection && requestRef.current === requestId) {
                     setPrefillData(undefined);
                     setSelectedEnquiryId(undefined);
-                    selectionRef.current = { clientName };
                 }
                 toast.error("Unable to use enquiry", {
                     description: message,
@@ -682,18 +653,17 @@ export default function CreateEstimateModal({
                         typeof item.id === "string" || typeof item.id === "number"
                             ? String(item.id)
                             : `${category}-${index}-${generateId()}`;
-                    const description =
-                        typeof item.description === "string" ? item.description : "Line item";
+                    const itemName = typeof item.item === "string" ? item.item : "Line item";
                     const specification =
-                        typeof item.specification === "string" ? item.specification : "";
+                        typeof item.description === "string" ? item.description : "";
                     const rawQuantity =
                         typeof item.quantity === "number"
                             ? item.quantity
                             : Number(item.quantity ?? 1);
                     const rawUnitCost =
-                        typeof item.unitCost === "number"
-                            ? item.unitCost
-                            : Number(item.unitCost ?? 0);
+                        typeof item.pricePerItem === "number"
+                            ? item.pricePerItem
+                            : Number(item.pricePerItem ?? 0);
                     const rawDays =
                         typeof item.days === "number" ? item.days : Number(item.days ?? 1);
                     const rawSqft =
@@ -718,7 +688,7 @@ export default function CreateEstimateModal({
                     fromItems.push({
                         id: derivedId,
                         category,
-                        item: description,
+                        item: itemName,
                         specification,
                         days,
                         sqft,
@@ -741,7 +711,7 @@ export default function CreateEstimateModal({
             status: (prefillData?.status as EstimateStatus | undefined) ?? "ENQUIRY_CREATED",
             location: prefillData?.location ?? "",
             venue: prefillData?.venue ?? "",
-            clientPoC: prefillData?.clientPoC ?? prefillData?.client?.name ?? "",
+            clientPoC: prefillData?.clientPoC ?? prefillData?.client ?? "",
             pocContactNumber: prefillData?.pocContactNumber ?? "",
             enquiryPoC: prefillData?.enquiryPoC ?? "",
         }),
@@ -755,12 +725,12 @@ export default function CreateEstimateModal({
 
     const titlesForSelectedClient = useMemo(() => {
         if (!selectedClientId) return [];
-        const match = clientSummaries.find(summary => summary.clientId === selectedClientId);
+        const match = clientSummaries.find(summary => summary.clientName === selectedClientId);
         return match?.enquiries ?? [];
     }, [clientSummaries, selectedClientId]);
 
     const currentPrefillLabel = useMemo(() => {
-        const clientName = prefillData?.client?.name;
+        const clientName = prefillData?.client;
         const title = prefillData?.title;
         if (clientName && title) return `${clientName} • ${title}`;
         if (title) return title;
@@ -768,7 +738,7 @@ export default function CreateEstimateModal({
             return `${clientName} • ${prefillData?.enquiryId ?? selectedEnquiryId}`;
         }
         return undefined;
-    }, [prefillData?.client?.name, prefillData?.enquiryId, prefillData?.title, selectedEnquiryId]);
+    }, [prefillData?.client, prefillData?.enquiryId, prefillData?.title, selectedEnquiryId]);
 
     const enquiryStatusMessage = useMemo(() => {
         if (summaryError) return `Couldn't load enquiries. ${summaryError}`;
@@ -830,14 +800,14 @@ export default function CreateEstimateModal({
     const handleClientChange = useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
             const nextClientId = event.target.value;
+            const clientName = clientSummaries.find(c => c.clientId === nextClientId)?.clientName;
+
             requestRef.current += 1;
-            setSelectedClientId(nextClientId);
+            setSelectedClientId(clientName ?? "");
             setSelectedEnquiryId(undefined);
             setPrefillData(undefined);
             setIsFetchingEnquiry(false);
-            selectionRef.current = nextClientId
-                ? { clientName: clientSummaries.find(c => c.clientId === nextClientId)?.clientName }
-                : null;
+            selectionRef.current = nextClientId ? { clientName } : null;
         },
         [clientSummaries],
     );
@@ -849,6 +819,7 @@ export default function CreateEstimateModal({
                 clearEnquirySelection();
                 return;
             }
+
             if (!selectedClientId) {
                 toast.error("Select a client first", {
                     description: "Pick a client before choosing an enquiry title.",
@@ -860,19 +831,16 @@ export default function CreateEstimateModal({
             const selectedEnquiry = titlesForSelectedClient.find(
                 e => e.enquiryId === nextEnquiryId,
             );
+
             if (!selectedEnquiry) return;
 
             setSelectedEnquiryId(nextEnquiryId);
             setPrefillData(undefined);
             selectionRef.current = {
-                clientName: clientSummaries.find(c => c.clientId === selectedClientId)?.clientName,
+                clientName: selectedClientId,
                 title: selectedEnquiry.title,
             };
-            void loadEnquiryForSelection({
-                clientName:
-                    clientSummaries.find(c => c.clientId === selectedClientId)?.clientName ?? "",
-                title: selectedEnquiry.title,
-            });
+            void loadEnquiryForSelection(nextEnquiryId);
         },
         [
             clearEnquirySelection,
@@ -905,7 +873,7 @@ export default function CreateEstimateModal({
                 return;
             }
 
-            const resolvedClientId = prefillData.client?.id ?? selectedClientId;
+            const resolvedClientId = prefillData.client ?? selectedClientId;
             if (!resolvedClientId) {
                 helpers.setStatus(
                     "The selected enquiry is missing a client id. Please refresh and try again.",
@@ -947,8 +915,9 @@ export default function CreateEstimateModal({
                     const entry: EstimateLineItemPayload = {
                         item: line.item || "Item",
                         serialNumber: currentSerial,
-                        count,
+                        quantity: count,
                         pricePerItem,
+                        finalAmt: Number((count * pricePerItem * days).toFixed(2)),
                         description:
                             line.specification && line.specification.trim()
                                 ? line.specification
@@ -965,11 +934,11 @@ export default function CreateEstimateModal({
                 },
                 {},
             );
-
             const uiItemsForFallback = lines.reduce<Record<string, EstimateItem[]>>((acc, line) => {
                 const category = line.category || "General";
                 const bucket = acc[category] ?? [];
                 const total = Number((line.days * line.sqft * line.rate).toFixed(2));
+
                 bucket.push({
                     id: line.id,
                     description: line.item,
@@ -998,22 +967,23 @@ export default function CreateEstimateModal({
                 clientPoC: values.clientPoC,
                 pocContactNumber: values.pocContactNumber,
                 enquiryPoC: values.enquiryPoC,
-                client: { id: resolvedClientId },
+                client: prefillData.client ?? "",
                 items: requestItems,
                 enquiryId: activeEnquiryId,
+                eventName: values.title ?? "",
+                eventID: prefillData.eventID ?? "",
             };
 
             // Check if we're editing an existing estimate (has an id)
             const isEditing = prefillData.id ? true : false;
-            const endpoint = isEditing
-                ? API_ENDPOINTS.estimates.detail(prefillData.id!)
-                : API_ENDPOINTS.estimates.list;
-            const method = isEditing ? "PUT" : "POST";
+            const body = isEditing
+                ? { ...payload, id: prefillData.id, version: prefillData.version }
+                : payload;
 
-            const res = await apiRequest(endpoint, {
-                method,
+            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(body),
             });
 
             let saved: EstimateDto | null = null;
@@ -1112,7 +1082,11 @@ export default function CreateEstimateModal({
                                                           }
                                                         : null
                                                 }
-                                                isDisabled={summaryLoading || isFetchingEnquiry}
+                                                isDisabled={
+                                                    Boolean(initialData) ||
+                                                    summaryLoading ||
+                                                    isFetchingEnquiry
+                                                }
                                                 onChange={option => {
                                                     if (option) {
                                                         const event = {
@@ -1150,6 +1124,7 @@ export default function CreateEstimateModal({
                                                             : null
                                                     }
                                                     isDisabled={
+                                                        Boolean(initialData) ||
                                                         !selectedClientId ||
                                                         summaryLoading ||
                                                         isFetchingEnquiry ||
@@ -1192,9 +1167,9 @@ export default function CreateEstimateModal({
                                         <p className="text-xl font-semibold text-blue-600">
                                             ₹{totalAmount.toFixed(2)}
                                         </p>
-                                        {prefillData?.client?.name && (
+                                        {prefillData?.client && (
                                             <p className="mt-1 text-xs text-muted-foreground">
-                                                Client • {prefillData.client.name}
+                                                Client • {prefillData.client}
                                             </p>
                                         )}
                                     </div>
@@ -1510,7 +1485,7 @@ export default function CreateEstimateModal({
                                                     },
                                                     {
                                                         key: "sqft",
-                                                        header: "SqFt No",
+                                                        header: "Quantity",
                                                         align: "center",
                                                         cellClassName: "w-20",
                                                         render: (_, index) => (
