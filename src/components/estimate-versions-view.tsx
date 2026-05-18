@@ -10,6 +10,7 @@ import { Table, type Column } from "@/components/ui/table";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { useRouter } from "next/navigation";
 import { AccessButton } from "./shared/access-button";
+import { calculateEstimateSummary } from "@/lib/utils/estimate";
 
 interface EstimateVersionsViewProps {
     enquiryId: string;
@@ -452,7 +453,14 @@ export function EstimateVersionsView({
                                                             <span className="font-medium block mb-3">
                                                                 Items
                                                             </span>
-                                                            <ItemsTable items={version.items} />
+                                                            <ItemsTable
+                                                                items={version.items}
+                                                                gst={version.gst}
+                                                                serviceCharge={
+                                                                    version.serviceCharge
+                                                                }
+                                                                discounts={version.discounts ?? 0}
+                                                            />
                                                         </div>
                                                     )}
                                             </div>
@@ -475,9 +483,12 @@ export function EstimateVersionsView({
 
 interface ItemsTableProps {
     items: Record<string, EstimateItem[]>;
+    gst: number;
+    serviceCharge: number;
+    discounts: number;
 }
 
-function ItemsTable({ items }: ItemsTableProps) {
+function ItemsTable({ items, gst, serviceCharge, discounts }: ItemsTableProps) {
     // Flatten the nested items structure for table display
     const flattenedItems = useMemo(() => {
         const flattened: (EstimateItem & { category: string })[] = [];
@@ -550,16 +561,58 @@ function ItemsTable({ items }: ItemsTableProps) {
     ];
 
     const estimatedTotal = flattenedItems.reduce((sum, item) => sum + (item.finalAmt || 0), 0);
+    const { gstAmount, serviceChargeAmount, totalWithGST } = calculateEstimateSummary({
+        totalAmount: estimatedTotal,
+        gst,
+        serviceCharge,
+        discounts,
+    });
 
     const footer = (
-        <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
-            <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
-                Estimated Total
-            </td>
-            <td className="py-3 px-3 text-xs text-right font-semibold">
-                ₹{estimatedTotal.toFixed(2)}
-            </td>
-        </tr>
+        <>
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    Total
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{estimatedTotal.toFixed(2)}
+                </td>
+            </tr>
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    Service Charge ({serviceCharge}%)
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{serviceChargeAmount.toFixed(2)}
+                </td>
+            </tr>
+            {Boolean(discounts) && (
+                <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                    <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                        Discount
+                    </td>
+                    <td className="py-3 px-3 text-xs text-red-500 text-right font-semibold">
+                        -₹{discounts.toFixed(2)}
+                    </td>
+                </tr>
+            )}
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    GST ({gst}%)
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{gstAmount.toFixed(2)}
+                </td>
+            </tr>
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    Net Total
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{totalWithGST.toFixed(2)}
+                </td>
+            </tr>
+        </>
     );
 
     return (

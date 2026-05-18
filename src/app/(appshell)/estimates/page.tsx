@@ -123,6 +123,10 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
         createdAt: get<string | undefined>(["createdAt"], undefined),
         updatedAt: get<string | undefined>(["updatedAt"], undefined),
         items,
+        gst: get<number>(["gst"], 0),
+        serviceCharge: get<number>(["serviceCharge"], 0),
+        discounts: get<number>(["discounts"], 0),
+        eventID: get<string | undefined>(["eventID", "eventId"], undefined),
     };
 };
 

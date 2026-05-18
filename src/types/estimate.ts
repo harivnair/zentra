@@ -55,6 +55,19 @@ export interface EstimateDto {
     updatedAt?: string;
     eventName?: string;
     eventID?: string;
+    gst: number;
+    gstType?: string;
+    tds?: number;
+    serviceCharge: number;
+    discounts?: number;
+    invoiceSummary?: {
+        additionalCostAmt: number;
+        discountAmount: number;
+        expensesTotal: number;
+        gstAmount: number;
+        netTotal: number;
+        serviceChargeAmt: number;
+    };
 }
 
 export interface EstimateLineItemPayload {
@@ -86,4 +99,9 @@ export interface CreateEstimatePayload {
     title?: string;
     eventName?: string;
     eventID?: string;
+    gst: number;
+    gstType?: string;
+    tds?: number;
+    serviceCharge: number;
+    discounts?: number;
 }
