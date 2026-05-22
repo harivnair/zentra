@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { EstimateDto, EstimateVersionStatus, EstimateItem } from "@/types/estimate";
-import { Copy, Send, CheckCircle, Edit, ChevronDown, ChevronRight, Calendar } from "lucide-react";
+import {
+    Copy,
+    Send,
+    CheckCircle,
+    Edit,
+    ChevronDown,
+    ChevronRight,
+    Calendar,
+    Eye,
+} from "lucide-react";
 import { apiRequest } from "@/lib/api/api-client";
 import { toast } from "sonner";
 import { Button, Modal, ModalBody, ModalFooter } from "./ui";
@@ -11,6 +20,7 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { useRouter } from "next/navigation";
 import { AccessButton } from "./shared/access-button";
 import { calculateEstimateSummary } from "@/lib/utils/estimate";
+import { EstimatePreviewModal } from "./estimate-preview-modal";
 
 interface EstimateVersionsViewProps {
     enquiryId: string;
@@ -28,6 +38,7 @@ export function EstimateVersionsView({
     const [eventName, setEventName] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
+    const [previewVersion, setPreviewVersion] = useState<EstimateDto | null>(null);
 
     // Fetch versions on mount
     useEffect(() => {
@@ -193,6 +204,14 @@ export function EstimateVersionsView({
     }
 
     return (
+        <>
+        {previewVersion && (
+            <EstimatePreviewModal
+                estimate={previewVersion}
+                eventName={eventName}
+                onClose={() => setPreviewVersion(null)}
+            />
+        )}
         <Modal onClose={onClose} size="xxl" open title="Estimate Versions" description={eventName}>
             <ModalBody>
                 {/* Content */}
@@ -360,6 +379,16 @@ export function EstimateVersionsView({
                                                     <Edit size={14} />
                                                     Edit
                                                 </AccessButton>
+                                                <AccessButton
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setPreviewVersion(version)}
+                                                    className="flex items-center gap-1"
+                                                    scope={["w:estimates"]}
+                                                >
+                                                    <Eye size={14} />
+                                                    Preview
+                                                </AccessButton>
                                                 {version.estimateStatus === "FINAL" && (
                                                     <AccessButton
                                                         size="sm"
@@ -478,6 +507,7 @@ export function EstimateVersionsView({
                 </Button>
             </ModalFooter>
         </Modal>
+        </>
     );
 }
 

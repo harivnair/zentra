@@ -60,6 +60,7 @@ export interface EstimateDto {
     tds?: number;
     serviceCharge: number;
     discounts?: number;
+    billingAddress?: string;
     invoiceSummary?: {
         additionalCostAmt: number;
         discountAmount: number;
@@ -104,4 +105,5 @@ export interface CreateEstimatePayload {
     tds?: number;
     serviceCharge: number;
     discounts?: number;
+    billingAddress?: string;
 }

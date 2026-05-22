@@ -162,6 +162,7 @@ const validationSchema = Yup.object({
     serviceCharge: Yup.number().optional().min(0, "Service charge must be 0 or more"),
     gst: Yup.number().optional().min(0, "GST must be 0 or more"),
     discountAmount: Yup.number().optional().min(0, "Discount amount must be 0 or more"),
+    billingAddress: Yup.string().optional(),
 });
 
 function normalizeDate(value?: string | null) {
@@ -684,6 +685,7 @@ export default function CreateEstimateModal({
             serviceCharge: prefillData?.serviceCharge ?? 0,
             gst: prefillData?.gst ?? 0,
             discountAmount: prefillData?.discounts ?? 0,
+            billingAddress: prefillData?.billingAddress ?? "",
         }),
         [prefillData],
     );
@@ -952,6 +954,7 @@ export default function CreateEstimateModal({
                 gst: values.gst,
                 serviceCharge: values.serviceCharge,
                 discounts: values.discountAmount,
+                billingAddress: values.billingAddress,
             };
 
             // Check if we're editing an existing estimate (has an id)
@@ -994,6 +997,7 @@ export default function CreateEstimateModal({
                 gst: payload.gst,
                 serviceCharge: payload.serviceCharge,
                 discounts: payload.discounts,
+                billingAddress: payload.billingAddress,
                 enquiryId: payload.enquiryId,
                 eventName: payload.eventName,
                 eventID: payload.eventID,
@@ -1281,26 +1285,34 @@ export default function CreateEstimateModal({
                                     <h4 className="text-sm font-semibold text-gray-700">
                                         Billing Details
                                     </h4>
-                                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                                    <div className="mt-3 grid gap-3">
+                                        <div className="grid gap-3 md:grid-cols-3">
+                                            <FormikFieldInput
+                                                name="serviceCharge"
+                                                label="Service Charge  (%)"
+                                                type="number"
+                                                placeholder="%"
+                                                disabled={!prefillData?.enquiryId}
+                                            />
+                                            <FormikFieldInput
+                                                name="gst"
+                                                label="GST (%)"
+                                                type="number"
+                                                placeholder="%"
+                                                disabled={!prefillData?.enquiryId}
+                                            />
+                                            <FormikFieldInput
+                                                name="discountAmount"
+                                                label="Discount Amount"
+                                                type="number"
+                                                placeholder="0"
+                                                disabled={!prefillData?.enquiryId}
+                                            />
+                                        </div>
                                         <FormikFieldInput
-                                            name="serviceCharge"
-                                            label="Service Charge  (%)"
-                                            type="number"
-                                            placeholder="%"
-                                            disabled={!prefillData?.enquiryId}
-                                        />
-                                        <FormikFieldInput
-                                            name="gst"
-                                            label="GST (%)"
-                                            type="number"
-                                            placeholder="%"
-                                            disabled={!prefillData?.enquiryId}
-                                        />
-                                        <FormikFieldInput
-                                            name="discountAmount"
-                                            label="Discount Amount"
-                                            type="number"
-                                            placeholder="0"
+                                            name="billingAddress"
+                                            label="Billing Address"
+                                            placeholder="Enter billing address"
                                             disabled={!prefillData?.enquiryId}
                                         />
                                     </div>
@@ -1433,47 +1445,6 @@ export default function CreateEstimateModal({
                                                                         );
                                                                     }}
                                                                     placeholder="Specification"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "vendor",
-                                                            header: "Vendor",
-                                                            cellClassName: "w-25",
-                                                            render: (_, index) => (
-                                                                <Select
-                                                                    options={vendorNames.map(v => ({
-                                                                        label: v.name,
-                                                                        value: v.name,
-                                                                    }))}
-                                                                    value={
-                                                                        lines[index]?.vendor
-                                                                            ? {
-                                                                                  label: lines[
-                                                                                      index
-                                                                                  ]?.vendor,
-                                                                                  value: lines[
-                                                                                      index
-                                                                                  ]?.vendor,
-                                                                              }
-                                                                            : null
-                                                                    }
-                                                                    onChange={option => {
-                                                                        const value =
-                                                                            option?.value || "";
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          vendor: value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    isDisabled={vendorNamesLoading}
-                                                                    placeholder="Vendor"
                                                                 />
                                                             ),
                                                         },
