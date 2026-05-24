@@ -182,9 +182,14 @@ const columns = (
                                 <CalendarIcon size={18} />
                             </div>
                             <div className="min-w-0">
-                                <LinkText href={`/events/${row.eventID}`}>{row.title}</LinkText>
+                                <LinkText
+                                    href={`/events/${row.eventID}`}
+                                    className="hover:underline"
+                                >
+                                    {row.title}
+                                </LinkText>
                                 <p className="truncate text-xs text-muted-foreground">
-                                    {row.location}
+                                    {row.location || row.venue || "Location not specified"}
                                 </p>
                             </div>
                         </div>

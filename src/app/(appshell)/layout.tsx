@@ -12,7 +12,6 @@ import { matchRoutePermission } from "@/lib/utils/permissions";
 
 export default function AppShellLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
-    console.log({ pathname });
 
     // Get permissions for current route
     const currentRoutePermissions = matchRoutePermission(pathname);

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
+import { MoreVerticalIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
 import { Button, MenuList, PageHeader, DataTable, type Column, Badge } from "@/components/ui";
 import { MobileCardList } from "@/components/shared/mobile-card-list";
 import { ConfirmationModal } from "@/components/shared/confirmation-modal";
@@ -55,7 +56,7 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
     const clientRaw = get<unknown>(["client", "customer", "clientInfo"], null);
     let clientName: string | undefined;
     let clientId: string | undefined;
-    if (typeof clientRaw === "string") {
+    if (typeof clientRaw === "string" && !clientRaw.startsWith("{")) {
         clientName = clientRaw;
     } else if (clientRaw && typeof clientRaw === "object") {
         const c = clientRaw as { name?: string; id?: string };
@@ -101,6 +102,7 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
         enquiryId: get<string | undefined>(["enquiryId", "enquiry_id"], undefined),
         title: get<string | undefined>(["title", "eventName", "eventTitle"], undefined),
         highlvelRequirement: get<string>(["highlvelRequirement", "summary", "title"], ""),
+        eventName: get<string | undefined>(["eventName", "title"], undefined),
         enquiryDate: get<string | undefined>(["enquiryDate", "createdAt"], undefined),
         fromDate: get<string | undefined>(["fromDate", "eventStart"], undefined),
         toDate: get<string | undefined>(["toDate", "eventEnd"], undefined),
@@ -110,13 +112,6 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
         clientPoC: get<string>(["clientPoC", "clientContact"], ""),
         pocContactNumber: get<string>(["pocContactNumber", "clientPhone", "contactNumber"], ""),
         enquiryPoC: get<string | undefined>(["enquiryPoC", "internalPoC"], undefined),
-        client:
-            clientRaw && typeof clientRaw === "object"
-                ? (clientRaw as { id?: string; name?: string })
-                : clientId || clientName
-                  ? { id: clientId, name: clientName }
-                  : undefined,
-        items,
         clientName: clientName ?? String(get<string | undefined>(["clientName"], clientId ?? "")),
         assignee: get<string | undefined>(["assignee", "owner", "assignedTo"], undefined),
         version: get<string | undefined>(["version"], undefined),
@@ -127,12 +122,18 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
         clonedFromEstimateId: get<string | null | undefined>(["clonedFromEstimateId"], undefined),
         createdAt: get<string | undefined>(["createdAt"], undefined),
         updatedAt: get<string | undefined>(["updatedAt"], undefined),
+        items,
+        gst: get<number>(["gst"], 0),
+        serviceCharge: get<number>(["serviceCharge"], 0),
+        discounts: get<number>(["discounts"], 0),
+        eventID: get<string | undefined>(["eventID", "eventId"], undefined),
     };
 };
 
 export default function EstimatesPage() {
     const { prefill: contextPrefill, clearPrefill } = useEstimatePrefill();
-
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [tab, setTab] = useState<StatusTab>("open");
     const [estimates, setEstimates] = useState<EstimateRecord[]>([]);
     const [loading, setLoading] = useState(false);
@@ -160,6 +161,7 @@ export default function EstimatesPage() {
                     ? data.content
                     : [];
             const normalised = (list as Record<string, unknown>[]).map(normaliseEstimate);
+
             setEstimates(normalised);
         } catch (_err) {
             setEstimates([
@@ -204,6 +206,19 @@ export default function EstimatesPage() {
             clearPrefill();
         }
     }, [contextPrefill, clearPrefill]);
+
+    // Handle opening estimate version view modal from URL query parameter
+    useEffect(() => {
+        const enquiryIdFromQuery = searchParams.get("enquiryId");
+        if (enquiryIdFromQuery) {
+            // Validate that the enquiryId is not empty
+            if (enquiryIdFromQuery.trim()) {
+                setVersionsViewEnquiryId(enquiryIdFromQuery);
+                // Clean up the query parameter from the URL
+                router.replace("/estimates");
+            }
+        }
+    }, [searchParams, router, estimates]);
 
     const counts = useMemo(() => {
         const counter: Record<StatusTab, number> = {
@@ -317,7 +332,9 @@ export default function EstimatesPage() {
                         onClick={() => row.enquiryId && setVersionsViewEnquiryId(row.enquiryId)}
                     >
                         <div className="flex items-center gap-2">
-                            <span>{row.highlvelRequirement || "Untitled Estimate"}</span>
+                            <span className="text-primary hover:underline">
+                                {row.eventName || row.highlvelRequirement || "Untitled Estimate"}
+                            </span>
                             {row.version && (
                                 <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
                                     {row.version}
@@ -336,7 +353,7 @@ export default function EstimatesPage() {
                                 )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                            {row.clientName ?? row.client?.name ?? "Unknown client"}
+                            {row.clientName ?? row.client ?? "Unknown client"}
                         </div>
                     </div>
                 ),
@@ -422,16 +439,6 @@ export default function EstimatesPage() {
                             icon: <FileTextIcon size={16} />,
                             onClick: () => row.enquiryId && setVersionsViewEnquiryId(row.enquiryId),
                             disabled: !row.enquiryId,
-                        },
-                        {
-                            key: "edit",
-                            label: "Edit",
-                            icon: <PencilIcon size={16} />,
-                            onClick: () => {
-                                setPrefill(row);
-                                setIsModalOpen(true);
-                            },
-                            scopes: ["w:estimates"],
                         },
                         {
                             key: "delete",
@@ -542,7 +549,7 @@ export default function EstimatesPage() {
                             <div className="mb-1">
                                 Client:{" "}
                                 <span className="font-medium">
-                                    {est.clientName ?? est.client?.name ?? "Unknown"}
+                                    {est.clientName ?? est.client ?? "Unknown"}
                                 </span>
                             </div>
                             <div className="mb-1">

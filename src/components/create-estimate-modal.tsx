@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { FormikFieldInput } from "@/components/ui/formik-field-input";
 import { FormikFieldTextArea } from "@/components/ui/formik-field-textarea";
 import { FormikFieldDatePicker } from "@/components/ui/formik-field-date-picker";
-import { FormikFieldSelect } from "@/components/ui/formik-field-select";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Table, type Column } from "@/components/ui/table";
 import { Label } from "@/components/ui-old/label";
@@ -22,7 +21,8 @@ import {
 } from "@/types/estimate";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
-import { TrashIcon, PlusIcon } from "./ui";
+import { calculateEstimateSummary } from "@/lib/utils/estimate";
+import { TrashIcon, PlusIcon, Select, FormikFieldSelect } from "./ui";
 
 const statusOptions: { value: EstimateStatus; label: string }[] = [
     { value: "CHECKLIST_COMPLETED", label: "Checklist completed" },
@@ -130,44 +130,7 @@ const normaliseClientSummaryPayload = (payload: unknown): ClientEnquirySummary[]
             a.clientName.localeCompare(b.clientName, undefined, { sensitivity: "base" }),
         );
 };
-
-const extractFirstEnquiryRecord = (payload: unknown): Record<string, unknown> | undefined => {
-    if (!payload) return undefined;
-    if (Array.isArray(payload)) {
-        return payload.find(item => item && typeof item === "object" && !Array.isArray(item)) as
-            | Record<string, unknown>
-            | undefined;
-    }
-    if (typeof payload === "object") {
-        const objectPayload = payload as Record<string, unknown>;
-        const candidateKeys = [
-            "content",
-            "items",
-            "data",
-            "enquiries",
-            "results",
-            "records",
-            "list",
-        ];
-        for (const key of candidateKeys) {
-            const value = objectPayload[key];
-            if (Array.isArray(value)) {
-                const first = value.find(
-                    item => item && typeof item === "object" && !Array.isArray(item),
-                );
-                if (first) return first as Record<string, unknown>;
-            }
-        }
-
-        const hasUsefulField = ["id", "enquiryId", "title", "enquiryTitle"].some(
-            key => key in objectPayload,
-        );
-        if (hasUsefulField) {
-            return objectPayload;
-        }
-    }
-    return undefined;
-};
+// };
 
 const generateId = () => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -190,12 +153,16 @@ const validationSchema = Yup.object({
     venue: Yup.string().required("Venue is required"),
     clientPoC: Yup.string().required("Client POC is required"),
     pocContactNumber: Yup.string()
-        .matches(/^\d{10}$/u, "Enter a 10 digit number")
+        // .matches(/^\d{10}$/u, "Enter a 10 digit number")
         .required("POC contact number is required"),
     enquiryPoC: Yup.string().optional(),
     status: Yup.mixed<EstimateStatus>()
         .oneOf(statusOptions.map(s => s.value))
         .required(),
+    serviceCharge: Yup.number().optional().min(0, "Service charge must be 0 or more"),
+    gst: Yup.number().optional().min(0, "GST must be 0 or more"),
+    discountAmount: Yup.number().optional().min(0, "Discount amount must be 0 or more"),
+    billingAddress: Yup.string().optional(),
 });
 
 function normalizeDate(value?: string | null) {
@@ -219,7 +186,7 @@ export default function CreateEstimateModal({
     const [prefillData, setPrefillData] = useState<
         (Partial<EstimateDto> & { enquiryId?: string }) | undefined
     >(initialData);
-    const [selectedClientId, setSelectedClientId] = useState(initialData?.client?.id ?? "");
+    const [selectedClientId, setSelectedClientId] = useState(initialData?.client ?? "");
     const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | undefined>(
         initialData?.enquiryId,
     );
@@ -232,7 +199,7 @@ export default function CreateEstimateModal({
     const [vendorNames, setVendorNames] = useState<VendorName[]>([]);
     const [vendorNamesLoading, setVendorNamesLoading] = useState(false);
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(
-        initialData ? { clientName: initialData.client?.name, title: initialData.title } : null,
+        initialData ? { clientName: initialData.client, title: initialData.title } : null,
     );
     const requestRef = useRef(0);
     const enquiryPrefillCache = useRef(
@@ -245,10 +212,10 @@ export default function CreateEstimateModal({
     useEffect(() => {
         setPrefillData(initialData);
         setSelectedEnquiryId(initialData?.enquiryId);
-        setSelectedClientId(initialData?.client?.id ?? "");
-        if (initialData?.client?.id || initialData?.enquiryId) {
+        setSelectedClientId(initialData?.client ?? "");
+        if (initialData?.client || initialData?.enquiryId) {
             selectionRef.current = {
-                clientName: initialData?.client?.name ?? undefined,
+                clientName: initialData?.client ?? undefined,
                 title: initialData?.title ?? undefined,
             };
         } else {
@@ -257,8 +224,8 @@ export default function CreateEstimateModal({
     }, [initialData]);
 
     useEffect(() => {
-        if (initialData?.client?.name && initialData.title) {
-            const key = composeSelectionKey(initialData.client.name, initialData.title);
+        if (initialData?.client && initialData.title) {
+            const key = composeSelectionKey(initialData.client, initialData.title);
             enquiryPrefillCache.current.set(key, {
                 prefill: initialData,
                 id: initialData.enquiryId,
@@ -380,20 +347,17 @@ export default function CreateEstimateModal({
             if (savedClient && typeof savedClient === "object") {
                 const clientRecord = savedClient as { id?: string | number; name?: string };
                 if (clientRecord.id || clientRecord.name) {
-                    normalisedClient = {
-                        id: clientRecord.id ? String(clientRecord.id) : undefined,
-                        name: clientRecord.name,
-                    };
+                    normalisedClient = clientRecord.name;
                 }
             } else if (typeof savedClient === "string") {
-                normalisedClient = { name: savedClient };
+                normalisedClient = savedClient;
             }
 
             if (!normalisedClient) {
                 if (fallback?.clientId && fallback?.clientName) {
-                    normalisedClient = { id: fallback.clientId, name: fallback.clientName };
+                    normalisedClient = fallback.clientName;
                 } else if (fallback?.clientName) {
-                    normalisedClient = { name: fallback.clientName };
+                    normalisedClient = fallback.clientName;
                 }
             }
 
@@ -536,12 +500,10 @@ export default function CreateEstimateModal({
     );
 
     const loadEnquiryForSelection = useCallback(
-        async (selection: { clientName: string; title: string }) => {
-            const clientName = selection.clientName.trim();
-            const title = selection.title.trim();
-            if (!clientName || !title) return;
+        async (enquiryId: string) => {
+            if (!enquiryId) return;
 
-            const cacheKey = composeSelectionKey(clientName, title);
+            const cacheKey = composeSelectionKey(enquiryId, "");
             const cached = enquiryPrefillCache.current.get(cacheKey);
             if (cached?.prefill) {
                 setPrefillData(cached.prefill);
@@ -554,24 +516,14 @@ export default function CreateEstimateModal({
             setIsFetchingEnquiry(true);
 
             try {
-                const params = new URLSearchParams({
-                    page: "0",
-                    size: "1",
-                    clientName,
-                    enquiryTitle: title,
-                });
-                const response = await apiRequest(
-                    `${API_ENDPOINTS.enquiries.list}?${params.toString()}`,
-                );
+                const response = await apiRequest(API_ENDPOINTS.enquiries.detail(enquiryId ?? ""));
                 if (!response.ok) {
-                    throw new Error(
-                        `Unable to load enquiry for ${clientName} • ${title}. (${response.status})`,
-                    );
+                    throw new Error(`Unable to load selected enquiry. (${response.status})`);
                 }
 
                 const contentType = response.headers.get("content-type") ?? "";
                 const text = await response.text();
-                let parsed: unknown;
+                let parsed: Record<string, unknown> | null = null;
                 if (contentType.includes("application/json")) {
                     parsed = text ? JSON.parse(text) : null;
                 } else {
@@ -582,8 +534,7 @@ export default function CreateEstimateModal({
                     }
                 }
 
-                const record = extractFirstEnquiryRecord(parsed);
-                if (!record) {
+                if (!parsed) {
                     throw new Error("No matching enquiry data returned for this selection.");
                 }
 
@@ -600,37 +551,30 @@ export default function CreateEstimateModal({
 
                     const directKeys = ["id", "enquiryId", "enquiry_id", "identifier", "_id"];
                     for (const key of directKeys) {
-                        if (key in record) {
-                            const resolved = coerce((record as Record<string, unknown>)[key]);
+                        if (parsed && key in parsed) {
+                            const resolved = coerce((parsed as Record<string, unknown>)[key]);
                             if (resolved) return resolved;
                         }
                     }
 
-                    if (record.enquiry && typeof record.enquiry === "object") {
-                        const nested = coerce((record.enquiry as Record<string, unknown>).id);
+                    if (parsed && typeof parsed === "object") {
+                        const nested = coerce((parsed as Record<string, unknown>).id);
                         if (nested) return nested;
                     }
 
                     return undefined;
                 })();
 
-                const nextPrefill = mapEnquiryToPrefill(record, {
+                const nextPrefill = mapEnquiryToPrefill(parsed, {
                     id: fallbackId,
                     clientId: selectedClientId,
-                    clientName,
-                    title,
                 });
                 if (!nextPrefill) {
                     throw new Error("Enquiry response did not contain usable details.");
                 }
 
                 const currentSelection = selectionRef.current;
-                if (
-                    !currentSelection ||
-                    currentSelection.clientName !== clientName ||
-                    currentSelection.title !== title ||
-                    requestRef.current !== requestId
-                ) {
+                if (!currentSelection || requestRef.current !== requestId) {
                     return;
                 }
 
@@ -644,21 +588,16 @@ export default function CreateEstimateModal({
                 setPrefillData(nextPrefill);
                 setSelectedEnquiryId(resolvedId);
                 toast.success("Enquiry applied", {
-                    description: `Loaded details from ${clientName} • ${title}.`,
+                    description: `Loaded details from selected enquiry.`,
                 });
             } catch (error) {
                 const message =
                     error instanceof Error ? error.message : "Failed to load enquiry details.";
                 console.error("Failed to prefill estimate from enquiry selection", error);
                 const currentSelection = selectionRef.current;
-                if (
-                    currentSelection &&
-                    currentSelection.clientName === clientName &&
-                    currentSelection.title === title
-                ) {
+                if (currentSelection && requestRef.current === requestId) {
                     setPrefillData(undefined);
                     setSelectedEnquiryId(undefined);
-                    selectionRef.current = { clientName };
                 }
                 toast.error("Unable to use enquiry", {
                     description: message,
@@ -682,18 +621,17 @@ export default function CreateEstimateModal({
                         typeof item.id === "string" || typeof item.id === "number"
                             ? String(item.id)
                             : `${category}-${index}-${generateId()}`;
-                    const description =
-                        typeof item.description === "string" ? item.description : "Line item";
+                    const itemName = typeof item.item === "string" ? item.item : "Line item";
                     const specification =
-                        typeof item.specification === "string" ? item.specification : "";
+                        typeof item.description === "string" ? item.description : "";
                     const rawQuantity =
                         typeof item.quantity === "number"
                             ? item.quantity
                             : Number(item.quantity ?? 1);
                     const rawUnitCost =
-                        typeof item.unitCost === "number"
-                            ? item.unitCost
-                            : Number(item.unitCost ?? 0);
+                        typeof item.pricePerItem === "number"
+                            ? item.pricePerItem
+                            : Number(item.pricePerItem ?? 0);
                     const rawDays =
                         typeof item.days === "number" ? item.days : Number(item.days ?? 1);
                     const rawSqft =
@@ -718,7 +656,7 @@ export default function CreateEstimateModal({
                     fromItems.push({
                         id: derivedId,
                         category,
-                        item: description,
+                        item: itemName,
                         specification,
                         days,
                         sqft,
@@ -726,20 +664,6 @@ export default function CreateEstimateModal({
                         vendor,
                     });
                 });
-            });
-        }
-        if (fromItems.length === 0) {
-            fromItems.push({
-                id: generateId(),
-                category: "General",
-                item: prefillData?.highlvelRequirement
-                    ? prefillData.highlvelRequirement
-                    : "New line item",
-                specification: "",
-                days: 1,
-                sqft: 1,
-                rate: 0,
-                vendor: "",
             });
         }
         setLines(fromItems);
@@ -755,9 +679,13 @@ export default function CreateEstimateModal({
             status: (prefillData?.status as EstimateStatus | undefined) ?? "ENQUIRY_CREATED",
             location: prefillData?.location ?? "",
             venue: prefillData?.venue ?? "",
-            clientPoC: prefillData?.clientPoC ?? prefillData?.client?.name ?? "",
+            clientPoC: prefillData?.clientPoC ?? prefillData?.client ?? "",
             pocContactNumber: prefillData?.pocContactNumber ?? "",
             enquiryPoC: prefillData?.enquiryPoC ?? "",
+            serviceCharge: prefillData?.serviceCharge ?? 0,
+            gst: prefillData?.gst ?? 0,
+            discountAmount: prefillData?.discounts ?? 0,
+            billingAddress: prefillData?.billingAddress ?? "",
         }),
         [prefillData],
     );
@@ -769,12 +697,12 @@ export default function CreateEstimateModal({
 
     const titlesForSelectedClient = useMemo(() => {
         if (!selectedClientId) return [];
-        const match = clientSummaries.find(summary => summary.clientId === selectedClientId);
+        const match = clientSummaries.find(summary => summary.clientName === selectedClientId);
         return match?.enquiries ?? [];
     }, [clientSummaries, selectedClientId]);
 
     const currentPrefillLabel = useMemo(() => {
-        const clientName = prefillData?.client?.name;
+        const clientName = prefillData?.client;
         const title = prefillData?.title;
         if (clientName && title) return `${clientName} • ${title}`;
         if (title) return title;
@@ -782,7 +710,7 @@ export default function CreateEstimateModal({
             return `${clientName} • ${prefillData?.enquiryId ?? selectedEnquiryId}`;
         }
         return undefined;
-    }, [prefillData?.client?.name, prefillData?.enquiryId, prefillData?.title, selectedEnquiryId]);
+    }, [prefillData?.client, prefillData?.enquiryId, prefillData?.title, selectedEnquiryId]);
 
     const enquiryStatusMessage = useMemo(() => {
         if (summaryError) return `Couldn't load enquiries. ${summaryError}`;
@@ -794,7 +722,7 @@ export default function CreateEstimateModal({
         if (isFetchingEnquiry) return "Loading enquiry details…";
         if (prefillData?.enquiryId || selectedEnquiryId) {
             return currentPrefillLabel
-                ? `Prefilling from ${currentPrefillLabel}.`
+                ? `Prefilled from ${currentPrefillLabel}.`
                 : "Prefilling from the selected enquiry.";
         }
         return "Select an enquiry title to prefill the estimate fields.";
@@ -810,40 +738,48 @@ export default function CreateEstimateModal({
         titlesForSelectedClient.length,
     ]);
 
-    const clearEnquirySelection = useCallback(() => {
-        if (!prefillData && !selectedEnquiryId) {
+    const clearEnquirySelection = useCallback(
+        (isModalClose?: boolean) => {
+            if (!prefillData && !selectedEnquiryId) {
+                selectionRef.current = selectedClientId
+                    ? {
+                          clientName: clientSummaries.find(c => c.clientId === selectedClientId)
+                              ?.clientName,
+                      }
+                    : null;
+                return;
+            }
+
+            requestRef.current += 1;
+            setSelectedEnquiryId(undefined);
+            setPrefillData(undefined);
+            setIsFetchingEnquiry(false);
             selectionRef.current = selectedClientId
                 ? {
                       clientName: clientSummaries.find(c => c.clientId === selectedClientId)
                           ?.clientName,
                   }
                 : null;
-            return;
-        }
-
-        requestRef.current += 1;
-        setSelectedEnquiryId(undefined);
-        setPrefillData(undefined);
-        setIsFetchingEnquiry(false);
-        selectionRef.current = selectedClientId
-            ? { clientName: clientSummaries.find(c => c.clientId === selectedClientId)?.clientName }
-            : null;
-        toast("Selection cleared", {
-            description: "You can pick another enquiry to prefill the estimate.",
-        });
-    }, [prefillData, selectedClientId, selectedEnquiryId, clientSummaries]);
+            if (!isModalClose) {
+                toast.info("Selection cleared", {
+                    description: "You can pick another enquiry to prefill the estimate.",
+                });
+            }
+        },
+        [prefillData, selectedClientId, selectedEnquiryId, clientSummaries],
+    );
 
     const handleClientChange = useCallback(
         (event: React.ChangeEvent<HTMLSelectElement>) => {
             const nextClientId = event.target.value;
+            const clientName = clientSummaries.find(c => c.clientId === nextClientId)?.clientName;
+
             requestRef.current += 1;
-            setSelectedClientId(nextClientId);
+            setSelectedClientId(clientName ?? "");
             setSelectedEnquiryId(undefined);
             setPrefillData(undefined);
             setIsFetchingEnquiry(false);
-            selectionRef.current = nextClientId
-                ? { clientName: clientSummaries.find(c => c.clientId === nextClientId)?.clientName }
-                : null;
+            selectionRef.current = nextClientId ? { clientName } : null;
         },
         [clientSummaries],
     );
@@ -855,6 +791,7 @@ export default function CreateEstimateModal({
                 clearEnquirySelection();
                 return;
             }
+
             if (!selectedClientId) {
                 toast.error("Select a client first", {
                     description: "Pick a client before choosing an enquiry title.",
@@ -866,19 +803,16 @@ export default function CreateEstimateModal({
             const selectedEnquiry = titlesForSelectedClient.find(
                 e => e.enquiryId === nextEnquiryId,
             );
+
             if (!selectedEnquiry) return;
 
             setSelectedEnquiryId(nextEnquiryId);
             setPrefillData(undefined);
             selectionRef.current = {
-                clientName: clientSummaries.find(c => c.clientId === selectedClientId)?.clientName,
+                clientName: selectedClientId,
                 title: selectedEnquiry.title,
             };
-            void loadEnquiryForSelection({
-                clientName:
-                    clientSummaries.find(c => c.clientId === selectedClientId)?.clientName ?? "",
-                title: selectedEnquiry.title,
-            });
+            void loadEnquiryForSelection(nextEnquiryId);
         },
         [
             clearEnquirySelection,
@@ -911,13 +845,28 @@ export default function CreateEstimateModal({
                 return;
             }
 
-            const resolvedClientId = prefillData.client?.id ?? selectedClientId;
+            const resolvedClientId = prefillData.client ?? selectedClientId;
             if (!resolvedClientId) {
                 helpers.setStatus(
                     "The selected enquiry is missing a client id. Please refresh and try again.",
                 );
                 toast.error("Client id unavailable", {
                     description: "We couldn't find the client reference for this enquiry.",
+                });
+                setIsSaving(false);
+                return;
+            }
+
+            // Validate artifacts items
+            const invalidItems = lines.filter(line => {
+                const hasEmptyItem = !line.item || line.item.trim() === "";
+                const hasEmptyRate = !Number.isFinite(line.rate) || Number(line.rate) === 0;
+                return hasEmptyItem || hasEmptyRate;
+            });
+
+            if (invalidItems.length > 0) {
+                toast.error("Invalid artifacts", {
+                    description: "Each artifact requires an item name and a rate greater than 0.",
                 });
                 setIsSaving(false);
                 return;
@@ -938,8 +887,9 @@ export default function CreateEstimateModal({
                     const entry: EstimateLineItemPayload = {
                         item: line.item || "Item",
                         serialNumber: currentSerial,
-                        count,
+                        quantity: count,
                         pricePerItem,
+                        finalAmt: Number((count * pricePerItem * days).toFixed(2)),
                         description:
                             line.specification && line.specification.trim()
                                 ? line.specification
@@ -956,11 +906,11 @@ export default function CreateEstimateModal({
                 },
                 {},
             );
-
             const uiItemsForFallback = lines.reduce<Record<string, EstimateItem[]>>((acc, line) => {
                 const category = line.category || "General";
                 const bucket = acc[category] ?? [];
                 const total = Number((line.days * line.sqft * line.rate).toFixed(2));
+
                 bucket.push({
                     id: line.id,
                     description: line.item,
@@ -976,7 +926,14 @@ export default function CreateEstimateModal({
                 acc[category] = bucket;
                 return acc;
             }, {});
-
+            // const totaAmountWithoutAdjustments =
+            //     totalAmount + values.additionalCost - values.discountAmount;
+            // const amountWithServiceCharge =
+            //     totaAmountWithoutAdjustments +
+            //     calculatePercentageAmount(totaAmountWithoutAdjustments, values.serviceCharge);
+            // const totalWithGST =
+            //     amountWithServiceCharge +
+            //     calculatePercentageAmount(amountWithServiceCharge, values.gst);
             const payload: CreateEstimatePayload = {
                 title: values.title,
                 highlvelRequirement: values.highlvelRequirement,
@@ -989,22 +946,27 @@ export default function CreateEstimateModal({
                 clientPoC: values.clientPoC,
                 pocContactNumber: values.pocContactNumber,
                 enquiryPoC: values.enquiryPoC,
-                client: { id: resolvedClientId },
+                client: prefillData.client ?? "",
                 items: requestItems,
                 enquiryId: activeEnquiryId,
+                eventName: values.title ?? "",
+                eventID: prefillData.eventID ?? "",
+                gst: values.gst,
+                serviceCharge: values.serviceCharge,
+                discounts: values.discountAmount,
+                billingAddress: values.billingAddress,
             };
 
             // Check if we're editing an existing estimate (has an id)
             const isEditing = prefillData.id ? true : false;
-            const endpoint = isEditing
-                ? API_ENDPOINTS.estimates.detail(prefillData.id!)
-                : API_ENDPOINTS.estimates.list;
-            const method = isEditing ? "PUT" : "POST";
+            const body = isEditing
+                ? { ...payload, id: prefillData.id, version: prefillData.version }
+                : payload;
 
-            const res = await apiRequest(endpoint, {
-                method,
+            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(body),
             });
 
             let saved: EstimateDto | null = null;
@@ -1032,6 +994,13 @@ export default function CreateEstimateModal({
                 enquiryPoC: payload.enquiryPoC,
                 client: payload.client,
                 items: uiItemsForFallback,
+                gst: payload.gst,
+                serviceCharge: payload.serviceCharge,
+                discounts: payload.discounts,
+                billingAddress: payload.billingAddress,
+                enquiryId: payload.enquiryId,
+                eventName: payload.eventName,
+                eventID: payload.eventID,
             };
 
             toast.success(
@@ -1068,538 +1037,664 @@ export default function CreateEstimateModal({
                 validationSchema={validationSchema}
                 onSubmit={handleSubmit}
             >
-                {({ status }) => (
-                    <Form>
-                        <ModalBody className="flex flex-col gap-4">
-                            {status && (
-                                <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
-                                    {status}
-                                </div>
-                            )}
-                            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                    <div className="w-full md:max-w-md">
-                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Source enquiry
-                                        </Label>
-                                        <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
-                                            <FormikFieldSelect
-                                                name="clientId"
-                                                options={[
-                                                    {
-                                                        label: summaryLoading
-                                                            ? "Loading clients…"
-                                                            : "Pick a client…",
-                                                        value: "",
-                                                    },
-                                                    ...clientSummaries.map(summary => ({
-                                                        label: summary.clientName,
-                                                        value: summary.clientId,
-                                                    })),
-                                                ]}
-                                                isDisabled={summaryLoading || isFetchingEnquiry}
-                                                onChange={handleClientChange}
-                                                wrapperClassName="flex-1"
-                                            />
-                                            <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
-                                                <FormikFieldSelect
-                                                    name="enquiryId"
+                {({ status, values }) => {
+                    const summary = calculateEstimateSummary({
+                        totalAmount,
+                        gst: Number(values.gst) || 0,
+                        serviceCharge: Number(values.serviceCharge) || 0,
+                        discounts: Number(values.discountAmount) || 0,
+                    });
+
+                    return (
+                        <Form>
+                            <ModalBody className="flex flex-col gap-4">
+                                {status && (
+                                    <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+                                        {status}
+                                    </div>
+                                )}
+                                <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                        <div className="w-full md:max-w-md">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Source enquiry
+                                            </Label>
+                                            <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
+                                                <Select
                                                     options={[
-                                                        {
-                                                            label: !selectedClientId
-                                                                ? "Select a client first"
-                                                                : titlesForSelectedClient.length
-                                                                  ? "Pick an enquiry title…"
-                                                                  : "No enquiries available",
-                                                            value: "",
-                                                        },
-                                                        ...titlesForSelectedClient.map(enquiry => ({
-                                                            label: enquiry.title,
-                                                            value: enquiry.enquiryId,
+                                                        ...clientSummaries.map(summary => ({
+                                                            label: summary.clientName,
+                                                            value: summary.clientId,
                                                         })),
                                                     ]}
-                                                    isDisabled={
-                                                        !selectedClientId ||
-                                                        summaryLoading ||
-                                                        isFetchingEnquiry ||
-                                                        titlesForSelectedClient.length === 0
+                                                    value={
+                                                        selectedClientId
+                                                            ? {
+                                                                  label:
+                                                                      clientSummaries.find(
+                                                                          c =>
+                                                                              c.clientId ===
+                                                                              selectedClientId,
+                                                                      )?.clientName ||
+                                                                      selectedClientId,
+                                                                  value: selectedClientId,
+                                                              }
+                                                            : null
                                                     }
-                                                    onChange={handleEnquiryTitleChange}
-                                                    wrapperClassName="flex-1"
+                                                    isDisabled={
+                                                        Boolean(initialData) ||
+                                                        summaryLoading ||
+                                                        isFetchingEnquiry
+                                                    }
+                                                    onChange={option => {
+                                                        if (option) {
+                                                            const event = {
+                                                                target: { value: option.value },
+                                                            } as React.ChangeEvent<HTMLSelectElement>;
+                                                            handleClientChange(event);
+                                                        }
+                                                    }}
+                                                    className="flex-1"
+                                                    placeholder={
+                                                        summaryLoading
+                                                            ? "Loading clients…"
+                                                            : "Select client"
+                                                    }
                                                 />
-                                                {selectedEnquiryId && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        disabled={isFetchingEnquiry}
-                                                        onClick={clearEnquirySelection}
-                                                    >
-                                                        Clear
-                                                    </Button>
-                                                )}
+                                                <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
+                                                    <Select
+                                                        options={[
+                                                            ...titlesForSelectedClient.map(
+                                                                enquiry => ({
+                                                                    label: enquiry.title,
+                                                                    value: enquiry.enquiryId,
+                                                                }),
+                                                            ),
+                                                        ]}
+                                                        value={
+                                                            selectedEnquiryId
+                                                                ? {
+                                                                      label:
+                                                                          titlesForSelectedClient.find(
+                                                                              e =>
+                                                                                  e.enquiryId ===
+                                                                                  selectedEnquiryId,
+                                                                          )?.title ||
+                                                                          selectedEnquiryId,
+                                                                      value: selectedEnquiryId,
+                                                                  }
+                                                                : null
+                                                        }
+                                                        isDisabled={
+                                                            Boolean(initialData) ||
+                                                            !selectedClientId ||
+                                                            summaryLoading ||
+                                                            isFetchingEnquiry ||
+                                                            titlesForSelectedClient.length === 0
+                                                        }
+                                                        onChange={option => {
+                                                            if (option) {
+                                                                const event = {
+                                                                    target: { value: option.value },
+                                                                } as React.ChangeEvent<HTMLSelectElement>;
+                                                                handleEnquiryTitleChange(event);
+                                                            } else {
+                                                                clearEnquirySelection();
+                                                            }
+                                                        }}
+                                                        className="flex-1"
+                                                        placeholder="Select enquiry"
+                                                    />
+                                                    {selectedEnquiryId && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={isFetchingEnquiry}
+                                                            onClick={() => clearEnquirySelection()}
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                                {enquiryStatusMessage}
+                                            </p>
+                                        </div>
+                                        <div className="text-left md:text-right">
+                                            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Estimate total
+                                            </span>
+                                            <p className="text-xl font-semibold text-blue-600">
+                                                ₹{summary.totalWithGST.toFixed(2)}
+                                            </p>
+                                            {prefillData?.client && (
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    Client • {prefillData.client}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <FormikFieldInput
+                                        name="title"
+                                        label="Event title"
+                                        placeholder="e.g. Birthday party"
+                                        wrapperClassName="mt-4"
+                                        disabled={!prefillData?.enquiryId}
+                                    />
+                                    <FormikFieldTextArea
+                                        name="highlvelRequirement"
+                                        label="Project summary"
+                                        rows={3}
+                                        placeholder="Describe the goal of this estimate"
+                                        wrapperClassName="mt-4"
+                                        disabled={!prefillData?.enquiryId}
+                                    />
+                                </section>
+
+                                <section className="grid gap-4 md:grid-cols-2">
+                                    <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
+                                        <h4 className="text-sm font-semibold text-gray-700">
+                                            Event schedule
+                                        </h4>
+                                        <div className="mt-3 grid gap-3">
+                                            <FormikFieldDatePicker
+                                                name="enquiryDate"
+                                                label="Enquiry Date"
+                                                placeholderText="Pick enquiry date"
+                                                disabled={!prefillData?.enquiryId}
+                                            />
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                <FormikFieldDatePicker
+                                                    name="fromDate"
+                                                    label="Event Start"
+                                                    placeholderText="Pick start"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                                <FormikFieldDatePicker
+                                                    name="toDate"
+                                                    label="Event End"
+                                                    placeholderText="Pick end"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
                                             </div>
                                         </div>
-                                        <p className="mt-2 text-xs text-muted-foreground">
-                                            {enquiryStatusMessage}
-                                        </p>
                                     </div>
-                                    <div className="text-left md:text-right">
-                                        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Estimate total
-                                        </span>
-                                        <p className="text-xl font-semibold text-blue-600">
-                                            ₹{totalAmount.toFixed(2)}
-                                        </p>
-                                        {prefillData?.client?.name && (
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                Client • {prefillData.client.name}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                                <FormikFieldInput
-                                    name="title"
-                                    label="Event title"
-                                    placeholder="e.g. Birthday party"
-                                    wrapperClassName="mt-4"
-                                />
-                                <FormikFieldTextArea
-                                    name="highlvelRequirement"
-                                    label="Project summary"
-                                    rows={3}
-                                    placeholder="Describe the goal of this estimate"
-                                    wrapperClassName="mt-4"
-                                />
-                            </section>
 
-                            <section className="grid gap-4 md:grid-cols-2">
-                                <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
+                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                                        <h4 className="text-sm font-semibold text-gray-700">
+                                            Logistics
+                                        </h4>
+                                        <div className="mt-3 grid gap-3">
+                                            <FormikFieldSelect
+                                                name="status"
+                                                label="Status"
+                                                options={statusOptions.map(s => ({
+                                                    label: s.label,
+                                                    value: s.value,
+                                                }))}
+                                                isDisabled={!prefillData?.enquiryId}
+                                            />
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                <FormikFieldInput
+                                                    name="venue"
+                                                    label="Venue"
+                                                    placeholder="Enter venue"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                                <FormikFieldInput
+                                                    name="location"
+                                                    label="Location"
+                                                    placeholder="Enter event location"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="rounded-xl border border-gray-200 bg-white p-4">
                                     <h4 className="text-sm font-semibold text-gray-700">
-                                        Event schedule
+                                        Key contacts
+                                    </h4>
+                                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                                        <FormikFieldInput
+                                            name="clientPoC"
+                                            label="Client POC"
+                                            placeholder="Client point of contact"
+                                            disabled={!prefillData?.enquiryId}
+                                        />
+                                        <FormikFieldInput
+                                            name="pocContactNumber"
+                                            label="POC Contact Number"
+                                            placeholder="1234567890"
+                                            maxLength={10}
+                                            disabled={!prefillData?.enquiryId}
+                                        />
+                                        <FormikFieldInput
+                                            name="enquiryPoC"
+                                            label="Enquiry POC"
+                                            placeholder="Internal assignee"
+                                            disabled={!prefillData?.enquiryId}
+                                        />
+                                    </div>
+                                </section>
+
+                                <section className="rounded-xl border border-gray-200 bg-white p-4">
+                                    <h4 className="text-sm font-semibold text-gray-700">
+                                        Billing Details
                                     </h4>
                                     <div className="mt-3 grid gap-3">
-                                        <FormikFieldDatePicker
-                                            name="enquiryDate"
-                                            label="Enquiry Date"
-                                            placeholderText="Pick enquiry date"
-                                        />
-                                        <div className="grid gap-3 md:grid-cols-2">
-                                            <FormikFieldDatePicker
-                                                name="fromDate"
-                                                label="Event Start"
-                                                placeholderText="Pick start"
-                                            />
-                                            <FormikFieldDatePicker
-                                                name="toDate"
-                                                label="Event End"
-                                                placeholderText="Pick end"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                    <h4 className="text-sm font-semibold text-gray-700">
-                                        Logistics
-                                    </h4>
-                                    <div className="mt-3 grid gap-3">
-                                        <FormikFieldSelect
-                                            name="status"
-                                            label="Status"
-                                            options={statusOptions.map(s => ({
-                                                label: s.label,
-                                                value: s.value,
-                                            }))}
-                                        />
-                                        <div className="grid gap-3 md:grid-cols-2">
+                                        <div className="grid gap-3 md:grid-cols-3">
                                             <FormikFieldInput
-                                                name="venue"
-                                                label="Venue"
-                                                placeholder="Enter venue"
+                                                name="serviceCharge"
+                                                label="Service Charge  (%)"
+                                                type="number"
+                                                placeholder="%"
+                                                disabled={!prefillData?.enquiryId}
                                             />
                                             <FormikFieldInput
-                                                name="location"
-                                                label="Location"
-                                                placeholder="Enter event location"
+                                                name="gst"
+                                                label="GST (%)"
+                                                type="number"
+                                                placeholder="%"
+                                                disabled={!prefillData?.enquiryId}
+                                            />
+                                            <FormikFieldInput
+                                                name="discountAmount"
+                                                label="Discount Amount"
+                                                type="number"
+                                                placeholder="0"
+                                                disabled={!prefillData?.enquiryId}
                                             />
                                         </div>
+                                        <FormikFieldInput
+                                            name="billingAddress"
+                                            label="Billing Address"
+                                            placeholder="Enter billing address"
+                                            disabled={!prefillData?.enquiryId}
+                                        />
                                     </div>
-                                </div>
-                            </section>
+                                </section>
 
-                            <section className="rounded-xl border border-gray-200 bg-white p-4">
-                                <h4 className="text-sm font-semibold text-gray-700">
-                                    Key contacts
-                                </h4>
-                                <div className="mt-3 grid gap-3 md:grid-cols-3">
-                                    <FormikFieldInput
-                                        name="clientPoC"
-                                        label="Client POC"
-                                        placeholder="Client point of contact"
-                                    />
-                                    <FormikFieldInput
-                                        name="pocContactNumber"
-                                        label="POC Contact Number"
-                                        placeholder="1234567890"
-                                        maxLength={10}
-                                    />
-                                    <FormikFieldInput
-                                        name="enquiryPoC"
-                                        label="Enquiry POC"
-                                        placeholder="Internal assignee"
-                                    />
-                                </div>
-                            </section>
-
-                            <section className="space-y-4">
-                                <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                                        <div>
-                                            <h3 className="text-base font-semibold text-gray-900">
-                                                Artifacts required
-                                            </h3>
-                                            <p className="text-xs text-muted-foreground">
-                                                List the services, equipment, and resources needed
-                                                for this estimate.
-                                            </p>
+                                <section className="space-y-4">
+                                    <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                            <div>
+                                                <h3 className="text-base font-semibold text-gray-900">
+                                                    Artifacts required
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground">
+                                                    List the services, equipment, and resources
+                                                    needed for this estimate.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={!prefillData?.enquiryId}
+                                                onClick={() =>
+                                                    setLines(prev => {
+                                                        const lastCategory =
+                                                            prev.length > 0
+                                                                ? prev[prev.length - 1].category
+                                                                : "General";
+                                                        return [
+                                                            ...prev,
+                                                            {
+                                                                id: generateId(),
+                                                                category: lastCategory,
+                                                                item: "",
+                                                                specification: "",
+                                                                days: 1,
+                                                                sqft: 1,
+                                                                rate: 0,
+                                                                vendor: "",
+                                                            },
+                                                        ];
+                                                    })
+                                                }
+                                            >
+                                                <PlusIcon size={16} className="mr-1" />
+                                                Add Item
+                                            </Button>
                                         </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                                setLines(prev => {
-                                                    const lastCategory =
-                                                        prev.length > 0
-                                                            ? prev[prev.length - 1].category
-                                                            : "General";
-                                                    return [
-                                                        ...prev,
+
+                                        <div className="overflow-x-auto">
+                                            <Table
+                                                data={lines}
+                                                showRowNumbers
+                                                emptyMessage='No items added yet. Click "Add Item" to get started.'
+                                                columns={
+                                                    [
                                                         {
-                                                            id: generateId(),
-                                                            category: lastCategory,
-                                                            item: "New item",
-                                                            specification: "",
-                                                            days: 1,
-                                                            sqft: 1,
-                                                            rate: 0,
-                                                            vendor: "",
-                                                        },
-                                                    ];
-                                                })
-                                            }
-                                        >
-                                            <PlusIcon size={16} className="mr-1" />
-                                            Add Item
-                                        </Button>
-                                    </div>
-
-                                    <div className="overflow-x-auto">
-                                        <Table
-                                            data={lines}
-                                            showRowNumbers
-                                            emptyMessage='No items added yet. Click "Add Item" to get started.'
-                                            columns={
-                                                [
-                                                    {
-                                                        key: "category",
-                                                        header: "Category",
-                                                        render: (_, index) => (
-                                                            <Input
-                                                                value={lines[index]?.category || ""}
-                                                                onChange={event => {
-                                                                    const value =
-                                                                        event.target.value;
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      category:
-                                                                                          value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                placeholder="Category"
-                                                            />
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "item",
-                                                        header: "Item",
-                                                        render: (_, index) => (
-                                                            <Input
-                                                                value={lines[index]?.item || ""}
-                                                                onChange={event => {
-                                                                    const value =
-                                                                        event.target.value;
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      item: value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                placeholder="Item name"
-                                                            />
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "specification",
-                                                        header: "Specification",
-                                                        render: (_, index) => (
-                                                            <Input
-                                                                value={
-                                                                    lines[index]?.specification ||
-                                                                    ""
-                                                                }
-                                                                onChange={event => {
-                                                                    const value =
-                                                                        event.target.value;
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      specification:
-                                                                                          value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                placeholder="Specification"
-                                                            />
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "vendor",
-                                                        header: "Vendor",
-                                                        render: (_, index) => (
-                                                            <select
-                                                                value={lines[index]?.vendor || ""}
-                                                                onChange={event => {
-                                                                    const value =
-                                                                        event.target.value;
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      vendor: value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                disabled={vendorNamesLoading}
-                                                            >
-                                                                <option value="">
-                                                                    Select vendor...
-                                                                </option>
-                                                                {vendorNames.map(v => (
-                                                                    <option
-                                                                        key={v.id}
-                                                                        value={v.name}
-                                                                    >
-                                                                        {v.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "days",
-                                                        header: "Days",
-                                                        align: "center",
-                                                        cellClassName: "w-20",
-                                                        render: (_, index) => (
-                                                            <Input
-                                                                type="number"
-                                                                min={0}
-                                                                value={lines[index]?.days || 0}
-                                                                onChange={event => {
-                                                                    const value = Number(
-                                                                        event.target.value,
-                                                                    );
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      days: Number.isNaN(
-                                                                                          value,
-                                                                                      )
-                                                                                          ? 0
-                                                                                          : value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                className="text-center"
-                                                            />
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "sqft",
-                                                        header: "SqFt No",
-                                                        align: "center",
-                                                        cellClassName: "w-20",
-                                                        render: (_, index) => (
-                                                            <Input
-                                                                type="number"
-                                                                min={0}
-                                                                value={lines[index]?.sqft || 0}
-                                                                onChange={event => {
-                                                                    const value = Number(
-                                                                        event.target.value,
-                                                                    );
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      sqft: Number.isNaN(
-                                                                                          value,
-                                                                                      )
-                                                                                          ? 0
-                                                                                          : value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                className="text-center"
-                                                            />
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "rate",
-                                                        header: "Rate",
-                                                        align: "right",
-                                                        cellClassName: "w-24",
-                                                        render: (_, index) => (
-                                                            <Input
-                                                                type="number"
-                                                                min={0}
-                                                                step="0.01"
-                                                                value={lines[index]?.rate || 0}
-                                                                onChange={event => {
-                                                                    const value = Number(
-                                                                        event.target.value,
-                                                                    );
-                                                                    setLines(prev =>
-                                                                        prev.map((l, idx) =>
-                                                                            idx === index
-                                                                                ? {
-                                                                                      ...l,
-                                                                                      rate: Number.isNaN(
-                                                                                          value,
-                                                                                      )
-                                                                                          ? 0
-                                                                                          : value,
-                                                                                  }
-                                                                                : l,
-                                                                        ),
-                                                                    );
-                                                                }}
-                                                                className="text-right"
-                                                            />
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "total",
-                                                        header: "Total",
-                                                        align: "right",
-                                                        cellClassName: "w-28 font-semibold",
-                                                        render: (_, index) => (
-                                                            <span className="text-sm">
-                                                                ₹
-                                                                {(
-                                                                    lines[index]?.days *
-                                                                    lines[index]?.sqft *
-                                                                    lines[index]?.rate
-                                                                ).toFixed(2)}
-                                                            </span>
-                                                        ),
-                                                    },
-                                                    {
-                                                        key: "actions",
-                                                        header: "",
-                                                        align: "right",
-                                                        cellClassName: "text-right w-16",
-                                                        render: (_, index) => (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                disabled={lines.length === 1}
-                                                                onClick={() =>
-                                                                    setLines(prev =>
-                                                                        prev.filter(
-                                                                            (_, idx) =>
-                                                                                idx !== index,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                            >
-                                                                <TrashIcon
-                                                                    className="text-destructive"
-                                                                    size={16}
+                                                            key: "category",
+                                                            header: "Category",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    value={
+                                                                        lines[index]?.category || ""
+                                                                    }
+                                                                    onChange={event => {
+                                                                        const value =
+                                                                            event.target.value;
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          category:
+                                                                                              value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    placeholder="Category"
                                                                 />
-                                                            </Button>
-                                                        ),
-                                                    },
-                                                ] as Column<EstimateLine>[]
-                                            }
-                                        />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "item",
+                                                            header: "Item",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    value={lines[index]?.item || ""}
+                                                                    onChange={event => {
+                                                                        const value =
+                                                                            event.target.value;
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          item: value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    placeholder="Item name"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "specification",
+                                                            header: "Specification",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    value={
+                                                                        lines[index]
+                                                                            ?.specification || ""
+                                                                    }
+                                                                    onChange={event => {
+                                                                        const value =
+                                                                            event.target.value;
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          specification:
+                                                                                              value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    placeholder="Specification"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "days",
+                                                            header: "Days",
+                                                            align: "center",
+                                                            cellClassName: "w-20",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    value={
+                                                                        lines[index]?.days === 0
+                                                                            ? ""
+                                                                            : lines[index]?.days
+                                                                    }
+                                                                    onChange={event => {
+                                                                        const value = Number(
+                                                                            event.target.value,
+                                                                        );
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          days: Number.isNaN(
+                                                                                              value,
+                                                                                          )
+                                                                                              ? 0
+                                                                                              : value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    className="text-center"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "sqft",
+                                                            header: "Quantity",
+                                                            align: "center",
+                                                            cellClassName: "w-20",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    value={
+                                                                        lines[index]?.sqft === 0
+                                                                            ? ""
+                                                                            : lines[index]?.sqft
+                                                                    }
+                                                                    onChange={event => {
+                                                                        const value = Number(
+                                                                            event.target.value,
+                                                                        );
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          sqft: Number.isNaN(
+                                                                                              value,
+                                                                                          )
+                                                                                              ? 0
+                                                                                              : value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    className="text-center"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "rate",
+                                                            header: "Rate",
+                                                            align: "right",
+                                                            cellClassName: "w-24",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    step="0.01"
+                                                                    value={
+                                                                        lines[index]?.rate === 0
+                                                                            ? ""
+                                                                            : lines[index]?.rate
+                                                                    }
+                                                                    onChange={event => {
+                                                                        const value = Number(
+                                                                            event.target.value,
+                                                                        );
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          rate: Number.isNaN(
+                                                                                              value,
+                                                                                          )
+                                                                                              ? 0
+                                                                                              : value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    className="text-right"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "total",
+                                                            header: "Total",
+                                                            align: "right",
+                                                            cellClassName: "w-28 font-semibold",
+                                                            render: (_, index) => (
+                                                                <span className="text-sm">
+                                                                    ₹
+                                                                    {(
+                                                                        lines[index]?.days *
+                                                                        lines[index]?.sqft *
+                                                                        lines[index]?.rate
+                                                                    ).toFixed(2)}
+                                                                </span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "actions",
+                                                            header: "",
+                                                            align: "right",
+                                                            cellClassName: "text-right w-16",
+                                                            render: (_, index) => (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        setLines(prev =>
+                                                                            prev.filter(
+                                                                                (_, idx) =>
+                                                                                    idx !== index,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <TrashIcon
+                                                                        className="text-destructive"
+                                                                        size={16}
+                                                                    />
+                                                                </Button>
+                                                            ),
+                                                        },
+                                                    ] as Column<EstimateLine>[]
+                                                }
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex justify-end rounded-xl bg-slate-900/90 px-5 py-4 text-sm text-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <span className="uppercase tracking-wide text-xs text-slate-300">
-                                            Cost Summary
-                                        </span>
-                                        <span className="text-base font-semibold">
-                                            ₹{totalAmount.toFixed(2)}
-                                        </span>
+                                    <div className="rounded-xl bg-slate-900/90 px-5 py-4 text-sm text-slate-100">
+                                        <div className="space-y-2">
+                                            <div className="uppercase tracking-wide text-xs text-slate-300 font-semibold mb-3">
+                                                Cost Summary
+                                            </div>
+                                            <>
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-slate-300">Total</span>
+                                                    <span className="font-medium">
+                                                        ₹{totalAmount.toFixed(2)}
+                                                    </span>
+                                                </div>
+                                                {(values.serviceCharge || 0) > 0 && (
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-slate-300">
+                                                            Service Charge ({values.serviceCharge}%)
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            ₹
+                                                            {summary.serviceChargeAmount.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {(values.discountAmount || 0) > 0 && (
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-slate-300">
+                                                            Discount Amount
+                                                        </span>
+                                                        <span className="font-medium text-red-300">
+                                                            -₹
+                                                            {(values.discountAmount || 0).toFixed(
+                                                                2,
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {(values.gst || 0) > 0 && (
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-slate-300">
+                                                            GST ({values.gst}%)
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            ₹{summary.gstAmount.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className="border-t border-slate-700 pt-2 mt-2 flex justify-between">
+                                                    <span className="text-slate-200 font-semibold">
+                                                        Final Total
+                                                    </span>
+                                                    <span className="text-lg font-bold text-blue-300">
+                                                        ₹{summary.totalWithGST.toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        </div>
                                     </div>
-                                </div>
-                            </section>
-                        </ModalBody>
+                                </section>
+                            </ModalBody>
 
-                        <ModalFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={onClose}
-                                disabled={isSaving}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={isSaving || isFetchingEnquiry}>
-                                {isSaving
-                                    ? initialData?.id
-                                        ? "Updating..."
-                                        : "Saving..."
-                                    : isFetchingEnquiry
-                                      ? "Loading enquiry..."
-                                      : initialData?.id
-                                        ? "Update Estimate"
-                                        : "Save Estimate"}
-                            </Button>
-                        </ModalFooter>
-                    </Form>
-                )}
+                            <ModalFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        clearEnquirySelection(true);
+                                        setSelectedClientId("");
+                                        onClose();
+                                    }}
+                                    disabled={isSaving}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={isSaving || isFetchingEnquiry}>
+                                    {isSaving
+                                        ? initialData?.id
+                                            ? "Updating..."
+                                            : "Saving..."
+                                        : isFetchingEnquiry
+                                          ? "Loading enquiry..."
+                                          : initialData?.id
+                                            ? "Update Estimate"
+                                            : "Save Estimate"}
+                                </Button>
+                            </ModalFooter>
+                        </Form>
+                    );
+                }}
             </Formik>
         </Modal>
     );

@@ -47,8 +47,13 @@ const columns = (
         header: "Event Details",
         render: row => (
             <div>
-                <div onClick={() => onView(row)} className="font-medium text-gray-900 cursor-pointer">{row.eventName || "-"}</div>
-                <div className="text-xs text-gray-500 mt-1">ID: {row.eventID || row.id}</div>
+                <div
+                    onClick={() => onView(row)}
+                    className="font-medium text-primary cursor-pointer hover:underline"
+                >
+                    {row.eventName || "-"}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">ID: {row.eventID ?? "N/A"}</div>
                 <div className="mt-1">
                     <Badge variant="info">{row.eventType || "Unknown"}</Badge>
                 </div>
@@ -210,6 +215,8 @@ export default function EnquiriesPage() {
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
     const [eventSaving, setEventSaving] = useState(false);
+    const [estimateLoading, setEstimateLoading] = useState(false);
+    const [enquiryStatuses, setEnquiryStatuses] = useState<string>("");
 
     const enquiries = result?.content || [];
     const totalElements = result?.totalElements || 0;
@@ -263,6 +270,59 @@ export default function EnquiriesPage() {
     useEffect(() => {
         formik.submitForm();
     }, [values.search, values.status, values.sortBy, values.sortOrder]);
+
+    useEffect(() => {
+        if (!selectedEnquiry?.id) return;
+
+        const fetchEvents = async () => {
+            setEstimateLoading(true);
+
+            try {
+                // 1. Call Event API first
+                const eventUrl = API_ENDPOINTS.events.detail(
+                    selectedEnquiry.eventID || selectedEnquiry.id,
+                );
+
+                let hasEvent = false;
+
+                try {
+                    const eventRes = await apiRequest(eventUrl, { method: "GET" });
+
+                    // Adjust condition based on your API response structure
+                    if (eventRes.ok) {
+                        hasEvent = true;
+                        setEnquiryStatuses("EVENT_CREATED");
+                    }
+                } catch (error) {
+                    console.log("Event API failed:", error);
+                }
+
+                // 2. If no event found, call Estimate API
+                if (!hasEvent) {
+                    try {
+                        const estimateUrl = API_ENDPOINTS.estimates.byEnquiry(selectedEnquiry.id);
+
+                        const estimateRes = await apiRequest(estimateUrl, {
+                            method: "GET",
+                        });
+                        const body = await estimateRes.json();
+                        if (body?.estimates?.length > 0) {
+                            setEnquiryStatuses("ESTIMATE_CREATED");
+                        } else {
+                            setEnquiryStatuses("");
+                        }
+                    } catch (error) {
+                        console.log("Estimate API failed:", error);
+                        setEnquiryStatuses("");
+                    }
+                }
+            } finally {
+                setEstimateLoading(false);
+            }
+        };
+
+        fetchEvents();
+    }, [selectedEnquiry]);
 
     const handleCreate = () => {
         setEditEnquiry(null);
@@ -330,37 +390,41 @@ export default function EnquiriesPage() {
         setViewModalOpen(true);
     };
 
-    const handleCreateEvent = async () => {
+    const openEstimatePage = () => {
+        if (!selectedEnquiry) return;
+        setViewModalOpen(false);
+        setSelectedEnquiry(null);
+        router.push(`/estimates?enquiryId=${selectedEnquiry.id}`);
+    };
+
+    const handleCreateEstimate = async () => {
         if (!selectedEnquiry) return;
         setEventSaving(true);
         try {
             const payload = {
                 title: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
-                eventName: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
-                enquiryDate: selectedEnquiry.date || new Date().toISOString(),
-                eventStartDate:
-                    selectedEnquiry.fromDate || selectedEnquiry.date || new Date().toISOString(),
-                eventEndDate:
-                    selectedEnquiry.toDate || selectedEnquiry.date || new Date().toISOString(),
-                eventID: selectedEnquiry.eventID,
-                location: selectedEnquiry.location || "",
-                venue: selectedEnquiry.venue || "",
                 status: "ENQUIRY_CREATED",
+                enquiryDate: selectedEnquiry.date || new Date().toISOString(),
+                fromDate:
+                    selectedEnquiry.fromDate || selectedEnquiry.date || new Date().toISOString(),
+                toDate: selectedEnquiry.toDate || selectedEnquiry.date || new Date().toISOString(),
+                assignedTo: selectedEnquiry.assignee,
+                eventID: selectedEnquiry.eventID,
+                venue: selectedEnquiry.venue || "",
+                eventName: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
+                location: selectedEnquiry.location || "",
+                clientPoC: selectedEnquiry.clientPoC || "",
+                pocContactNumber: selectedEnquiry.enquiryPoCNumber || "",
+                eventPoCNumber: selectedEnquiry.eventPoCNumber || "",
+                eventPoC: selectedEnquiry.eventPoC || "",
+                client: selectedEnquiry.client,
                 enquiryId: String(selectedEnquiry.id ?? ""),
-                client: {
-                    id: selectedEnquiry.client ? String(selectedEnquiry.client) : undefined,
-                    name: selectedEnquiry.clientName || undefined,
-                },
-                vendor: undefined,
-                items: [],
-                categorySummary: [],
-                vendorSummary: [],
-                gst: 0,
-                tds: 0,
-                advanceAmt: 0,
+                eventType: selectedEnquiry.eventType || "CORPORATE",
+                highlvelRequirement: selectedEnquiry.highlvelRequirement || "",
+                enquiryPoC: selectedEnquiry.enquiryPoC || "",
             };
 
-            const res = await apiRequest(API_ENDPOINTS.events.list, {
+            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -368,19 +432,20 @@ export default function EnquiriesPage() {
 
             if (!res.ok) {
                 const errText = await res.text().catch(() => "");
-                throw new Error(`Failed to create event: ${res.status} ${errText}`);
+                throw new Error(`Failed to create estimate: ${res.status} ${errText}`);
             }
 
-            const createdEvent = await res.json();
-            toast.success("Event created from enquiry");
+            const createdEstimate = await res.json();
+            // toast.success("Estimate created from enquiry");
             setViewModalOpen(false);
             setSelectedEnquiry(null);
 
-            if (createdEvent && (createdEvent.eventID || createdEvent.id)) {
-                router.push(`/events/${createdEvent.eventID || createdEvent.id}`);
+            if (createdEstimate) {
+                toast.success("Estimate created from enquiry");
+                openEstimatePage();
             }
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to create event";
+            const message = err instanceof Error ? err.message : "Failed to create estimate";
             toast.error(message);
         } finally {
             setEventSaving(false);
@@ -519,10 +584,10 @@ export default function EnquiriesPage() {
                 onClose={() => {
                     setViewModalOpen(false);
                     setSelectedEnquiry(null);
+                    setEnquiryStatuses("");
                 }}
                 title="Enquiry Details"
-                size="xl"
-                showCloseIcon
+                size="xxl"
             >
                 <ModalBody>
                     {selectedEnquiry && (
@@ -547,7 +612,8 @@ export default function EnquiriesPage() {
                                 },
                                 {
                                     key: "Client",
-                                    value: selectedEnquiry.clientName || selectedEnquiry.client || "-",
+                                    value:
+                                        selectedEnquiry.clientName || selectedEnquiry.client || "-",
                                 },
                                 {
                                     key: "Enquiry Date",
@@ -602,19 +668,31 @@ export default function EnquiriesPage() {
                     >
                         Close
                     </Button>
-                    {selectedEnquiry?.eventID ? (
+                    {selectedEnquiry && enquiryStatuses === "EVENT_CREATED" ? (
                         <Button
                             onClick={() => {
                                 setViewModalOpen(false);
                                 setSelectedEnquiry(null);
                                 router.push(`/events/${selectedEnquiry.eventID}`);
                             }}
+                            disabled={estimateLoading || eventSaving}
                         >
                             View Event
                         </Button>
                     ) : (
-                        <Button onClick={handleCreateEvent} disabled={eventSaving}>
-                            {eventSaving ? "Creating Event..." : "Create Event"}
+                        <Button
+                            onClick={
+                                enquiryStatuses === "ESTIMATE_CREATED"
+                                    ? openEstimatePage
+                                    : handleCreateEstimate
+                            }
+                            disabled={eventSaving || estimateLoading}
+                        >
+                            {eventSaving
+                                ? "Creating Estimate..."
+                                : enquiryStatuses === "ESTIMATE_CREATED"
+                                  ? "View Estimate"
+                                  : "Create Estimate"}
                         </Button>
                     )}
                 </ModalFooter>

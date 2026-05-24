@@ -21,7 +21,7 @@ const validationSchema = Yup.object({
     title: Yup.string().required("Title is required"),
     eventStartDate: Yup.string().required("Event start date is required"),
     eventEndDate: Yup.string()
-        .required("Event end date is required")
+        // .required("Event end date is required")
         .test("after-start", "End date must be after start date", function (value) {
             const { eventStartDate } = this.parent as { eventStartDate?: string };
             if (!value || !eventStartDate) return true;
@@ -290,7 +290,7 @@ export default function CreateEventModal({
 
             if (values.location) payload.location = values.location;
             if (values.venue) payload.venue = values.venue;
-            if (values.clientId) payload.client = { id: values.clientId };
+            if (values.clientId) payload.client = values.clientId;
             if (values.enquiryId) payload.enquiryId = values.enquiryId;
             if (values.estimateId) payload.estimateId = values.estimateId;
             if (values.enquiryDate) payload.enquiryDate = values.enquiryDate;

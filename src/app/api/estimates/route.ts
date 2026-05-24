@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
             headers,
             body,
         });
+
         const text = await res.text();
         const responseHeaders: Record<string, string> = {};
         const contentType = res.headers.get("content-type");

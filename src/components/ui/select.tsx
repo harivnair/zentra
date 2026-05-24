@@ -63,7 +63,8 @@ export const Select = ({
                 ? `0 0 0 2px ${error ? "var(--input-error-ring)" : "var(--input-focus-ring)"}`
                 : "none",
             borderRadius: "6px",
-            cursor: "pointer",
+            cursor: state.isDisabled ? "not-allowed" : "pointer",
+            opacity: state.isDisabled ? 0.6 : 1,
             "&:hover": {
                 borderColor: error
                     ? "var(--error)"
@@ -72,9 +73,9 @@ export const Select = ({
                       : "var(--border-hover)",
             },
         }),
-        singleValue: (provided, _state) => ({
+        singleValue: (provided, state) => ({
             ...provided,
-            color: "var(--foreground)",
+            color: state.isDisabled ? "var(--muted-foreground)" : "var(--foreground)",
             fontSize: "12px",
         }),
         placeholder: (provided, _state) => ({

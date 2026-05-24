@@ -7,7 +7,10 @@ export type EstimateStatus =
     | "PROJECT_INPROGRESS"
     | "ESTIMATE_INPROGRESS"
     | "ENQUIRY_CREATED"
-    | "ESTIMATE_APPROVED";
+    | "ESTIMATE_APPROVED"
+    | "OPEN"
+    | "CLOSED"
+    | "CANCELLED";
 
 // Estimate versioning status
 export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL";
@@ -23,6 +26,9 @@ export interface EstimateItem {
     sqft?: number;
     rate?: number;
     vendor?: string;
+    pricePerItem?: number;
+    finalAmt?: number;
+    item?: string;
 }
 
 export interface EstimateDto {
@@ -38,10 +44,7 @@ export interface EstimateDto {
     clientPoC: string;
     pocContactNumber: string;
     enquiryPoC?: string;
-    client?: {
-        id?: string;
-        name?: string;
-    };
+    client?: string;
     items?: Record<string, EstimateItem[]>;
     // Versioning fields
     enquiryId?: string;
@@ -50,17 +53,34 @@ export interface EstimateDto {
     clonedFromEstimateId?: string | null;
     createdAt?: string;
     updatedAt?: string;
+    eventName?: string;
+    eventID?: string;
+    gst: number;
+    gstType?: string;
+    tds?: number;
+    serviceCharge: number;
+    discounts?: number;
+    billingAddress?: string;
+    invoiceSummary?: {
+        additionalCostAmt: number;
+        discountAmount: number;
+        expensesTotal: number;
+        gstAmount: number;
+        netTotal: number;
+        serviceChargeAmt: number;
+    };
 }
 
 export interface EstimateLineItemPayload {
     item: string;
     serialNumber: number;
-    count: number;
+    quantity: number;
     pricePerItem: number;
     description?: string;
     vendor?: string;
     checkList?: string;
     days?: number;
+    finalAmt: number;
 }
 
 export interface CreateEstimatePayload {
@@ -73,11 +93,17 @@ export interface CreateEstimatePayload {
     clientPoC: string;
     pocContactNumber: string;
     enquiryPoC?: string;
-    client: {
-        id: string;
-    };
+    client: string;
     items: Record<string, EstimateLineItemPayload[]>;
     enquiryId: string;
     location?: string;
     title?: string;
+    eventName?: string;
+    eventID?: string;
+    gst: number;
+    gstType?: string;
+    tds?: number;
+    serviceCharge: number;
+    discounts?: number;
+    billingAddress?: string;
 }

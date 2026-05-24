@@ -23,7 +23,12 @@ function getColorForName(name: string): string {
     return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-export function Avatar({ name, useDefaultColor }: { name: string; useDefaultColor?: boolean }) {
+interface AvatarProps {
+    name: string;
+    useDefaultColor?: boolean;
+}
+
+export function Avatar({ name, useDefaultColor }: AvatarProps) {
     const initials = getUserNameInitials(name);
     const colorClass = useDefaultColor ? AVATAR_COLORS[0] : getColorForName(name);
 

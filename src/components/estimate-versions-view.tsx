@@ -1,16 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { EstimateDto, EstimateVersionStatus } from "@/types/estimate";
-import { Button } from "./ui-old/button";
-import { Copy, Send, CheckCircle, Edit, X, ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { EstimateDto, EstimateVersionStatus, EstimateItem } from "@/types/estimate";
+import {
+    Copy,
+    Send,
+    CheckCircle,
+    Edit,
+    ChevronDown,
+    ChevronRight,
+    Calendar,
+    Eye,
+} from "lucide-react";
 import { apiRequest } from "@/lib/api/api-client";
 import { toast } from "sonner";
+import { Button, Modal, ModalBody, ModalFooter } from "./ui";
+import { Table, type Column } from "@/components/ui/table";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { useRouter } from "next/navigation";
+import { AccessButton } from "./shared/access-button";
+import { calculateEstimateSummary } from "@/lib/utils/estimate";
+import { EstimatePreviewModal } from "./estimate-preview-modal";
 
 interface EstimateVersionsViewProps {
     enquiryId: string;
     onVersionSelect?: (estimate: EstimateDto) => void;
-    onClose?: () => void;
+    onClose: () => void;
 }
 
 export function EstimateVersionsView({
@@ -18,10 +33,12 @@ export function EstimateVersionsView({
     onVersionSelect,
     onClose,
 }: EstimateVersionsViewProps) {
+    const router = useRouter();
     const [versions, setVersions] = useState<EstimateDto[]>([]);
     const [eventName, setEventName] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
+    const [previewVersion, setPreviewVersion] = useState<EstimateDto | null>(null);
 
     // Fetch versions on mount
     useEffect(() => {
@@ -123,6 +140,59 @@ export function EstimateVersionsView({
         }
     };
 
+    const sortedVersions = useMemo(() => {
+        const parseVersion = (v: string) => parseInt(v?.replace("v", ""), 10) || 0;
+
+        return [...(versions || [])].sort((a, b) => {
+            // 1. Priority: FINAL first
+            if (a.estimateStatus !== b.estimateStatus) {
+                return b.estimateStatus === "FINAL" ? 1 : -1;
+            }
+
+            // 2. Secondary: version sorting
+            return parseVersion(a.version ?? "") - parseVersion(b.version ?? "");
+        });
+    }, [versions]);
+
+    const handleCreateEvent = async (version: EstimateDto) => {
+        if (!version) return;
+        try {
+            const payload = {
+                title: version.title || version.highlvelRequirement || "Event",
+                eventStartDate: version.fromDate,
+                eventEndDate: version.toDate,
+                location: version.location,
+                venue: version.venue,
+                client: version.client,
+                enquiryId: version.enquiryId,
+                estimateId: version.id,
+                eventID: version.eventID, // Pass eventId if it exists to link the event with the enquiry's event (if any)
+            };
+
+            const res = await apiRequest(API_ENDPOINTS.events.list, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => "");
+                throw new Error(`Failed to create event: ${res.status} ${errText}`);
+            }
+
+            const createdEvent = await res.json();
+
+            if (createdEvent) {
+                onClose();
+                toast.success("Event created from estimate");
+                router.push(`/events/${createdEvent.eventID}`); // Navigate to the newly created event's page
+            }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to create event";
+            toast.error(message);
+        }
+    };
+
     if (loading) {
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -134,28 +204,25 @@ export function EstimateVersionsView({
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:!bg-gray-900 dark:border dark:border-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
-                    <div>
-                        <h2 className="text-2xl font-semibold">Estimate Versions</h2>
-                        {eventName && <p className="text-sm text-gray-600 mt-1">{eventName}</p>}
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X size={24} />
-                    </button>
-                </div>
-
+        <>
+        {previewVersion && (
+            <EstimatePreviewModal
+                estimate={previewVersion}
+                eventName={eventName}
+                onClose={() => setPreviewVersion(null)}
+            />
+        )}
+        <Modal onClose={onClose} size="xxl" open title="Estimate Versions" description={eventName}>
+            <ModalBody>
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    {versions.length === 0 ? (
+                    {sortedVersions.length === 0 ? (
                         <p className="text-center text-gray-500 py-8">
                             No estimates found for this enquiry
                         </p>
                     ) : (
                         <div className="space-y-4">
-                            {versions.map(version => {
+                            {sortedVersions.map(version => {
                                 const isExpanded = expandedVersions.has(version.id || "");
                                 const isFinal = version.estimateStatus === "FINAL";
 
@@ -173,7 +240,7 @@ export function EstimateVersionsView({
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     onClick={() => toggleExpand(version.id || "")}
-                                                    className="text-gray-600 hover:text-gray-800"
+                                                    className="text-gray-600 hover:text-gray-800 cursor-pointer"
                                                 >
                                                     {isExpanded ? (
                                                         <ChevronDown size={20} />
@@ -241,18 +308,19 @@ export function EstimateVersionsView({
                                                 {version.estimateStatus ===
                                                     "UNDER_CLIENT_REVIEW" && (
                                                     <>
-                                                        <Button
+                                                        <AccessButton
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() =>
                                                                 handleClone(version.id || "")
                                                             }
                                                             className="flex items-center gap-1"
+                                                            scope={["w:estimates"]}
                                                         >
                                                             <Copy size={14} />
                                                             Clone
-                                                        </Button>
-                                                        <Button
+                                                        </AccessButton>
+                                                        <AccessButton
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() =>
@@ -262,11 +330,12 @@ export function EstimateVersionsView({
                                                                 )
                                                             }
                                                             className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
+                                                            scope={["w:estimates"]}
                                                         >
                                                             <CheckCircle size={14} />
                                                             Mark as Final
-                                                        </Button>
-                                                        <Button
+                                                        </AccessButton>
+                                                        <AccessButton
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() =>
@@ -276,14 +345,15 @@ export function EstimateVersionsView({
                                                                 )
                                                             }
                                                             className="flex items-center gap-1"
+                                                            scope={["w:estimates"]}
                                                         >
                                                             Revert to Draft
-                                                        </Button>
+                                                        </AccessButton>
                                                     </>
                                                 )}
 
                                                 {version.estimateStatus === "FINAL" && (
-                                                    <Button
+                                                    <AccessButton
                                                         size="sm"
                                                         variant="outline"
                                                         onClick={() =>
@@ -293,20 +363,44 @@ export function EstimateVersionsView({
                                                             )
                                                         }
                                                         className="flex items-center gap-1"
+                                                        scope={["w:estimates"]}
                                                     >
                                                         Revert to Draft
-                                                    </Button>
+                                                    </AccessButton>
                                                 )}
 
-                                                <Button
+                                                <AccessButton
                                                     size="sm"
                                                     variant="outline"
                                                     onClick={() => onVersionSelect?.(version)}
                                                     className="flex items-center gap-1"
+                                                    scope={["w:estimates"]}
                                                 >
                                                     <Edit size={14} />
                                                     Edit
-                                                </Button>
+                                                </AccessButton>
+                                                <AccessButton
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setPreviewVersion(version)}
+                                                    className="flex items-center gap-1"
+                                                    scope={["w:estimates"]}
+                                                >
+                                                    <Eye size={14} />
+                                                    Preview
+                                                </AccessButton>
+                                                {version.estimateStatus === "FINAL" && (
+                                                    <AccessButton
+                                                        size="sm"
+                                                        variant="primary"
+                                                        className="flex items-center gap-1"
+                                                        icon={<Calendar size={14} />}
+                                                        onClick={() => handleCreateEvent(version)}
+                                                        scope={["w:events"]}
+                                                    >
+                                                        Create Event
+                                                    </AccessButton>
+                                                )}
                                             </div>
                                         </div>
 
@@ -381,6 +475,23 @@ export function EstimateVersionsView({
                                                         </p>
                                                     </div>
                                                 </div>
+                                                {/* Item Details */}
+                                                {version.items &&
+                                                    Object.keys(version.items).length > 0 && (
+                                                        <div className="col-span-2 mt-4">
+                                                            <span className="font-medium block mb-3">
+                                                                Items
+                                                            </span>
+                                                            <ItemsTable
+                                                                items={version.items}
+                                                                gst={version.gst}
+                                                                serviceCharge={
+                                                                    version.serviceCharge
+                                                                }
+                                                                discounts={version.discounts ?? 0}
+                                                            />
+                                                        </div>
+                                                    )}
                                             </div>
                                         )}
                                     </div>
@@ -389,14 +500,161 @@ export function EstimateVersionsView({
                         </div>
                     )}
                 </div>
+            </ModalBody>
+            <ModalFooter>
+                <Button variant="outline" onClick={onClose}>
+                    Close
+                </Button>
+            </ModalFooter>
+        </Modal>
+        </>
+    );
+}
 
-                {/* Footer */}
-                <div className="border-t p-6 flex justify-end">
-                    <Button variant="outline" onClick={onClose}>
-                        Close
-                    </Button>
-                </div>
-            </div>
+interface ItemsTableProps {
+    items: Record<string, EstimateItem[]>;
+    gst: number;
+    serviceCharge: number;
+    discounts: number;
+}
+
+function ItemsTable({ items, gst, serviceCharge, discounts }: ItemsTableProps) {
+    // Flatten the nested items structure for table display
+    const flattenedItems = useMemo(() => {
+        const flattened: (EstimateItem & { category: string })[] = [];
+        Object.entries(items || {}).forEach(([category, itemList]) => {
+            (itemList || []).forEach(item => {
+                flattened.push({
+                    ...item,
+                    category,
+                });
+            });
+        });
+        return flattened;
+    }, [items]);
+
+    const columns: Column<EstimateItem & { category: string }>[] = [
+        {
+            key: "category",
+            header: "Category",
+            render: item => (
+                <span className="text-xs font-medium text-gray-700">{item.category}</span>
+            ),
+        },
+        {
+            key: "description",
+            header: "Description",
+            render: item => <span className="text-xs">{item.item || "N/A"}</span>,
+        },
+        {
+            key: "specification",
+            header: "Specification",
+            render: item => <span className="text-xs">{item.description || "N/A"}</span>,
+        },
+        {
+            key: "vendor",
+            header: "Vendor",
+            render: item => <span className="text-xs">{item.vendor || "N/A"}</span>,
+        },
+        {
+            key: "days",
+            header: "Days",
+            align: "center",
+            render: item => <span className="text-xs">{item.days || 0}</span>,
+        },
+        {
+            key: "quantity",
+            header: "Qty",
+            align: "center",
+            render: item => <span className="text-xs">{item.quantity || 0}</span>,
+        },
+        {
+            key: "unitCost",
+            header: "Rate",
+            align: "right",
+            render: item => (
+                <span className="text-xs">
+                    {item.pricePerItem ? `₹${item.pricePerItem?.toFixed(2)}` : "N/A"}
+                </span>
+            ),
+        },
+        {
+            key: "total",
+            header: "Total",
+            align: "right",
+            render: item => (
+                <span className="text-xs font-medium">
+                    {item.finalAmt ? `₹${item.finalAmt?.toFixed(2)}` : "N/A"}
+                </span>
+            ),
+        },
+    ];
+
+    const estimatedTotal = flattenedItems.reduce((sum, item) => sum + (item.finalAmt || 0), 0);
+    const { gstAmount, serviceChargeAmount, totalWithGST } = calculateEstimateSummary({
+        totalAmount: estimatedTotal,
+        gst,
+        serviceCharge,
+        discounts,
+    });
+
+    const footer = (
+        <>
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    Total
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{estimatedTotal.toFixed(2)}
+                </td>
+            </tr>
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    Service Charge ({serviceCharge}%)
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{serviceChargeAmount.toFixed(2)}
+                </td>
+            </tr>
+            {Boolean(discounts) && (
+                <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                    <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                        Discount
+                    </td>
+                    <td className="py-3 px-3 text-xs text-red-500 text-right font-semibold">
+                        -₹{discounts.toFixed(2)}
+                    </td>
+                </tr>
+            )}
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    GST ({gst}%)
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{gstAmount.toFixed(2)}
+                </td>
+            </tr>
+            <tr className="border-t-2 border-gray-300 bg-gray-100 font-semibold">
+                <td className="py-3 px-3 text-xs" colSpan={columns.length - 1}>
+                    Net Total
+                </td>
+                <td className="py-3 px-3 text-xs text-right font-semibold">
+                    ₹{totalWithGST.toFixed(2)}
+                </td>
+            </tr>
+        </>
+    );
+
+    return (
+        <div className="bg-gray-50 rounded border border-gray-200 overflow-hidden">
+            <Table<EstimateItem & { category: string }>
+                data={flattenedItems}
+                columns={columns}
+                getKey={item => `${item.category}-${item.id}`}
+                emptyMessage="No items in this estimate"
+                className="text-xs"
+                footer={footer}
+            />
         </div>
     );
 }
