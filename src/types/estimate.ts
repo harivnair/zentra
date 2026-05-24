@@ -29,6 +29,7 @@ export interface EstimateItem {
     pricePerItem?: number;
     finalAmt?: number;
     item?: string;
+    category?: string;
 }
 
 export interface EstimateDto {
@@ -49,6 +50,7 @@ export interface EstimateDto {
     // Versioning fields
     enquiryId?: string;
     version?: string;
+    versionTitle?: string;
     estimateStatus?: EstimateVersionStatus;
     clonedFromEstimateId?: string | null;
     createdAt?: string;
@@ -69,6 +71,15 @@ export interface EstimateDto {
         netTotal: number;
         serviceChargeAmt: number;
     };
+    categorySummary?: {
+        category: string;
+        subTotal: number;
+    }[];
+    additionalCostEstimate?: {
+        item: string;
+        amount: number;
+        remarks: string;
+    }[];
 }
 
 export interface EstimateLineItemPayload {
@@ -81,6 +92,7 @@ export interface EstimateLineItemPayload {
     checkList?: string;
     days?: number;
     finalAmt: number;
+    category?: string;
 }
 
 export interface CreateEstimatePayload {

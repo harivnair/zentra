@@ -26,12 +26,14 @@ interface EstimateVersionsViewProps {
     enquiryId: string;
     onVersionSelect?: (estimate: EstimateDto) => void;
     onClose: () => void;
+    isViewOnlyMode?: boolean;
 }
 
 export function EstimateVersionsView({
     enquiryId,
     onVersionSelect,
     onClose,
+    isViewOnlyMode,
 }: EstimateVersionsViewProps) {
     const router = useRouter();
     const [versions, setVersions] = useState<EstimateDto[]>([]);
@@ -39,6 +41,7 @@ export function EstimateVersionsView({
     const [loading, setLoading] = useState(true);
     const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
     const [previewVersion, setPreviewVersion] = useState<EstimateDto | null>(null);
+    const [versionsWithEvents, setVersionsWithEvents] = useState<Set<string>>(new Set());
 
     // Fetch versions on mount
     useEffect(() => {
@@ -58,8 +61,24 @@ export function EstimateVersionsView({
             const estimatesWithTitle = (data.estimates || []).map(est => ({
                 ...est,
                 title: est.title || data.eventName,
+                eventID: est.eventID, // Ensure eventID is set for event existence check
             }));
             setVersions(estimatesWithTitle);
+
+            // Load event status for each FINAL estimate
+            const finalEstimates = estimatesWithTitle.filter(e => e.estimateStatus === "FINAL");
+            if (finalEstimates.length > 0) {
+                const versionsWithEventsSet = new Set<string>();
+                for (const estimate of finalEstimates) {
+                    const hasEvent = await checkEventExists(estimate);
+                    if (hasEvent) {
+                        versionsWithEventsSet.add(estimate.id || "");
+                    }
+                }
+                setVersionsWithEvents(versionsWithEventsSet);
+            }
+
+            console.log({ versionsWithEvents, estimatesWithTitle, raw: data.estimates });
         } catch (error) {
             console.error("Error fetching versions:", error);
             toast.error("Failed to load estimate versions");
@@ -154,9 +173,39 @@ export function EstimateVersionsView({
         });
     }, [versions]);
 
+    const checkEventExists = async (estimate: EstimateDto): Promise<boolean> => {
+        try {
+            const eventUrl = API_ENDPOINTS.events.detail(
+                estimate.eventID || estimate.enquiryId || enquiryId,
+            );
+            const eventRes = await apiRequest(eventUrl, { method: "GET" });
+
+            // If response is ok, event exists
+            if (eventRes.ok) {
+                return true;
+            }
+        } catch (error) {
+            console.log("Event API check failed:", error);
+        }
+        return false;
+    };
+
     const handleCreateEvent = async (version: EstimateDto) => {
         if (!version) return;
         try {
+            // Flatten items from nested structure to array
+            const flattenedItems: EstimateItem[] = [];
+            if (version.items && Object.keys(version.items).length > 0) {
+                Object.entries(version.items).forEach(([category, itemList]) => {
+                    (itemList || []).forEach(item => {
+                        flattenedItems.push({
+                            ...item,
+                            category,
+                        });
+                    });
+                });
+            }
+
             const payload = {
                 title: version.title || version.highlvelRequirement || "Event",
                 eventStartDate: version.fromDate,
@@ -166,7 +215,15 @@ export function EstimateVersionsView({
                 client: version.client,
                 enquiryId: version.enquiryId,
                 estimateId: version.id,
-                eventID: version.eventID, // Pass eventId if it exists to link the event with the enquiry's event (if any)
+                eventID: version.eventID,
+                versionTitle: version.versionTitle,
+                status: version.status,
+                billingAddress: version.billingAddress,
+                discounts: version.discounts,
+                serviceCharge: version.serviceCharge,
+                gst: version.gst,
+                enquiryDate: version.enquiryDate,
+                items: flattenedItems,
             };
 
             const res = await apiRequest(API_ENDPOINTS.events.list, {
@@ -205,308 +262,338 @@ export function EstimateVersionsView({
 
     return (
         <>
-        {previewVersion && (
-            <EstimatePreviewModal
-                estimate={previewVersion}
-                eventName={eventName}
-                onClose={() => setPreviewVersion(null)}
-            />
-        )}
-        <Modal onClose={onClose} size="xxl" open title="Estimate Versions" description={eventName}>
-            <ModalBody>
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
-                    {sortedVersions.length === 0 ? (
-                        <p className="text-center text-gray-500 py-8">
-                            No estimates found for this enquiry
-                        </p>
-                    ) : (
-                        <div className="space-y-4">
-                            {sortedVersions.map(version => {
-                                const isExpanded = expandedVersions.has(version.id || "");
-                                const isFinal = version.estimateStatus === "FINAL";
+            {previewVersion && (
+                <EstimatePreviewModal
+                    estimate={previewVersion}
+                    eventName={eventName}
+                    onClose={() => setPreviewVersion(null)}
+                />
+            )}
+            <Modal
+                onClose={onClose}
+                size="xxl"
+                open
+                title="Estimate Versions"
+                description={eventName}
+            >
+                <ModalBody>
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6">
+                        {sortedVersions.length === 0 ? (
+                            <p className="text-center text-gray-500 py-8">
+                                No estimates found for this enquiry
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {sortedVersions.map(version => {
+                                    console.log({ sortedVersions });
 
-                                return (
-                                    <div
-                                        key={version.id}
-                                        className={`border rounded-lg p-4 ${
-                                            isFinal
-                                                ? "border-green-500 bg-green-50"
-                                                : "border-gray-200"
-                                        }`}
-                                    >
-                                        {/* Version Header */}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <button
-                                                    onClick={() => toggleExpand(version.id || "")}
-                                                    className="text-gray-600 hover:text-gray-800 cursor-pointer"
-                                                >
-                                                    {isExpanded ? (
-                                                        <ChevronDown size={20} />
-                                                    ) : (
-                                                        <ChevronRight size={20} />
-                                                    )}
-                                                </button>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className="text-lg font-semibold">
-                                                            {version.version}
-                                                        </h3>
-                                                        <span
-                                                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(
-                                                                version.estimateStatus,
-                                                            )}`}
-                                                        >
-                                                            {getStatusLabel(version.estimateStatus)}
-                                                        </span>
-                                                        {isFinal && (
-                                                            <CheckCircle
-                                                                size={16}
-                                                                className="text-green-600"
-                                                            />
+                                    const isExpanded = expandedVersions.has(version.id || "");
+                                    const isFinal = version.estimateStatus === "FINAL";
+
+                                    return (
+                                        <div
+                                            key={version.id}
+                                            className={`border rounded-lg p-4 ${
+                                                isFinal
+                                                    ? "border-green-500 bg-green-50"
+                                                    : "border-gray-200"
+                                            }`}
+                                        >
+                                            {/* Version Header */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() =>
+                                                            toggleExpand(version.id || "")
+                                                        }
+                                                        className="text-gray-600 hover:text-gray-800 cursor-pointer"
+                                                    >
+                                                        {isExpanded ? (
+                                                            <ChevronDown size={20} />
+                                                        ) : (
+                                                            <ChevronRight size={20} />
                                                         )}
+                                                    </button>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className="text-lg font-semibold">
+                                                                {version.version}
+                                                            </h3>
+                                                            <span
+                                                                className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(
+                                                                    version.estimateStatus,
+                                                                )}`}
+                                                            >
+                                                                {getStatusLabel(
+                                                                    version.estimateStatus,
+                                                                )}
+                                                            </span>
+                                                            {isFinal && (
+                                                                <CheckCircle
+                                                                    size={16}
+                                                                    className="text-green-600"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            {version.venue}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-sm text-gray-500 mt-1">
-                                                        {version.venue}
-                                                    </p>
                                                 </div>
-                                            </div>
 
-                                            {/* Actions */}
-                                            <div className="flex gap-2">
-                                                {version.estimateStatus === "DRAFT" && (
-                                                    <>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleClone(version.id || "")
-                                                            }
-                                                            className="flex items-center gap-1"
-                                                        >
-                                                            <Copy size={14} />
-                                                            Clone
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleStatusChange(
-                                                                    version.id || "",
-                                                                    "UNDER_CLIENT_REVIEW",
-                                                                )
-                                                            }
-                                                            className="flex items-center gap-1"
-                                                        >
-                                                            <Send size={14} />
-                                                            Send to Client
-                                                        </Button>
-                                                    </>
-                                                )}
+                                                {/* Actions */}
+                                                <div className="flex gap-2">
+                                                    {!isViewOnlyMode && (
+                                                        <>
+                                                            {version.estimateStatus === "DRAFT" && (
+                                                                <>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() =>
+                                                                            handleClone(
+                                                                                version.id || "",
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1"
+                                                                    >
+                                                                        <Copy size={14} />
+                                                                        Clone
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() =>
+                                                                            handleStatusChange(
+                                                                                version.id || "",
+                                                                                "UNDER_CLIENT_REVIEW",
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1"
+                                                                    >
+                                                                        <Send size={14} />
+                                                                        Send to Client
+                                                                    </Button>
+                                                                </>
+                                                            )}
 
-                                                {version.estimateStatus ===
-                                                    "UNDER_CLIENT_REVIEW" && (
-                                                    <>
-                                                        <AccessButton
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleClone(version.id || "")
-                                                            }
-                                                            className="flex items-center gap-1"
-                                                            scope={["w:estimates"]}
-                                                        >
-                                                            <Copy size={14} />
-                                                            Clone
-                                                        </AccessButton>
-                                                        <AccessButton
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleStatusChange(
-                                                                    version.id || "",
-                                                                    "FINAL",
-                                                                )
-                                                            }
-                                                            className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
-                                                            scope={["w:estimates"]}
-                                                        >
-                                                            <CheckCircle size={14} />
-                                                            Mark as Final
-                                                        </AccessButton>
-                                                        <AccessButton
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleStatusChange(
-                                                                    version.id || "",
-                                                                    "DRAFT",
-                                                                )
-                                                            }
-                                                            className="flex items-center gap-1"
-                                                            scope={["w:estimates"]}
-                                                        >
-                                                            Revert to Draft
-                                                        </AccessButton>
-                                                    </>
-                                                )}
+                                                            {version.estimateStatus ===
+                                                                "UNDER_CLIENT_REVIEW" && (
+                                                                <>
+                                                                    <AccessButton
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() =>
+                                                                            handleClone(
+                                                                                version.id || "",
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1"
+                                                                        scope={["w:estimates"]}
+                                                                    >
+                                                                        <Copy size={14} />
+                                                                        Clone
+                                                                    </AccessButton>
+                                                                    <AccessButton
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() =>
+                                                                            handleStatusChange(
+                                                                                version.id || "",
+                                                                                "FINAL",
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
+                                                                        scope={["w:estimates"]}
+                                                                    >
+                                                                        <CheckCircle size={14} />
+                                                                        Mark as Final
+                                                                    </AccessButton>
+                                                                    <AccessButton
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() =>
+                                                                            handleStatusChange(
+                                                                                version.id || "",
+                                                                                "DRAFT",
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1"
+                                                                        scope={["w:estimates"]}
+                                                                    >
+                                                                        Revert to Draft
+                                                                    </AccessButton>
+                                                                </>
+                                                            )}
 
-                                                {version.estimateStatus === "FINAL" && (
+                                                            {version.estimateStatus === "FINAL" && (
+                                                                <AccessButton
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() =>
+                                                                        handleStatusChange(
+                                                                            version.id || "",
+                                                                            "DRAFT",
+                                                                        )
+                                                                    }
+                                                                    className="flex items-center gap-1"
+                                                                    scope={["w:estimates"]}
+                                                                >
+                                                                    Revert to Draft
+                                                                </AccessButton>
+                                                            )}
+                                                            <AccessButton
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    onVersionSelect?.(version)
+                                                                }
+                                                                className="flex items-center gap-1"
+                                                                scope={["w:estimates"]}
+                                                            >
+                                                                <Edit size={14} />
+                                                                Edit
+                                                            </AccessButton>
+                                                        </>
+                                                    )}
+
                                                     <AccessButton
                                                         size="sm"
                                                         variant="outline"
-                                                        onClick={() =>
-                                                            handleStatusChange(
-                                                                version.id || "",
-                                                                "DRAFT",
-                                                            )
-                                                        }
+                                                        onClick={() => setPreviewVersion(version)}
                                                         className="flex items-center gap-1"
                                                         scope={["w:estimates"]}
                                                     >
-                                                        Revert to Draft
+                                                        <Eye size={14} />
+                                                        Preview
                                                     </AccessButton>
-                                                )}
-
-                                                <AccessButton
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => onVersionSelect?.(version)}
-                                                    className="flex items-center gap-1"
-                                                    scope={["w:estimates"]}
-                                                >
-                                                    <Edit size={14} />
-                                                    Edit
-                                                </AccessButton>
-                                                <AccessButton
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => setPreviewVersion(version)}
-                                                    className="flex items-center gap-1"
-                                                    scope={["w:estimates"]}
-                                                >
-                                                    <Eye size={14} />
-                                                    Preview
-                                                </AccessButton>
-                                                {version.estimateStatus === "FINAL" && (
-                                                    <AccessButton
-                                                        size="sm"
-                                                        variant="primary"
-                                                        className="flex items-center gap-1"
-                                                        icon={<Calendar size={14} />}
-                                                        onClick={() => handleCreateEvent(version)}
-                                                        scope={["w:events"]}
-                                                    >
-                                                        Create Event
-                                                    </AccessButton>
-                                                )}
+                                                    {version.estimateStatus === "FINAL" &&
+                                                        !isViewOnlyMode && (
+                                                            <AccessButton
+                                                                size="sm"
+                                                                variant="primary"
+                                                                className="flex items-center gap-1"
+                                                                icon={<Calendar size={14} />}
+                                                                onClick={() =>
+                                                                    handleCreateEvent(version)
+                                                                }
+                                                                scope={["w:events"]}
+                                                                disabled={versionsWithEvents.has(
+                                                                    version.id || "",
+                                                                )}
+                                                            >
+                                                                Create Event
+                                                            </AccessButton>
+                                                        )}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Expanded Details */}
-                                        {isExpanded && (
-                                            <div className="mt-4 pl-8 space-y-2 text-sm">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <span className="font-medium">
-                                                            Requirement:
-                                                        </span>
-                                                        <p className="text-gray-600">
-                                                            {version.highlvelRequirement}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="font-medium">
-                                                            Client PoC:
-                                                        </span>
-                                                        <p className="text-gray-600">
-                                                            {version.clientPoC}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="font-medium">
-                                                            From Date:
-                                                        </span>
-                                                        <p className="text-gray-600">
-                                                            {version.fromDate
-                                                                ? new Date(
-                                                                      version.fromDate,
-                                                                  ).toLocaleDateString()
-                                                                : "N/A"}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="font-medium">
-                                                            To Date:
-                                                        </span>
-                                                        <p className="text-gray-600">
-                                                            {version.toDate
-                                                                ? new Date(
-                                                                      version.toDate,
-                                                                  ).toLocaleDateString()
-                                                                : "N/A"}
-                                                        </p>
-                                                    </div>
-                                                    {version.clonedFromEstimateId && (
-                                                        <div className="col-span-2">
+                                            {/* Expanded Details */}
+                                            {isExpanded && (
+                                                <div className="mt-4 pl-8 space-y-2 text-sm">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
                                                             <span className="font-medium">
-                                                                Cloned from:
+                                                                Requirement:
                                                             </span>
                                                             <p className="text-gray-600">
-                                                                {versions.find(
-                                                                    v =>
-                                                                        v.id ===
-                                                                        version.clonedFromEstimateId,
-                                                                )?.version || "Unknown"}
+                                                                {version.highlvelRequirement}
                                                             </p>
                                                         </div>
-                                                    )}
-                                                    <div className="col-span-2">
-                                                        <span className="font-medium">
-                                                            Created:
-                                                        </span>
-                                                        <p className="text-gray-600">
-                                                            {version.createdAt
-                                                                ? new Date(
-                                                                      version.createdAt,
-                                                                  ).toLocaleString()
-                                                                : "N/A"}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                {/* Item Details */}
-                                                {version.items &&
-                                                    Object.keys(version.items).length > 0 && (
-                                                        <div className="col-span-2 mt-4">
-                                                            <span className="font-medium block mb-3">
-                                                                Items
+                                                        <div>
+                                                            <span className="font-medium">
+                                                                Client PoC:
                                                             </span>
-                                                            <ItemsTable
-                                                                items={version.items}
-                                                                gst={version.gst}
-                                                                serviceCharge={
-                                                                    version.serviceCharge
-                                                                }
-                                                                discounts={version.discounts ?? 0}
-                                                            />
+                                                            <p className="text-gray-600">
+                                                                {version.clientPoC}
+                                                            </p>
                                                         </div>
-                                                    )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            </ModalBody>
-            <ModalFooter>
-                <Button variant="outline" onClick={onClose}>
-                    Close
-                </Button>
-            </ModalFooter>
-        </Modal>
+                                                        <div>
+                                                            <span className="font-medium">
+                                                                From Date:
+                                                            </span>
+                                                            <p className="text-gray-600">
+                                                                {version.fromDate
+                                                                    ? new Date(
+                                                                          version.fromDate,
+                                                                      ).toLocaleDateString()
+                                                                    : "N/A"}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">
+                                                                To Date:
+                                                            </span>
+                                                            <p className="text-gray-600">
+                                                                {version.toDate
+                                                                    ? new Date(
+                                                                          version.toDate,
+                                                                      ).toLocaleDateString()
+                                                                    : "N/A"}
+                                                            </p>
+                                                        </div>
+                                                        {version.clonedFromEstimateId && (
+                                                            <div className="col-span-2">
+                                                                <span className="font-medium">
+                                                                    Cloned from:
+                                                                </span>
+                                                                <p className="text-gray-600">
+                                                                    {versions.find(
+                                                                        v =>
+                                                                            v.id ===
+                                                                            version.clonedFromEstimateId,
+                                                                    )?.version || "Unknown"}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                        <div className="col-span-2">
+                                                            <span className="font-medium">
+                                                                Created:
+                                                            </span>
+                                                            <p className="text-gray-600">
+                                                                {version.createdAt
+                                                                    ? new Date(
+                                                                          version.createdAt,
+                                                                      ).toLocaleString()
+                                                                    : "N/A"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    {/* Item Details */}
+                                                    {version.items &&
+                                                        Object.keys(version.items).length > 0 && (
+                                                            <div className="col-span-2 mt-4">
+                                                                <span className="font-medium block mb-3">
+                                                                    Items
+                                                                </span>
+                                                                <ItemsTable
+                                                                    items={version.items}
+                                                                    gst={version.gst}
+                                                                    serviceCharge={
+                                                                        version.serviceCharge
+                                                                    }
+                                                                    discounts={
+                                                                        version.discounts ?? 0
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button variant="outline" onClick={onClose}>
+                        Close
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </>
     );
 }
