@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProjectPlanningModal } from "@/components/project-planning-modal";
-import { EstimateHistoryModal } from "@/components/estimate-history-modal";
+import { EstimateVersionsView } from "@/components/estimate-versions-view";
 import { ExpensesModal } from "@/components/expenses-modal";
 import { BillingExpenseModal } from "@/components/billing-expense-modal";
 import { ChecklistModal } from "@/components/checklist-modal";
@@ -20,7 +20,6 @@ import {
     TrendingDown,
     AlertCircle,
     Wallet,
-    FileText,
     Package,
     History,
     Receipt,
@@ -135,12 +134,20 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
 
     const actionCards: ActionCard[] = [
         {
-            id: "estimate",
-            icon: FileText,
-            title: "Estimate Creation",
-            description: "Generate and send professional quotes to your clients.",
-            linkLabel: "Create Estimate",
-            onClick: () => setIsProjectPlanningModalOpen(true),
+            id: "history",
+            icon: History,
+            title: "Estimate History",
+            description: "Review previous versions and approval timelines.",
+            linkLabel: "View History",
+            onClick: () => setIsEstimateHistoryModalOpen(true),
+        },
+        {
+            id: "checklist",
+            icon: ClipboardCheck,
+            title: "Event Checklist",
+            description: "Assign tasks and track execution milestones.",
+            linkLabel: "Open Tasks",
+            onClick: () => setIsChecklistModalOpen(true),
         },
         {
             id: "inventory",
@@ -149,14 +156,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             description: "Manage stock and vendor allocations for this event.",
             linkLabel: "View List",
             onClick: () => router.push("/inventory"),
-        },
-        {
-            id: "history",
-            icon: History,
-            title: "Estimate History",
-            description: "Review previous versions and approval timelines.",
-            linkLabel: "View History",
-            onClick: () => setIsEstimateHistoryModalOpen(true),
         },
         {
             id: "expenses",
@@ -173,14 +172,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             description: "Manage ledger and tax billing info.",
             linkLabel: "Manage Billing",
             onClick: () => setIsBillingModalOpen(true),
-        },
-        {
-            id: "checklist",
-            icon: ClipboardCheck,
-            title: "Event Checklist",
-            description: "Assign tasks and track execution milestones.",
-            linkLabel: "Open Tasks",
-            onClick: () => setIsChecklistModalOpen(true),
         },
     ];
 
@@ -529,23 +520,16 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                     {/* Right Column: Action Cards */}
                     <div className="lg:col-span-4 space-y-4">
                         {actionCards.map(card => {
-                            const isDisabled =
-                                card.id === "checklist" &&
-                                eventData?.status !== "ESTIMATE_APPROVED";
                             const Icon = card.icon;
                             return (
                                 <div
                                     key={card.id}
                                     className={`bg-surface p-6 rounded-xl border border-border/20 group transition-all ${
-                                        isDisabled
+                                        false
                                             ? "opacity-60 saturate-50"
                                             : "hover:bg-primary/5 cursor-pointer"
                                     }`}
-                                    onClick={() => {
-                                        if (!isDisabled) {
-                                            card.onClick();
-                                        }
-                                    }}
+                                    onClick={card.onClick}
                                 >
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
@@ -578,12 +562,13 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 }}
             />
 
-            <EstimateHistoryModal
-                isOpen={isEstimateHistoryModalOpen}
-                onClose={() => setIsEstimateHistoryModalOpen(false)}
-                eventTitle={eventTitle}
-                eventID={eventData?.eventID || id}
-            />
+            {isEstimateHistoryModalOpen && (
+                <EstimateVersionsView
+                    enquiryId={eventData?.enquiryId ?? ""}
+                    onClose={() => setIsEstimateHistoryModalOpen(false)}
+                    isViewOnlyMode={true}
+                />
+            )}
 
             <ExpensesModal
                 isOpen={isExpensesModalOpen}
@@ -608,14 +593,8 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             <ChecklistModal
                 isOpen={isChecklistModalOpen}
                 onClose={() => setIsChecklistModalOpen(false)}
-                eventData={
-                    (eventData as unknown as {
-                        [key: string]: any;
-                        id?: string;
-                        items?: any[];
-                        checklist?: any[];
-                    }) || {}
-                }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                eventData={(eventData as any) || {}}
                 onSave={() => {
                     setIsChecklistModalOpen(false);
                     fetchEventData();

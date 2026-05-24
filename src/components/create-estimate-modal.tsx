@@ -47,11 +47,6 @@ type EstimateLine = {
     vendor: string;
 };
 
-type VendorName = {
-    id: string;
-    name: string;
-};
-
 type ClientEnquirySummary = {
     clientId: string;
     clientName: string;
@@ -196,8 +191,6 @@ export default function CreateEstimateModal({
     const [isFetchingEnquiry, setIsFetchingEnquiry] = useState(false);
     const [lines, setLines] = useState<EstimateLine[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [vendorNames, setVendorNames] = useState<VendorName[]>([]);
-    const [vendorNamesLoading, setVendorNamesLoading] = useState(false);
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(
         initialData ? { clientName: initialData.client, title: initialData.title } : null,
     );
@@ -277,41 +270,6 @@ export default function CreateEstimateModal({
         };
 
         void loadSummaries();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [isOpen]);
-
-    // Fetch vendor names for dropdown
-    useEffect(() => {
-        if (!isOpen) return;
-
-        let cancelled = false;
-        const loadVendorNames = async () => {
-            setVendorNamesLoading(true);
-            try {
-                const res = await apiRequest("/api/vendors/names");
-                if (!res.ok) {
-                    throw new Error(`Unable to load vendor names. (${res.status})`);
-                }
-                const data = await res.json();
-                if (!cancelled) {
-                    setVendorNames(Array.isArray(data) ? data : []);
-                }
-            } catch (error) {
-                console.error("Failed to load vendor names", error);
-                if (!cancelled) {
-                    setVendorNames([]);
-                }
-            } finally {
-                if (!cancelled) {
-                    setVendorNamesLoading(false);
-                }
-            }
-        };
-
-        void loadVendorNames();
 
         return () => {
             cancelled = true;
@@ -897,6 +855,7 @@ export default function CreateEstimateModal({
                         vendor: line.vendor || "",
                         checkList: "",
                         days,
+                        category: line.category || "General",
                     };
 
                     const bucket = acc[category] ?? [];
@@ -926,14 +885,7 @@ export default function CreateEstimateModal({
                 acc[category] = bucket;
                 return acc;
             }, {});
-            // const totaAmountWithoutAdjustments =
-            //     totalAmount + values.additionalCost - values.discountAmount;
-            // const amountWithServiceCharge =
-            //     totaAmountWithoutAdjustments +
-            //     calculatePercentageAmount(totaAmountWithoutAdjustments, values.serviceCharge);
-            // const totalWithGST =
-            //     amountWithServiceCharge +
-            //     calculatePercentageAmount(amountWithServiceCharge, values.gst);
+
             const payload: CreateEstimatePayload = {
                 title: values.title,
                 highlvelRequirement: values.highlvelRequirement,
