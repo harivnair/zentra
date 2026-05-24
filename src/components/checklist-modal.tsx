@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +14,15 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { cn } from "@/lib/utils/cn";
 import { TrashIcon } from "@/components/ui/icons";
 import { ChevronDownIcon } from "lucide-react";
-import { Select } from "./ui";
+import { Select, DatePickerField } from "./ui";
 
-const CreatableSelect = dynamic(() => import("react-select/creatable"), {
-    ssr: false,
-});
+const CreatableSelectField = dynamic(
+    () =>
+        import("@/components/ui").then(mod => ({
+            default: mod.CreatableSelectField,
+        })),
+    { ssr: false },
+);
 
 // Assuming EventItem matches backend EventItem model
 interface EventItem {
@@ -43,9 +45,11 @@ interface ChecklistItem {
     item: string;
     description?: string;
     quantity: number;
+    days?: number;
+    pricePerItem?: number;
     startDate?: string;
     endDate?: string;
-    executionTime?: string;
+    deadlineDate?: string;
     vendor?: string;
     inventoryID?: string | number;
     status?: string; // PENDING, CONFIRMED, IN_PROGRESS, DONE
@@ -137,7 +141,9 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                         ? String(item.startDate || item.starDate).split("T")[0]
                         : "",
                 endDate: item.endDate ? String(item.endDate).split("T")[0] : "",
-                executionTime: "",
+                days: Number(item.days) || 1,
+                pricePerItem: Number(item.pricePerItem) || 0,
+                deadlineDate: String(item.deadlineDate || ""),
                 isInventoryItem: Boolean(item.inventoryID) || false,
             }));
             setChecklistData(initialChecklist);
@@ -203,11 +209,13 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                 item: "",
                 description: "",
                 quantity: 1,
+                days: 0,
+                pricePerItem: 0,
                 vendor: "",
                 status: "PENDING",
                 startDate: "",
                 endDate: "",
-                executionTime: "",
+                deadlineDate: "",
                 isInventoryItem: false,
             },
         ]);
@@ -229,9 +237,7 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
 
             // Validate each item has either a vendor or inventory selected
             const missingAssignment = filteredData.find(
-                item =>
-                    !item.vendor &&
-                    (!item.isInventoryItem || !item.inventoryID),
+                item => !item.vendor && (!item.isInventoryItem || !item.inventoryID),
             );
             if (missingAssignment) {
                 toast.error(
@@ -341,6 +347,7 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                                                             }
                                                             label="Item Name"
                                                             placeholder="Item name"
+                                                            smallLabel
                                                         />
                                                         <Input
                                                             value={item.subCategory}
@@ -353,6 +360,7 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                                                             }
                                                             label="Sub Category (Optional)"
                                                             placeholder="e.g. Signage, Branding..."
+                                                            smallLabel
                                                         />
                                                         <Select
                                                             value={
@@ -370,6 +378,7 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                                                             }
                                                             options={statusOptions}
                                                             label="Status"
+                                                            smallLabel
                                                         />
                                                         <button
                                                             onClick={() =>
@@ -382,10 +391,10 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                                                         </button>
                                                     </div>
 
-                                                    {/* Description + Checkbox/Dropdown Row */}
-                                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                                                        {/* Description Field - takes 2/3 */}
-                                                        <div className="lg:col-span-2">
+                                                    {/* Description / Days+Quantity / Inventory-Vendor Row */}
+                                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+                                                        {/* Column 1: Description */}
+                                                        <div className="lg:col-span-1">
                                                             <Textarea
                                                                 value={item.description || ""}
                                                                 onChange={e =>
@@ -397,14 +406,49 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
                                                                 }
                                                                 label="Description details & specs"
                                                                 placeholder="Add elaborate notes, specifics, lengths, details..."
+                                                                rows={2}
+                                                                style={{ minHeight: "114px" }}
+                                                                smallLabel
                                                             />
                                                         </div>
 
-                                                        {/* Right side: Checkbox on top, dropdown below - takes 1/3 */}
+                                                        {/* Column 2: Days (top) + Quantity (bottom) stacked */}
+                                                        <div className="lg:col-span-1">
+                                                            <Input
+                                                                label="Days"
+                                                                type="number"
+                                                                className="mb-3"
+                                                                value={(item.days ?? 0) || ""}
+                                                                onChange={e =>
+                                                                    handleItemChange(
+                                                                        item.originalIndex,
+                                                                        "days",
+                                                                        parseInt(e.target.value) ||
+                                                                            0,
+                                                                    )
+                                                                }
+                                                                smallLabel
+                                                            />
+                                                            <Input
+                                                                label="Quantity"
+                                                                smallLabel
+                                                                type="number"
+                                                                value={item.quantity || ""}
+                                                                onChange={e =>
+                                                                    handleItemChange(
+                                                                        item.originalIndex,
+                                                                        "quantity",
+                                                                        parseInt(e.target.value) ||
+                                                                            0,
+                                                                    )
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        {/* Column 3: Checkbox (top) aligned with Days, dropdown (bottom) aligned with Quantity */}
                                                         <div className="lg:col-span-1 flex flex-col gap-3">
-                                                            {/* Checkbox - Inventory Item Toggle */}
-                                                            <div className="flex items-end">
-                                                                <label className="flex items-center gap-2 cursor-pointer h-10">
+                                                            <div className="h-10 flex items-center lg:mt-[22px]">
+                                                                <label className="flex items-center gap-2 cursor-pointer">
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={
@@ -426,240 +470,208 @@ export function ChecklistModal({ isOpen, onClose, eventData, onSave }: Checklist
 
                                                             {/* Conditional Select - Inventory Item or Assigned Vendor */}
                                                             {item.isInventoryItem ? (
-                                                                <>
-                                                                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 block">
-                                                                        Inventory Item
-                                                                    </label>
-                                                                    <CreatableSelect
-                                                                        options={inventoryList.map(
-                                                                            inv => ({
-                                                                                value: String(
-                                                                                    inv.id || "",
-                                                                                ),
-                                                                                label: inv.itemName as string,
-                                                                            }),
-                                                                        )}
-                                                                        value={
-                                                                            item.inventoryID
-                                                                                ? {
-                                                                                      value: String(
+                                                                <CreatableSelectField
+                                                                    smallLabel
+                                                                    label="Inventory Item"
+                                                                    options={inventoryList.map(
+                                                                        inv => ({
+                                                                            value: String(
+                                                                                inv.id || "",
+                                                                            ),
+                                                                            label: inv.itemName as string,
+                                                                        }),
+                                                                    )}
+                                                                    value={
+                                                                        item.inventoryID
+                                                                            ? {
+                                                                                  value: String(
+                                                                                      item.inventoryID,
+                                                                                  ),
+                                                                                  label:
+                                                                                      inventoryList.find(
+                                                                                          inv =>
+                                                                                              String(
+                                                                                                  inv.id,
+                                                                                              ) ===
+                                                                                              String(
+                                                                                                  item.inventoryID,
+                                                                                              ),
+                                                                                      )?.itemName ||
+                                                                                      String(
                                                                                           item.inventoryID,
                                                                                       ),
-                                                                                      label:
-                                                                                          inventoryList.find(
-                                                                                              inv =>
-                                                                                                  String(
-                                                                                                      inv.id,
-                                                                                                  ) ===
-                                                                                                  String(
-                                                                                                      item.inventoryID,
-                                                                                                  ),
-                                                                                          )
-                                                                                              ?.itemName ||
-                                                                                          String(
-                                                                                              item.inventoryID,
-                                                                                          ),
-                                                                                  }
-                                                                                : null
-                                                                        }
-                                                                        onChange={(
-                                                                            selected,
-                                                                            _actionMeta,
-                                                                        ) => {
-                                                                            const selectedValue =
-                                                                                (
-                                                                                    selected as {
-                                                                                        value?: string;
-                                                                                        label?: string;
-                                                                                    } | null
-                                                                                )?.value || "";
-                                                                            handleItemChange(
-                                                                                item.originalIndex,
-                                                                                "inventoryID",
-                                                                                selectedValue as string,
-                                                                            );
-                                                                        }}
-                                                                        placeholder={
-                                                                            loadingInventory
-                                                                                ? "Loading..."
-                                                                                : "Select Inventory Item"
-                                                                        }
-                                                                        className="text-sm"
-                                                                        classNamePrefix="react-select"
-                                                                        isClearable
-                                                                        styles={{
-                                                                            control: base => ({
-                                                                                ...base,
-                                                                                minHeight: "40px",
-                                                                                height: "40px",
-                                                                                backgroundColor:
-                                                                                    "var(--background)",
-                                                                            }),
-                                                                            valueContainer:
-                                                                                base => ({
-                                                                                    ...base,
-                                                                                    padding:
-                                                                                        "0 8px",
-                                                                                }),
-                                                                            input: base => ({
-                                                                                ...base,
-                                                                                margin: "0",
-                                                                                padding: "0",
-                                                                            }),
-                                                                        }}
-                                                                    />
-                                                                </>
+                                                                              }
+                                                                            : null
+                                                                    }
+                                                                    onChange={selectedValue => {
+                                                                        handleItemChange(
+                                                                            item.originalIndex,
+                                                                            "inventoryID",
+                                                                            selectedValue,
+                                                                        );
+                                                                    }}
+                                                                    placeholder={
+                                                                        loadingInventory
+                                                                            ? "Loading..."
+                                                                            : "Select Inventory Item"
+                                                                    }
+                                                                    isClearable
+                                                                />
                                                             ) : (
-                                                                <>
-                                                                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 block">
-                                                                        Assigned Vendor
-                                                                    </label>
-                                                                    <CreatableSelect
-                                                                        options={vendorList.map(
-                                                                            v => ({
-                                                                                value: String(
-                                                                                    v.id || "",
-                                                                                ),
-                                                                                label: v.name as string,
-                                                                            }),
-                                                                        )}
-                                                                        value={
-                                                                            item.vendor
-                                                                                ? {
-                                                                                      value: item.vendor,
-                                                                                      label:
-                                                                                          vendorList.find(
-                                                                                              v =>
-                                                                                                  String(
-                                                                                                      v.id,
-                                                                                                  ) ===
-                                                                                                  item.vendor,
-                                                                                          )?.name ||
-                                                                                          item.vendor,
-                                                                                  }
-                                                                                : null
-                                                                        }
-                                                                        onChange={(
-                                                                            selected,
-                                                                            _actionMeta,
-                                                                        ) => {
-                                                                            const selectedValue =
-                                                                                (
-                                                                                    selected as {
-                                                                                        value?: string;
-                                                                                        label?: string;
-                                                                                    } | null
-                                                                                )?.value || "";
-                                                                            handleItemChange(
-                                                                                item.originalIndex,
-                                                                                "vendor",
-                                                                                selectedValue as string,
-                                                                            );
-                                                                        }}
-                                                                        placeholder={
-                                                                            loadingVendors
-                                                                                ? "Loading..."
-                                                                                : "Vendor"
-                                                                        }
-                                                                        className="text-sm"
-                                                                        classNamePrefix="react-select"
-                                                                        isClearable
-                                                                        styles={{
-                                                                            control: base => ({
-                                                                                ...base,
-                                                                                minHeight: "40px",
-                                                                                height: "40px",
-                                                                                backgroundColor:
-                                                                                    "var(--background)",
-                                                                            }),
-                                                                            valueContainer:
-                                                                                base => ({
-                                                                                    ...base,
-                                                                                    padding:
-                                                                                        "0 8px",
-                                                                                }),
-                                                                            input: base => ({
-                                                                                ...base,
-                                                                                margin: "0",
-                                                                                padding: "0",
-                                                                            }),
-                                                                        }}
-                                                                    />
-                                                                </>
+                                                                <CreatableSelectField
+                                                                    smallLabel
+                                                                    label="Assigned Vendor"
+                                                                    options={vendorList.map(v => ({
+                                                                        value: String(v.id || ""),
+                                                                        label: v.name as string,
+                                                                    }))}
+                                                                    value={
+                                                                        item.vendor
+                                                                            ? {
+                                                                                  value: item.vendor,
+                                                                                  label:
+                                                                                      vendorList.find(
+                                                                                          v =>
+                                                                                              String(
+                                                                                                  v.id,
+                                                                                              ) ===
+                                                                                              item.vendor,
+                                                                                      )?.name ||
+                                                                                      item.vendor,
+                                                                              }
+                                                                            : null
+                                                                    }
+                                                                    onChange={selectedValue => {
+                                                                        handleItemChange(
+                                                                            item.originalIndex,
+                                                                            "vendor",
+                                                                            selectedValue,
+                                                                        );
+                                                                    }}
+                                                                    placeholder={
+                                                                        loadingVendors
+                                                                            ? "Loading..."
+                                                                            : "Vendor"
+                                                                    }
+                                                                    isClearable
+                                                                />
                                                             )}
                                                         </div>
                                                     </div>
 
-                                                    {/* Execution Data Grid: Quantity, Dates, Time */}
-                                                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 bg-muted/50 p-3 rounded-lg border border-border">
-                                                        {/* Quantity */}
-                                                        <div className="lg:col-span-1">
-                                                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 block">
-                                                                Quantity
-                                                            </label>
-                                                            <Input
-                                                                type="number"
-                                                                value={item.quantity}
-                                                                onChange={e =>
-                                                                    handleItemChange(
-                                                                        item.originalIndex,
-                                                                        "quantity",
-                                                                        parseInt(e.target.value) ||
-                                                                            0,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-
+                                                    {/* Execution Data Grid: Dates, Rate, Deadline */}
+                                                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
                                                         {/* Start Date */}
                                                         <div className="lg:col-span-1">
-                                                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 block">
-                                                                Start Date
-                                                            </label>
-                                                            <Input
-                                                                type="date"
-                                                                value={item.startDate || ""}
-                                                                onChange={e =>
+                                                            <DatePickerField
+                                                                value={
+                                                                    item.startDate
+                                                                        ? new Date(
+                                                                              item.startDate +
+                                                                                  "T00:00:00",
+                                                                          )
+                                                                        : null
+                                                                }
+                                                                onChange={date => {
+                                                                    const value = date
+                                                                        ? date
+                                                                              .toISOString()
+                                                                              .split("T")[0]
+                                                                        : "";
                                                                     handleItemChange(
                                                                         item.originalIndex,
                                                                         "startDate",
-                                                                        e.target.value,
-                                                                    )
-                                                                }
+                                                                        value,
+                                                                    );
+                                                                }}
+                                                                placeholderText="Select date"
+                                                                dateFormat="MMM d, yyyy"
+                                                                showTimeSelect={false}
+                                                                wrapperClassName="lg:col-span-1"
+                                                                label="Start Date"
+                                                                smallLabel
                                                             />
                                                         </div>
 
                                                         {/* End Date */}
                                                         <div className="lg:col-span-1">
-                                                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 block">
-                                                                End Date
-                                                            </label>
-                                                            <Input
-                                                                type="date"
-                                                                value={item.endDate || ""}
-                                                                onChange={e =>
+                                                            <DatePickerField
+                                                                value={
+                                                                    item.endDate
+                                                                        ? new Date(
+                                                                              item.endDate +
+                                                                                  "T00:00:00",
+                                                                          )
+                                                                        : null
+                                                                }
+                                                                onChange={date => {
+                                                                    const value = date
+                                                                        ? date
+                                                                              .toISOString()
+                                                                              .split("T")[0]
+                                                                        : "";
                                                                     handleItemChange(
                                                                         item.originalIndex,
                                                                         "endDate",
-                                                                        e.target.value,
-                                                                    )
-                                                                }
+                                                                        value,
+                                                                    );
+                                                                }}
+                                                                placeholderText="Select date"
+                                                                dateFormat="MMM d, yyyy"
+                                                                showTimeSelect={false}
+                                                                wrapperClassName="lg:col-span-1"
+                                                                label="End Date"
+                                                                smallLabel
                                                             />
                                                         </div>
 
-                                                        {/* Execution Time */}
+                                                        {/* Deadline Date */}
                                                         <div className="lg:col-span-1">
-                                                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 block">
-                                                                Time
-                                                            </label>
+                                                            <DatePickerField
+                                                                value={
+                                                                    item.deadlineDate
+                                                                        ? new Date(
+                                                                              item.deadlineDate +
+                                                                                  "T00:00:00",
+                                                                          )
+                                                                        : null
+                                                                }
+                                                                onChange={date => {
+                                                                    const value = date
+                                                                        ? date
+                                                                              .toISOString()
+                                                                              .split("T")[0]
+                                                                        : "";
+                                                                    handleItemChange(
+                                                                        item.originalIndex,
+                                                                        "deadlineDate",
+                                                                        value,
+                                                                    );
+                                                                }}
+                                                                placeholderText="Select date"
+                                                                dateFormat="MMM d, yyyy"
+                                                                showTimeSelect={false}
+                                                                wrapperClassName="lg:col-span-1"
+                                                                label="Deadline"
+                                                                smallLabel
+                                                            />
+                                                        </div>
+                                                        {/* Rate */}
+                                                        <div className="lg:col-span-1">
                                                             <Input
-                                                                type="time"
-                                                                value={item.executionTime || ""}
+                                                                label="Rate"
+                                                                type="number"
+                                                                smallLabel
+                                                                value={
+                                                                    (item.pricePerItem ?? 0) || ""
+                                                                }
                                                                 onChange={e =>
                                                                     handleItemChange(
                                                                         item.originalIndex,
-                                                                        "executionTime",
-                                                                        e.target.value,
+                                                                        "pricePerItem",
+                                                                        parseFloat(
+                                                                            e.target.value,
+                                                                        ) || 0,
                                                                     )
                                                                 }
                                                             />

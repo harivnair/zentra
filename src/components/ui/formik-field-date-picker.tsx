@@ -1,10 +1,9 @@
 "use client";
 
 import { Field, FieldProps } from "formik";
-import DatePicker from "react-datepicker";
-import { cn } from "@/lib/utils/cn";
-import { CalendarIcon } from "lucide-react";
-import { forwardRef } from "react";
+import { DatePickerField, type DatePickerFieldProps } from "./date-picker";
+
+export type { DatePickerFieldProps };
 
 export interface FormikFieldDatePickerProps {
     name: string;
@@ -24,32 +23,8 @@ export interface FormikFieldDatePickerProps {
     disabled?: boolean;
 }
 
-const DatePickerInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-    ({ className, ...props }, ref) => {
-        return (
-            <div className="relative">
-                <input
-                    ref={ref}
-                    className={cn(
-                        "flex h-10 w-full rounded-md border border-input bg-surface px-3 py-2 pr-10 text-sm text-foreground transition-colors",
-                        "placeholder:text-muted-foreground text-xs",
-                        "focus:border-accent focus:outline-none focus:ring-2 focus:ring-input-ring",
-                        "disabled:cursor-not-allowed disabled:opacity-50",
-                        className,
-                    )}
-                    {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
-                />
-                <CalendarIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            </div>
-        );
-    },
-);
-
-DatePickerInput.displayName = "DatePickerInput";
-
 /**
- * Reusable Formik-connected DatePicker with time support and theme styling.
- * Matches the style of other FormikFieldInput components.
+ * Formik-connected wrapper around DatePickerField.
  * Use inside <Formik><Form>...</Form></Formik>.
  */
 export function FormikFieldDatePicker({
@@ -72,71 +47,37 @@ export function FormikFieldDatePicker({
     const pickerId = id ?? name;
 
     return (
-        <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
-            {label && (
-                <label htmlFor={pickerId} className="text-sm font-medium text-foreground">
-                    {label}
-                </label>
-            )}
-            <Field name={name}>
-                {({ field, meta }: FieldProps<string>) => {
-                    const showError = error || (!!meta.touched && !!meta.error);
-                    const errorMessage = error || meta.error;
+        <Field name={name}>
+            {({ field, meta }: FieldProps<string>) => {
+                const showError = error || (!!meta.touched && !!meta.error);
+                const errorMessage = error || meta.error;
 
-                    const datePickerProps = {
-                        selected: field.value ? new Date(field.value) : null,
-                        onChange: (date: Date | null) => {
-                            const isoValue = date ? date.toISOString() : "";
+                return (
+                    <DatePickerField
+                        id={pickerId}
+                        label={label}
+                        inputClassName={inputClassName}
+                        wrapperClassName={wrapperClassName}
+                        value={field.value ? new Date(field.value) : null}
+                        onChange={(date, isoValue) => {
                             field.onChange({
                                 target: { name, value: isoValue },
                             });
                             onChange?.(date, isoValue);
-                        },
-                        placeholderText,
-                        showTimeSelect,
-                        timeIntervals,
-                        dateFormat,
-                        minDate,
-                        maxDate,
-                        isClearable,
-                        disabled,
-                        customInput: (
-                            <DatePickerInput
-                                id={pickerId}
-                                placeholder={placeholderText}
-                                className={cn(
-                                    showError &&
-                                        "border-error focus:border-error focus:ring-[var(--input-error-ring)]",
-                                    inputClassName,
-                                )}
-                                aria-invalid={
-                                    showError as
-                                        | boolean
-                                        | "true"
-                                        | "false"
-                                        | "grammar"
-                                        | "spelling"
-                                        | undefined
-                                }
-                                aria-describedby={showError ? `${pickerId}-error` : undefined}
-                            />
-                        ),
-                        popperClassName: "z-50",
-                    };
-
-                    return (
-                        <>
-                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                            <DatePicker {...(datePickerProps as any)} />
-                            {errorMessage && (
-                                <p id={`${pickerId}-error`} className="text-xs text-error">
-                                    {errorMessage}
-                                </p>
-                            )}
-                        </>
-                    );
-                }}
-            </Field>
-        </div>
+                        }}
+                        error={errorMessage}
+                        placeholderText={placeholderText}
+                        showTimeSelect={showTimeSelect}
+                        timeIntervals={timeIntervals}
+                        dateFormat={dateFormat}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                        isClearable={isClearable}
+                        disabled={disabled}
+                        showError={showError as boolean}
+                    />
+                );
+            }}
+        </Field>
     );
 }
