@@ -1,15 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ProjectPlanningModal } from "@/components/project-planning-modal";
 import { EstimateVersionsView } from "@/components/estimate-versions-view";
 import { ExpensesModal } from "@/components/expenses-modal";
 import { BillingExpenseModal } from "@/components/billing-expense-modal";
 import { ChecklistModal } from "@/components/checklist-modal";
+import { ChecklistPreviewModal } from "@/components/checklist-preview-modal";
+import { InventoryListModal } from "@/components/inventory-list-modal";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
 import { EventResponse } from "@/types/event";
+import type { Vendor } from "@/types/vendor";
+import type { Inventory } from "@/types/inventory";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_LABELS } from "@/constants/event";
 import {
@@ -33,7 +36,6 @@ import { Button } from "@/components/ui";
 
 export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = React.use(params);
-    const router = useRouter();
     const [eventTitle, setEventTitle] = useState<string>("Event Details");
     const [eventData, setEventData] = useState<EventResponse | null>(null);
     const [isProjectPlanningModalOpen, setIsProjectPlanningModalOpen] = useState(false);
@@ -41,7 +43,13 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     const [isExpensesModalOpen, setIsExpensesModalOpen] = useState(false);
     const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
     const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
+    const [isChecklistPreviewModalOpen, setIsChecklistPreviewModalOpen] = useState(false);
+    const [isInventoryListModalOpen, setIsInventoryListModalOpen] = useState(false);
     const [expandedSection, setExpandedSection] = useState<string>("client");
+    const [vendorList, setVendorList] = useState<Vendor[]>([]);
+    const [inventoryList, setInventoryList] = useState<Inventory[]>([]);
+    const [loadingVendors, setLoadingVendors] = useState(false);
+    const [loadingInventory, setLoadingInventory] = useState(false);
     const fetchPromiseRef = React.useRef<Promise<EventResponse | null> | null>(null);
 
     const fetchEventData = React.useCallback(async () => {
@@ -72,6 +80,46 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     useEffect(() => {
         fetchEventData();
     }, [fetchEventData]);
+
+    const fetchChecklistData = React.useCallback(async () => {
+        const fetchVendors = async () => {
+            setLoadingVendors(true);
+            try {
+                const res = await apiRequest(API_ENDPOINTS.vendors.list);
+                if (res.ok) {
+                    const data = await res.json();
+                    setVendorList(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error("Failed to fetch vendors:", err);
+            } finally {
+                setLoadingVendors(false);
+            }
+        };
+
+        const fetchInventory = async () => {
+            setLoadingInventory(true);
+            try {
+                const res = await apiRequest(API_ENDPOINTS.inventory.list);
+                if (res.ok) {
+                    const data = await res.json();
+                    setInventoryList(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error("Failed to fetch inventory:", err);
+            } finally {
+                setLoadingInventory(false);
+            }
+        };
+
+        await Promise.all([fetchVendors(), fetchInventory()]);
+    }, []);
+
+    useEffect(() => {
+        if (isChecklistPreviewModalOpen) {
+            fetchChecklistData();
+        }
+    }, [isChecklistPreviewModalOpen, fetchChecklistData]);
 
     // Calculate totals from categorySummary (provided by backend)
     let totalEstimatedCost = 0;
@@ -147,7 +195,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             title: "Event Checklist",
             description: "Assign tasks and track execution milestones.",
             linkLabel: "Open Tasks",
-            onClick: () => setIsChecklistModalOpen(true),
+            onClick: () => setIsChecklistPreviewModalOpen(true),
         },
         {
             id: "inventory",
@@ -155,7 +203,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             title: "Inventory List",
             description: "Manage stock and vendor allocations for this event.",
             linkLabel: "View List",
-            onClick: () => router.push("/inventory"),
+            onClick: () => setIsInventoryListModalOpen(true),
         },
         {
             id: "expenses",
@@ -598,8 +646,43 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                 onSave={() => {
                     setIsChecklistModalOpen(false);
                     fetchEventData();
+                    // Reopen preview modal with updated data
+                    setIsChecklistPreviewModalOpen(true);
                 }}
+                onCancel={() => {
+                    setIsChecklistModalOpen(false);
+                    setIsChecklistPreviewModalOpen(true);
+                }}
+                vendorList={vendorList}
+                inventoryList={inventoryList}
+                loadingVendors={loadingVendors}
+                loadingInventory={loadingInventory}
             />
+
+            {isChecklistPreviewModalOpen && eventData && (
+                <ChecklistPreviewModal
+                    isOpen={isChecklistPreviewModalOpen}
+                    onClose={() => setIsChecklistPreviewModalOpen(false)}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    checklistData={(eventData as any)?.items || (eventData as any)?.checklist || []}
+                    vendorList={vendorList}
+                    inventoryList={inventoryList}
+                    onUpdate={() => {
+                        setIsChecklistPreviewModalOpen(false);
+                        setIsChecklistModalOpen(true);
+                    }}
+                />
+            )}
+
+            {isInventoryListModalOpen && eventData && (
+                <InventoryListModal
+                    isOpen={isInventoryListModalOpen}
+                    onClose={() => setIsInventoryListModalOpen(false)}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    checklistData={(eventData as any)?.items || (eventData as any)?.checklist || []}
+                    inventoryList={inventoryList}
+                />
+            )}
         </div>
     );
 }
