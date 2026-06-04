@@ -63,15 +63,10 @@ export interface EstimateEventDetails {
     location?: string;
     venue?: string;
     status?: string;
-    client?:
-        | string
-        | {
-              id?: string;
-              name: string;
-              phone: string;
-          };
+    client?: string;
     vendor?: unknown[];
     items?: unknown[];
+    clientID?: string;
 }
 
 export interface EventFormData {
@@ -85,6 +80,7 @@ export interface EventFormData {
     venue?: string;
     status?: string;
     clientId?: string;
+    client?: string;
     estimateId?: string;
     enquiryId?: string;
     additionalCostEstimate?: AdditionalCost[];
@@ -135,16 +131,8 @@ export type EventResponse = {
         gstAmount?: number;
         netTotal?: number;
     };
-    client?: {
-        id?: string;
-        name?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-        poc?: string;
-        gst?: string;
-        pan?: string;
-    };
+    client?: string;
+    clientID?: string;
     items?: Array<{
         item?: string;
         description?: string;

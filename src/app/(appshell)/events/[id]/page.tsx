@@ -7,6 +7,7 @@ import { ExpensesModal } from "@/components/expenses-modal";
 import { BillingExpenseModal } from "@/components/billing-expense-modal";
 import { ChecklistModal } from "@/components/checklist-modal";
 import { ChecklistPreviewModal } from "@/components/checklist-preview-modal";
+import { ClientDetailView } from "@/components/client-detail-view";
 import { InventoryListModal } from "@/components/inventory-list-modal";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
@@ -345,47 +346,11 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                                     />
                                 </button>
                                 {expandedSection === "client" && (
-                                    <div className="px-5 pb-5 pt-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-border/10 mt-2 pt-5">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
-                                                Name
-                                            </p>
-                                            <p className="text-sm font-medium text-foreground">
-                                                {eventData.client.name ?? "-"}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
-                                                Contact Person
-                                            </p>
-                                            <p className="text-sm font-medium text-foreground">
-                                                {eventData.client.poc ?? "-"}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
-                                                Phone
-                                            </p>
-                                            <p className="text-sm font-medium text-foreground">
-                                                {eventData.client.phone ?? "-"}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
-                                                Email
-                                            </p>
-                                            <p className="text-sm font-medium text-foreground">
-                                                {eventData.client.email ?? "-"}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1 sm:col-span-2">
-                                            <p className="text-[10px] text-muted-foreground font-bold uppercase">
-                                                Address
-                                            </p>
-                                            <p className="text-sm font-medium text-foreground">
-                                                {eventData.client.address ?? eventData.venue ?? "-"}
-                                            </p>
-                                        </div>
+                                    <div className="px-5 pb-5 pt-0 border-t border-border/10 mt-2 pt-5">
+                                        <ClientDetailView
+                                            clientId={eventData.clientID}
+                                            clientName={eventData?.client}
+                                        />
                                     </div>
                                 )}
                             </div>

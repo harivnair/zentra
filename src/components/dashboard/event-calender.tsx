@@ -31,7 +31,7 @@ export function EventCalender() {
                     id: event.id || event.eventID || "",
                     title: event.title || "Untitled Event",
                     date: event.eventStartDate ? event.eventStartDate.split("T")[0] : "",
-                    client: event.client?.name || "",
+                    client: event.client,
                     location: event.location || event.venue || "",
                     status: (event.status?.toLowerCase() as CalendarEvent["status"]) || "open",
                 }));
