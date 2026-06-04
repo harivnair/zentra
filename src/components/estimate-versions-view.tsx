@@ -213,6 +213,7 @@ export function EstimateVersionsView({
                 location: version.location,
                 venue: version.venue,
                 client: version.client,
+                clientID: version.clientID,
                 enquiryId: version.enquiryId,
                 estimateId: version.id,
                 eventID: version.eventID,
@@ -224,6 +225,10 @@ export function EstimateVersionsView({
                 gst: version.gst,
                 enquiryDate: version.enquiryDate,
                 items: flattenedItems,
+                enquiryPoc: version.enquiryPoC,
+                pocContactNumber: version.pocContactNumber,
+                highlvelRequirement: version.highlvelRequirement,
+                clientPoC: version.clientPoC,
             };
 
             const res = await apiRequest(API_ENDPOINTS.events.list, {

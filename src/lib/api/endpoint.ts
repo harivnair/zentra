@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
     clients: {
         list: "/api/clients",
         detail: (id: string | number) => `/api/clients/${id}`,
+        get: (id: string | number) => `/api/clients/get?id=${id}`,
     },
     checklists: {
         list: "/api/checklists",

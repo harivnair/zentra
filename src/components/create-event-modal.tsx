@@ -161,12 +161,6 @@ export default function CreateEventModal({
             // Use eventName if available, otherwise fall back to title
             const eventTitle = eventDetails.eventName || eventDetails.title || "";
 
-            // Extract clientId - handle both string and object formats
-            const clientId =
-                typeof eventDetails.client === "string"
-                    ? eventDetails.client
-                    : eventDetails.client?.id || "";
-
             // Use 'id' field from enquiry as enquiryId
             const enquiryId = eventDetails.id || eventDetails.enquiryId || "";
 
@@ -177,9 +171,10 @@ export default function CreateEventModal({
                 eventEndDate: formatDateForInput(eventDetails.toDate),
                 location: eventDetails.location || "",
                 venue: eventDetails.venue || "",
-                clientId: clientId,
+                clientId: eventDetails.clientID,
                 estimateId: responseEstimateId,
                 enquiryId: enquiryId,
+                client: eventDetails.client,
             });
 
             // Extract items from estimate response
@@ -290,7 +285,8 @@ export default function CreateEventModal({
 
             if (values.location) payload.location = values.location;
             if (values.venue) payload.venue = values.venue;
-            if (values.clientId) payload.client = values.clientId;
+            if (values.clientId) payload.clientID = values.clientId;
+            if (values.client) payload.client = values.client;
             if (values.enquiryId) payload.enquiryId = values.enquiryId;
             if (values.estimateId) payload.estimateId = values.estimateId;
             if (values.enquiryDate) payload.enquiryDate = values.enquiryDate;

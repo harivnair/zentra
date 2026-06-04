@@ -44,6 +44,7 @@ export interface Enquiry {
     location?: string;
     title?: string;
     clientPoC?: string;
+    clientID?: string;
 }
 
 export interface EnquiriesTableFiltersFormValues {

@@ -21,6 +21,7 @@ interface SelectComponentProps extends Omit<ReactSelectProps<SelectOption, false
     options?: SelectOption[];
     placeholder?: string;
     className?: string;
+    smallLabel?: boolean;
 }
 
 const CustomControl = ({ children, ...props }: ControlProps<SelectOption>) => (
@@ -43,6 +44,7 @@ export const Select = ({
     placeholder,
     className,
     styles,
+    smallLabel,
     ...props
 }: SelectComponentProps) => {
     const customStyles: ReactSelectProps<SelectOption, false>["styles"] = {
@@ -140,7 +142,16 @@ export const Select = ({
 
     return (
         <div className={cn("flex flex-col gap-1.5", className)}>
-            {label && <label className="text-sm font-medium text-foreground">{label}</label>}
+            {label && (
+                <label
+                    className={cn(
+                        "font-medium text-foreground",
+                        smallLabel ? "text-xs font-semibold text-muted-foreground" : "text-sm",
+                    )}
+                >
+                    {typeof label === "string" && smallLabel ? label.toUpperCase() : label}
+                </label>
+            )}
             <ReactSelect<SelectOption, false>
                 options={options}
                 placeholder={placeholder}

@@ -7,26 +7,12 @@ import { Label } from "@/components/ui-old/label";
 import { toast } from "sonner";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
+import { EventResponse } from "@/types/event";
 
 interface BillingExpenseModalProps {
     isOpen: boolean;
     onClose: () => void;
-    eventData: {
-        id?: string;
-        billingAddress?: string;
-        pan?: string;
-        gst?: number;
-        tds?: number;
-        serviceCharge?: number;
-        advanceAmt?: number;
-        discounts?: number;
-        client?: {
-            gst?: string;
-            pan?: string;
-            [key: string]: unknown;
-        };
-        [key: string]: unknown;
-    };
+    eventData: EventResponse;
     onSave: () => void;
 }
 
@@ -50,7 +36,7 @@ export function BillingExpenseModal({
         if (!isOpen) return;
         setBillingAddress(eventData?.billingAddress || "");
         setPan(eventData?.pan || "");
-        setClientGst(eventData?.client?.gst || "");
+        // setClientGst(eventData?.client?.gst || "");
         setGst(eventData?.gst || 0);
         setTds(eventData?.tds || 0);
         setServiceCharge(eventData?.serviceCharge || 0);
@@ -70,10 +56,6 @@ export function BillingExpenseModal({
                 serviceCharge,
                 advanceAmt,
                 discounts,
-                client: {
-                    ...eventData?.client,
-                    gst: clientGst,
-                },
             };
 
             const res = await apiRequest(API_ENDPOINTS.events.list, {

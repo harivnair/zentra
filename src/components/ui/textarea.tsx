@@ -5,17 +5,24 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
     label?: string | React.ReactNode;
     error?: string;
     hint?: string;
+    smallLabel?: boolean;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-    ({ className, label, error, hint, id, name, ...props }, ref) => {
+    ({ className, label, error, hint, id, name, smallLabel, ...props }, ref) => {
         const textareaId = id ?? name;
 
         return (
             <div className="flex flex-col gap-1.5">
                 {label && (
-                    <label htmlFor={textareaId} className="text-sm font-medium text-foreground">
-                        {label}
+                    <label
+                        htmlFor={textareaId}
+                        className={cn(
+                            "font-medium text-foreground",
+                            smallLabel ? "text-xs font-semibold text-muted-foreground" : "text-sm",
+                        )}
+                    >
+                        {typeof label === "string" && smallLabel ? label.toUpperCase() : label}
                     </label>
                 )}
                 <textarea

@@ -886,6 +886,10 @@ export default function CreateEstimateModal({
                 return acc;
             }, {});
 
+            const fallbackClientId = clientSummaries.find(
+                c => c.clientName === prefillData.client,
+            )?.clientId;
+
             const payload: CreateEstimatePayload = {
                 title: values.title,
                 highlvelRequirement: values.highlvelRequirement,
@@ -899,6 +903,7 @@ export default function CreateEstimateModal({
                 pocContactNumber: values.pocContactNumber,
                 enquiryPoC: values.enquiryPoC,
                 client: prefillData.client ?? "",
+                clientID: prefillData.clientID ?? fallbackClientId,
                 items: requestItems,
                 enquiryId: activeEnquiryId,
                 eventName: values.title ?? "",
@@ -945,6 +950,7 @@ export default function CreateEstimateModal({
                 pocContactNumber: payload.pocContactNumber,
                 enquiryPoC: payload.enquiryPoC,
                 client: payload.client,
+                clientID: payload.clientID,
                 items: uiItemsForFallback,
                 gst: payload.gst,
                 serviceCharge: payload.serviceCharge,

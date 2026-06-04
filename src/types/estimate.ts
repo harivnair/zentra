@@ -46,6 +46,7 @@ export interface EstimateDto {
     pocContactNumber: string;
     enquiryPoC?: string;
     client?: string;
+    clientID?: string;
     items?: Record<string, EstimateItem[]>;
     // Versioning fields
     enquiryId?: string;
@@ -106,6 +107,7 @@ export interface CreateEstimatePayload {
     pocContactNumber: string;
     enquiryPoC?: string;
     client: string;
+    clientID?: string;
     items: Record<string, EstimateLineItemPayload[]>;
     enquiryId: string;
     location?: string;

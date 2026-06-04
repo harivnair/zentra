@@ -422,6 +422,7 @@ export default function EnquiriesPage() {
                 eventType: selectedEnquiry.eventType || "CORPORATE",
                 highlvelRequirement: selectedEnquiry.highlvelRequirement || "",
                 enquiryPoC: selectedEnquiry.enquiryPoC || "",
+                clientID: selectedEnquiry.clientID || "",
             };
 
             const res = await apiRequest(API_ENDPOINTS.estimates.list, {
