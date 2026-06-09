@@ -1,0 +1,775 @@
+"use client";
+
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Modal, ModalFooter } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, type Column } from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils/cn";
+import type { EventResponse, VendorSummary } from "@/types/event";
+import { apiRequest } from "@/lib/api/api-client";
+import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { toast } from "sonner";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+
+/* ------------------------------------------------------------------ */
+/*  Raw API item type – matches EventResponse.items shape              */
+/* ------------------------------------------------------------------ */
+
+interface RawEventItem {
+    item?: string;
+    description?: string;
+    quantity?: number;
+    pricePerItem?: number;
+    vendor?: string;
+    days?: number;
+    serialNumber?: number;
+    category?: string;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                             */
+/* ------------------------------------------------------------------ */
+
+interface LineItem {
+    id: string;
+    itemName: string;
+    description: string;
+    qty: number;
+    rate: number;
+    days: number;
+    subCategory?: string;
+}
+
+interface CategorySection {
+    id: string;
+    title: string;
+    description: string;
+    items: LineItem[];
+}
+
+interface Financials {
+    subtotal: number;
+    gstPercent: number;
+    tdsPercent: number;
+    advance: number;
+    note: string;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Props                                                             */
+/* ------------------------------------------------------------------ */
+
+interface CreatePurchaseOrderModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave?: () => void;
+    vendorList?: Array<{ id?: string; name: string }>;
+    eventData: EventResponse;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                           */
+/* ------------------------------------------------------------------ */
+
+/** Convert a RawEventItem into a LineItem for display in the table. */
+function toLineItem(item: RawEventItem, index: number): LineItem {
+    return {
+        id: `item-${index}`,
+        itemName: item.item ?? "",
+        description: item.description ?? "",
+        qty: item.quantity ?? 1,
+        rate: item.pricePerItem ?? 0,
+        days: item.days ?? 1,
+    };
+}
+
+/**
+ * Group items from `itemList` by category for a given vendor ID.
+ * Returns an array of CategorySection suitable for display.
+ */
+function groupItemsByCategory(
+    items: RawEventItem[],
+    vendorId: string | undefined,
+): CategorySection[] {
+    // Filter to items belonging to this vendor
+    const vendorItems = items.filter(eventItem => {
+        const eventVendor = eventItem.vendor;
+        if (vendorId === "SELF") {
+            // For SELF (inventory) items, match items with no vendor or vendor "SELF"
+            return !eventVendor || eventVendor === "SELF";
+        }
+        if (!eventVendor) return false;
+        if (vendorId) {
+            return eventVendor === vendorId;
+        }
+        return true;
+    });
+
+    // Group remaining items by category
+    const grouped = new Map<string, RawEventItem[]>();
+    vendorItems.forEach(eventItem => {
+        const category = eventItem.category ?? "Uncategorized";
+        if (!grouped.has(category)) {
+            grouped.set(category, []);
+        }
+        grouped.get(category)!.push(eventItem);
+    });
+
+    // Convert each group to a CategorySection
+    return Array.from(grouped.entries()).map(([category, categoryItems], idx) => ({
+        id: `category-${idx}`,
+        title: category,
+        description: `Procurement for ${category}`,
+        items: categoryItems.map((item, i) => toLineItem(item, i)),
+    }));
+}
+
+/** Determine the set of vendors that appear in the item list. */
+function getItemVendorIds(items: RawEventItem[] | undefined): Set<string> {
+    const ids = new Set<string>();
+    if (!items) return ids;
+    let hasSelfItems = false;
+    for (const item of items) {
+        if (item.vendor) {
+            ids.add(item.vendor);
+        } else {
+            hasSelfItems = true;
+        }
+    }
+    // If any items have no vendor (inventory/self), add "SELF" entry
+    if (hasSelfItems) {
+        ids.add("SELF");
+    }
+    return ids;
+}
+
+/** Build the default financials object for a vendor summary. */
+function buildFinancialsFromSummary(
+    vs: VendorSummary | undefined,
+    computedSubtotal: number,
+): Financials {
+    if (vs) {
+        return {
+            subtotal: vs.totalAmount ?? computedSubtotal,
+            gstPercent: vs.gst ?? 0,
+            tdsPercent: vs.tds ?? 0,
+            advance: vs.advanceAmount ?? 0,
+            note: vs.changeSummary ?? "",
+        };
+    }
+    return {
+        subtotal: computedSubtotal,
+        gstPercent: 0,
+        tdsPercent: 0,
+        advance: 0,
+        note: "",
+    };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                         */
+/* ------------------------------------------------------------------ */
+
+export function CreatePurchaseOrderModal({
+    isOpen,
+    onClose,
+    onSave,
+    vendorList,
+    eventData,
+}: CreatePurchaseOrderModalProps) {
+    const itemList = eventData?.items ?? [];
+    const vendorSummary = eventData?.vendorSummary ?? [];
+    // Determine which vendors to show in the sidebar: all vendors from vendorList
+    // that have items in itemList
+    const activeVendorIds = useMemo(() => getItemVendorIds(itemList), [itemList]);
+
+    const vendors = useMemo(() => {
+        const result: { id: string; name: string; status: string }[] = [];
+
+        // Add regular vendors that have items
+        if (vendorList && vendorList.length > 0) {
+            for (const v of vendorList) {
+                if (v.id && activeVendorIds.has(v.id)) {
+                    result.push({
+                        id: v.id,
+                        name: v.name,
+                        status: "Active Selection",
+                    });
+                }
+            }
+        }
+
+        // Add SELF (inventory) entry if there are items with no vendor
+        if (activeVendorIds.has("SELF")) {
+            result.push({
+                id: "SELF",
+                name: "Inventory (Self)",
+                status: "Own Inventory",
+            });
+        }
+
+        return result;
+    }, [vendorList, activeVendorIds]);
+
+    const [activeVendorId, setActiveVendorId] = useState<string>("");
+    const [showBreakdown, setShowBreakdown] = useState(false);
+
+    // Reset active vendor when vendors change
+    useEffect(() => {
+        if (vendors.length > 0) {
+            if (!activeVendorId || !vendors.some(v => v.id === activeVendorId)) {
+                setActiveVendorId(vendors[0].id);
+            }
+        } else {
+            setActiveVendorId("");
+        }
+    }, [vendors]);
+
+    /* ---------- Derive categories for active vendor ---------- */
+    const categories: CategorySection[] = useMemo(() => {
+        if (!itemList || !activeVendorId) return [];
+        return groupItemsByCategory(itemList, activeVendorId);
+    }, [itemList, activeVendorId]);
+
+    /* ---------- Computed subtotal from items ---------- */
+    const computedSubtotal = useMemo(() => {
+        return categories.reduce(
+            (sum, section) => sum + section.items.reduce((s, item) => s + item.qty * item.rate, 0),
+            0,
+        );
+    }, [categories]);
+
+    /* ---------- Per‑vendor financials state so edits survive vendor switches ---------- */
+    const [financialsByVendor, setFinancialsByVendor] = useState<Record<string, Financials>>({});
+
+    // Initialise financials for each vendor on mount / data change
+    useEffect(() => {
+        if (vendors.length === 0) return;
+
+        setFinancialsByVendor(prev => {
+            const next = { ...prev };
+            for (const v of vendors) {
+                if (!next[v.id]) {
+                    const vs = vendorSummary?.find(s => {
+                        if (v.id === "SELF") {
+                            // SELF items may have vendor "" or "SELF" in vendorSummary
+                            return !s.vendor || s.vendor === "SELF";
+                        }
+                        return s.vendor === v.id;
+                    });
+                    const itemsForVendor = groupItemsByCategory(itemList, v.id);
+                    const sub = itemsForVendor.reduce(
+                        (sum, section) =>
+                            sum + section.items.reduce((s, item) => s + item.qty * item.rate, 0),
+                        0,
+                    );
+                    next[v.id] = buildFinancialsFromSummary(vs, sub);
+                }
+            }
+            return next;
+        });
+    }, [vendors, vendorSummary, itemList]);
+
+    /* ---------- Keep subtotal in sync with computed value for the active vendor ---------- */
+    useEffect(() => {
+        setFinancialsByVendor(prev => {
+            const current = prev[activeVendorId];
+            if (!current) return prev;
+            return {
+                ...prev,
+                [activeVendorId]: { ...current, subtotal: computedSubtotal },
+            };
+        });
+    }, [computedSubtotal, activeVendorId]);
+
+    /* ---------- Get financials for active vendor ---------- */
+    const financials: Financials = useMemo(() => {
+        return (
+            financialsByVendor[activeVendorId] ?? {
+                subtotal: computedSubtotal,
+                gstPercent: 0,
+                tdsPercent: 0,
+                advance: 0,
+                note: "",
+            }
+        );
+    }, [financialsByVendor, activeVendorId, computedSubtotal]);
+
+    /* ---------- Computed net total (subtotal + gst - tds) ---------- */
+    const computedNetTotal = useMemo(() => {
+        const gstAmount = financials.subtotal * (financials.gstPercent / 100);
+        const tdsAmount = financials.subtotal * (financials.tdsPercent / 100);
+        return financials.subtotal + gstAmount - tdsAmount;
+    }, [financials.subtotal, financials.gstPercent, financials.tdsPercent]);
+
+    /* ---------- Subtotal mismatch warning ---------- */
+    const hasSubtotalMismatch = useMemo(() => {
+        if (vendors.length === 0) return false;
+        // Check if any vendor has a subtotal mismatch
+        return vendors.some(v => {
+            const f = financialsByVendor[v.id];
+            if (!f) return false;
+            const cats = groupItemsByCategory(itemList, v.id);
+            const computed = cats.reduce(
+                (sum, section) =>
+                    sum + section.items.reduce((s, item) => s + item.qty * item.rate, 0),
+                0,
+            );
+            return Math.abs(f.subtotal - computed) > 0.01;
+        });
+    }, [vendors, financialsByVendor, itemList]);
+
+    /* ---------- Balance calculation ---------- */
+    const balance = useCallback(() => {
+        const { subtotal, gstPercent, tdsPercent, advance } = financials;
+        const gstAmount = subtotal * (gstPercent / 100);
+        const tdsAmount = subtotal * (tdsPercent / 100);
+        const total = subtotal + gstAmount - tdsAmount;
+        return total - advance;
+    }, [financials]);
+
+    /* ---------- Breakdown details ---------- */
+    const breakdownDetails = useMemo(() => {
+        const { subtotal, gstPercent, tdsPercent, advance } = financials;
+        const gstAmount = subtotal * (gstPercent / 100);
+        const tdsAmount = subtotal * (tdsPercent / 100);
+        const netTotal = subtotal + gstAmount - tdsAmount;
+        const bal = netTotal - advance;
+        return {
+            subtotal,
+            gstAmount,
+            gstPercent,
+            tdsAmount,
+            tdsPercent,
+            netTotal,
+            advance,
+            balance: bal,
+        };
+    }, [financials]);
+
+    /* ---------- Financial field handlers ---------- */
+    const updateFinancial = (field: keyof Financials, value: string) => {
+        setFinancialsByVendor(prev => {
+            const current = prev[activeVendorId];
+            if (!current) return prev;
+            let updated: Financials;
+            if (field === "note") {
+                updated = { ...current, note: value };
+            } else if (value === "") {
+                updated = { ...current, [field]: value };
+            } else {
+                const parsed = parseFloat(value);
+                if (isNaN(parsed)) return prev;
+                updated = { ...current, [field]: parsed };
+            }
+            return { ...prev, [activeVendorId]: updated };
+        });
+    };
+
+    /* ---------- Line item columns (display-only) ---------- */
+    const lineItemColumns: Column<LineItem>[] = [
+        {
+            key: "itemName",
+            header: "Item Name",
+            render: (item: LineItem) => (
+                <span className="text-sm font-medium text-foreground">{item.itemName}</span>
+            ),
+        },
+        {
+            key: "description",
+            header: "Description",
+            cellClassName: "max-w-[180px]",
+            render: (item: LineItem) => {
+                const truncated =
+                    item.description.length > 12
+                        ? `${item.description.slice(0, 12)}...`
+                        : item.description;
+                const needsTooltip = item.description.length > 12;
+                const content = (
+                    <span className="text-sm text-muted-foreground block">{truncated}</span>
+                );
+                return needsTooltip ? (
+                    <Tooltip content={item.description}>{content}</Tooltip>
+                ) : (
+                    content
+                );
+            },
+        },
+        {
+            key: "days",
+            header: "Days",
+            align: "center",
+            cellClassName: "w-16",
+            render: (item: LineItem) => <span className="text-sm">{item.days}</span>,
+        },
+        {
+            key: "qty",
+            header: "Qty",
+            align: "center",
+            cellClassName: "w-16",
+            render: (item: LineItem) => <span className="text-sm">{item.qty}</span>,
+        },
+
+        {
+            key: "rate",
+            header: "Rate",
+            align: "right",
+            cellClassName: "w-28",
+            render: (item: LineItem) => (
+                <span className="text-sm">{formatCurrency(item.rate)}</span>
+            ),
+        },
+        {
+            key: "total",
+            header: "Total",
+            align: "right",
+            cellClassName: "w-28",
+            render: (item: LineItem) => (
+                <span className="text-sm font-bold text-foreground">
+                    {formatCurrency(item.qty * item.rate)}
+                </span>
+            ),
+        },
+    ];
+
+    const handleSave = async () => {
+        try {
+            // Validation: Warn if any vendor's subtotal doesn't match the computed total from line items
+            if (hasSubtotalMismatch) {
+                const proceed = window.confirm(
+                    "The entered Subtotal value does not match the calculated total from the listed items for one or more vendors. " +
+                        "Click OK to save with the manual subtotal value, or Cancel to review before saving.",
+                );
+                if (!proceed) return;
+            }
+
+            // Build updated vendorSummary by merging original vendorSummary
+            // with user-edited financials for each vendor.
+            const updatedVendorSummary: VendorSummary[] = vendors
+                .filter(v => financialsByVendor[v.id])
+                .map(v => {
+                    const f = financialsByVendor[v.id];
+                    const gstAmount = f.subtotal * (f.gstPercent / 100);
+                    const tdsAmount = f.subtotal * (f.tdsPercent / 100);
+                    const netTotal = f.subtotal + gstAmount - tdsAmount;
+                    const bal = netTotal - f.advance;
+                    return {
+                        vendor: v.id,
+                        totalAmount: f.subtotal,
+                        advanceAmount: f.advance,
+                        gst: f.gstPercent,
+                        tds: f.tdsPercent,
+                        adjustedAmt: netTotal,
+                        balance: bal,
+                        changeSummary: f.note,
+                    };
+                });
+
+            // Preserve vendorSummary entries for vendors that are NOT in the
+            // current vendors list (e.g. hidden / non-item vendors).
+            const otherSummaries = (vendorSummary ?? []).filter(
+                vs => !vendors.some(v => v.id === vs.vendor),
+            );
+
+            const updatedEvent = {
+                ...eventData,
+                vendorSummary: [...updatedVendorSummary, ...otherSummaries],
+            };
+
+            // Use POST to create the event – requires the event id
+            const eventId = eventData.id ?? eventData.eventID;
+            if (!eventId) {
+                toast.error("Event ID is missing");
+                return;
+            }
+
+            const res = await apiRequest(API_ENDPOINTS.events.list, {
+                method: "POST",
+                body: JSON.stringify(updatedEvent),
+            });
+
+            if (res.ok) {
+                toast.success("Purchase order saved successfully");
+                onSave?.();
+                onClose();
+            } else {
+                const errBody = await res.text().catch(() => "Unknown error");
+                console.error("Save purchase order failed:", errBody);
+                toast.error("Failed to save purchase order");
+            }
+        } catch (err) {
+            console.error("Error saving purchase order:", err);
+            toast.error("Error saving purchase order");
+        }
+    };
+
+    return (
+        <Modal
+            open={isOpen}
+            onClose={onClose}
+            size="xxl"
+            title="Create Purchase Order"
+            description="Finalize financial records for vendor procurement."
+        >
+            {/* Two-column layout */}
+            <div className="flex max-h-[calc(100vh-200px)]">
+                {/* Left: Vendor Sidebar */}
+                {vendors.length > 0 && (
+                    <aside className="w-72 border-r border-border bg-surface-container-low/30 overflow-y-auto shrink-0">
+                        <nav className="p-2 space-y-2">
+                            {vendors.map(v => {
+                                const isActive = v.id === activeVendorId;
+                                return (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => setActiveVendorId(v.id)}
+                                        className={cn(
+                                            "w-full flex flex-col items-start gap-1 p-3 rounded-xl transition-all text-left cursor-pointer",
+                                            isActive
+                                                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                                : "hover:bg-surface-container-high",
+                                        )}
+                                    >
+                                        <span
+                                            className={cn(
+                                                "text-sm font-bold truncate",
+                                                isActive ? "text-inherit" : "text-foreground",
+                                            )}
+                                        >
+                                            {v.name}
+                                        </span>
+                                        <span
+                                            className={cn(
+                                                "text-xs italic",
+                                                isActive ? "opacity-80" : "text-muted-foreground",
+                                            )}
+                                        >
+                                            {v.status}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </aside>
+                )}
+
+                {/* Right: Main Content */}
+                <main className="flex-1 overflow-y-auto p-6">
+                    <div className="max-w-4xl mx-auto space-y-8">
+                        {categories.length === 0 ? (
+                            <div className="text-center py-12">
+                                <p className="text-sm text-muted-foreground">
+                                    {vendors.length === 0
+                                        ? "No vendors available with items."
+                                        : "No items found for the selected vendor."}
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Category Sections – display only */}
+                                {categories.map(section => (
+                                    <section key={section.id} className="space-y-4">
+                                        {/* Section header */}
+                                        <div className="flex items-center justify-between border-l-4 border-primary pl-4 py-1">
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase tracking-widest text-primary">
+                                                    {section.title}
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {section.description}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Table */}
+                                        <div className="border border-border rounded-lg overflow-hidden">
+                                            <Table
+                                                data={section.items}
+                                                columns={lineItemColumns}
+                                                getKey={(item: LineItem) => item.id}
+                                            />
+                                        </div>
+                                    </section>
+                                ))}
+
+                                {/* Financial Summary */}
+                                <section className="pt-6 border-t border-border">
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">
+                                        Consolidated Financials
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                        <Input
+                                            id="financial-subtotal"
+                                            label="Subtotal"
+                                            type="number"
+                                            value={financials.subtotal ?? ""}
+                                            onChange={e =>
+                                                updateFinancial("subtotal", e.target.value)
+                                            }
+                                            smallLabel
+                                            error={
+                                                hasSubtotalMismatch
+                                                    ? "Subtotal does not match item total"
+                                                    : undefined
+                                            }
+                                            disabled={!hasSubtotalMismatch}
+                                        />
+                                        <Input
+                                            id="financial-gst"
+                                            label="GST (%)"
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={financials.gstPercent ?? ""}
+                                            onChange={e =>
+                                                updateFinancial("gstPercent", e.target.value)
+                                            }
+                                            smallLabel
+                                        />
+                                        <Input
+                                            id="financial-tds"
+                                            label="TDS (%)"
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={financials.tdsPercent ?? ""}
+                                            onChange={e =>
+                                                updateFinancial("tdsPercent", e.target.value)
+                                            }
+                                            smallLabel
+                                        />
+                                        <Input
+                                            id="financial-adjustment"
+                                            label="Net Total"
+                                            type="number"
+                                            value={computedNetTotal}
+                                            smallLabel
+                                            disabled
+                                        />
+                                        <Input
+                                            id="financial-advance"
+                                            label="Advance Paid"
+                                            type="number"
+                                            value={financials.advance ?? ""}
+                                            onChange={e =>
+                                                updateFinancial("advance", e.target.value)
+                                            }
+                                            smallLabel
+                                            disabled={activeVendorId === "SELF"}
+                                        />
+                                        <Input
+                                            id="financial-note"
+                                            label="Note"
+                                            type="text"
+                                            value={financials.note}
+                                            onChange={e => updateFinancial("note", e.target.value)}
+                                            placeholder="Add a note..."
+                                            smallLabel
+                                        />
+                                    </div>
+                                    {hasSubtotalMismatch && (
+                                        <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning-foreground">
+                                            <strong>Subtotal Mismatch:</strong> The entered subtotal
+                                            for one or more vendors does not match the calculated
+                                            total from the listed items. The subtotal field is
+                                            editable to allow manual correction if needed.
+                                        </div>
+                                    )}
+                                </section>
+                            </>
+                        )}
+                    </div>
+                </main>
+            </div>
+
+            {/* Footer */}
+            {categories.length > 0 && (
+                <ModalFooter className="justify-between">
+                    <div className="flex items-center gap-4 bg-primary/[0.04] rounded-xl px-5 py-3 border border-primary/10">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                                Outstanding Balance
+                            </p>
+                            <p className="text-xs text-muted-foreground">Final vendor settlement</p>
+                        </div>
+                        <span className="text-xl font-extrabold text-primary tracking-tight">
+                            {formatCurrency(balance())}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setShowBreakdown(!showBreakdown)}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                            aria-label="Toggle balance breakdown"
+                        >
+                            {showBreakdown ? (
+                                <ChevronUp className="w-4 h-4" />
+                            ) : (
+                                <ChevronDown className="w-4 h-4" />
+                            )}
+                        </button>
+                    </div>
+                    {showBreakdown && (
+                        <div className="absolute bottom-20 left-5 bg-surface border border-border rounded-xl shadow-xl p-4 z-50 w-72">
+                            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                                Balance Breakdown
+                            </p>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Subtotal</span>
+                                    <span className="font-medium">
+                                        {formatCurrency(breakdownDetails.subtotal)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">
+                                        GST ({breakdownDetails.gstPercent}%)
+                                    </span>
+                                    <span className="font-medium text-success">
+                                        +{formatCurrency(breakdownDetails.gstAmount)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">
+                                        TDS ({breakdownDetails.tdsPercent}%)
+                                    </span>
+                                    <span className="font-medium text-destructive">
+                                        -{formatCurrency(breakdownDetails.tdsAmount)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Net Total</span>
+                                    <span className="font-medium">
+                                        {formatCurrency(breakdownDetails.netTotal)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Advance Paid</span>
+                                    <span className="font-medium text-destructive">
+                                        -{formatCurrency(breakdownDetails.advance)}
+                                    </span>
+                                </div>
+                                <div className="border-t border-border pt-2 flex justify-between font-bold text-primary">
+                                    <span>Outstanding Balance</span>
+                                    <span>{formatCurrency(breakdownDetails.balance)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button className="shadow-lg shadow-primary/30" onClick={handleSave}>
+                            Save Purchase Order
+                        </Button>
+                    </div>
+                </ModalFooter>
+            )}
+        </Modal>
+    );
+}
