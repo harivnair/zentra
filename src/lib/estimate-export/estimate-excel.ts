@@ -144,18 +144,74 @@ function writeSummaryRow(
 
     const amountCell = row.getCell(6);
     amountCell.value = value;
-    amountCell.numFmt = '#,##0.00';
+    amountCell.numFmt = "#,##0.00";
     amountCell.alignment = { horizontal: "right", vertical: "middle" };
 
     fillRow(row, 1, 6, bgArgb);
     row.getCell(2).font = { bold: labelBold };
-    amountCell.numFmt = '#,##0.00';
+    amountCell.numFmt = "#,##0.00";
+}
+
+function writeTermsSection(
+    sheet: ExcelJS.Worksheet,
+    workbook: ExcelJS.Workbook,
+    startRow: number,
+    terms: string,
+) {
+    const termsLines = terms.split("\n");
+
+    // Title row
+    const titleRow = sheet.getRow(startRow);
+    sheet.mergeCells(startRow, 1, startRow, 6);
+    titleRow.getCell(1).value = "Terms & Conditions";
+    titleRow.getCell(1).font = { bold: true, size: 11 };
+    titleRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
+    titleRow.getCell(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF5F5F5" },
+    };
+    clearBorderRange(titleRow, 1, 6);
+    titleRow.height = 22;
+
+    // Content rows
+    const contentRow = startRow + 1;
+    const contentEndRow = contentRow + termsLines.length;
+    sheet.mergeCells(contentRow, 1, contentEndRow, 6);
+
+    const contentCell = sheet.getCell(contentRow, 1);
+    contentCell.value = terms;
+    contentCell.font = { size: 9 };
+    contentCell.alignment = { wrapText: true, vertical: "top", horizontal: "left" };
+    contentCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF5F5F5" },
+    };
+    clearBorderRange(sheet.getRow(contentRow), 1, 6);
+
+    // Apply fill to all merged content rows
+    for (let r = contentRow; r <= contentEndRow; r++) {
+        const row = sheet.getRow(r);
+        clearBorderRange(row, 1, 6);
+        for (let c = 1; c <= 6; c++) {
+            row.getCell(c).fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FFF5F5F5" },
+            };
+        }
+        row.height = 18;
+    }
+
+    return contentEndRow;
 }
 
 async function populateWorksheet(
     workbook: ExcelJS.Workbook,
     sheet: ExcelJS.Worksheet,
     model: EstimateDocumentModel,
+    terms?: string,
 ) {
     sheet.columns = [
         { width: SERIAL_COLUMN_WIDTH },
@@ -241,10 +297,10 @@ async function populateWorksheet(
                 row.getCell(4).value = item.quantity ?? 0;
                 row.getCell(4).alignment = { horizontal: "right", vertical: "top" };
                 row.getCell(5).value = getItemRate(item);
-                row.getCell(5).numFmt = '#,##0.00';
+                row.getCell(5).numFmt = "#,##0.00";
                 row.getCell(5).alignment = { horizontal: "right", vertical: "top" };
                 row.getCell(6).value = getItemAmount(item);
-                row.getCell(6).numFmt = '#,##0.00';
+                row.getCell(6).numFmt = "#,##0.00";
                 row.getCell(6).alignment = { horizontal: "right", vertical: "top" };
                 applyBorderRange(row, 1, 6);
                 row.height = 28;
@@ -258,8 +314,7 @@ async function populateWorksheet(
                         : exportRow.variant === "subtotal"
                           ? ESTIMATE_EXPORT_COLORS.subTotalBg
                           : ESTIMATE_EXPORT_COLORS.summaryBg;
-                const labelBold =
-                    exportRow.variant === "subtotal" || exportRow.variant === "grand";
+                const labelBold = exportRow.variant === "subtotal" || exportRow.variant === "grand";
                 writeSummaryRow(sheet, rowIndex, exportRow.label, exportRow.value, bg, labelBold);
                 rowIndex += 1;
                 break;
@@ -273,11 +328,18 @@ async function populateWorksheet(
         setupLogoArea(sheet, metaLogoStartRow, metaLogoEndRow);
         await embedLogoInWorksheet(workbook, sheet, metaLogoStartRow, metaLogoEndRow);
     }
+
+    // Append Terms & Conditions section
+    if (terms?.trim()) {
+        rowIndex += 1; // blank row
+        rowIndex = writeTermsSection(sheet, workbook, rowIndex, terms) + 1;
+    }
 }
 
 export async function generateEstimateExcelBuffer(
     estimate: EstimateDto,
     eventName?: string,
+    terms?: string,
 ): Promise<ArrayBuffer> {
     const model = buildEstimateDocumentModel(estimate, eventName);
     const workbook = new ExcelJS.Workbook();
@@ -286,15 +348,19 @@ export async function generateEstimateExcelBuffer(
         views: [{ showGridLines: true }],
     });
 
-    await populateWorksheet(workbook, sheet, model);
+    await populateWorksheet(workbook, sheet, model, terms);
 
     const buffer = await workbook.xlsx.writeBuffer();
     return buffer;
 }
 
-export async function downloadEstimateExcel(estimate: EstimateDto, eventName?: string) {
+export async function downloadEstimateExcel(
+    estimate: EstimateDto,
+    eventName?: string,
+    terms?: string,
+) {
     const model = buildEstimateDocumentModel(estimate, eventName);
-    const buffer = await generateEstimateExcelBuffer(estimate, eventName);
+    const buffer = await generateEstimateExcelBuffer(estimate, eventName, terms);
     const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });

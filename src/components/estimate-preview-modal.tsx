@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import type { EstimateDto } from "@/types/estimate";
-import { Button, Modal, ModalBody, ModalFooter } from "./ui";
+import { Button, Modal, ModalBody, ModalFooter, Textarea } from "./ui";
 import {
     buildEstimateDocumentModel,
     formatExportCurrency,
@@ -17,6 +17,9 @@ import {
 import { downloadEstimateExcel } from "@/lib/estimate-export/estimate-excel";
 import { downloadEstimatePdf } from "@/lib/estimate-export/estimate-pdf";
 import { toast } from "sonner";
+
+const DEFAULT_TERMS =
+    "1. Payment Terms: 50% advance payment is required to confirm the booking. The remaining 50% to be paid on or before the day of the event.\n\n2. Cancellation Policy: In case of cancellation, the advance payment shall be non-refundable. Any changes to the event date must be communicated at least 7 days prior.\n\n3. Liability: The event management team shall not be held liable for any delays or damages caused by force majeure events including but not limited to natural disasters, government restrictions, or acts of God.\n\n4. Additional Charges: Any additional items or services requested after the finalization of the estimate will be charged extra at prevailing rates.\n\n5. Setup & Breakdown: The client shall provide adequate space and access for setup and breakdown of equipment. Any damages to venue property caused by our equipment shall be assessed and charged separately.";
 
 interface EstimatePreviewModalProps {
     estimate: EstimateDto;
@@ -109,13 +112,9 @@ function EstimatePreviewTable({ rows }: { rows: EstimateExportRow[] }) {
                             );
                         }
                         if (row.type === "summary") {
-                            const bold =
-                                row.variant === "subtotal" || row.variant === "grand";
+                            const bold = row.variant === "subtotal" || row.variant === "grand";
                             return (
-                                <tr
-                                    key={`sum-${index}`}
-                                    className={summaryRowClass(row.variant)}
-                                >
+                                <tr key={`sum-${index}`} className={summaryRowClass(row.variant)}>
                                     <td className="border border-black px-2 py-2" />
                                     <td
                                         colSpan={4}
@@ -139,8 +138,12 @@ function EstimatePreviewTable({ rows }: { rows: EstimateExportRow[] }) {
 }
 
 function EstimateHeaderSection({ rows }: { rows: EstimateExportRow[] }) {
-    const titleRow = rows.find((r): r is Extract<EstimateExportRow, { type: "title" }> => r.type === "title");
-    const metaRows = rows.filter((r): r is Extract<EstimateExportRow, { type: "meta" }> => r.type === "meta");
+    const titleRow = rows.find(
+        (r): r is Extract<EstimateExportRow, { type: "title" }> => r.type === "title",
+    );
+    const metaRows = rows.filter(
+        (r): r is Extract<EstimateExportRow, { type: "meta" }> => r.type === "meta",
+    );
 
     if (!titleRow && metaRows.length === 0) return null;
 
@@ -227,29 +230,35 @@ function EstimatePreviewContent({ rows }: { rows: EstimateExportRow[] }) {
                         );
                     }
                 }
-                return (
-                    <EstimatePreviewTable key={blockIndex} rows={block.rows} />
-                );
+                return <EstimatePreviewTable key={blockIndex} rows={block.rows} />;
             })}
         </div>
     );
 }
 
-export function EstimatePreviewModal({
-    estimate,
-    eventName,
-    onClose,
-}: EstimatePreviewModalProps) {
+export function EstimatePreviewModal({ estimate, eventName, onClose }: EstimatePreviewModalProps) {
     const [downloading, setDownloading] = useState<"pdf" | "excel" | null>(null);
+    const [terms, setTerms] = useState(DEFAULT_TERMS);
+    const [termsError, setTermsError] = useState<string | null>(null);
     const model = useMemo(
         () => buildEstimateDocumentModel(estimate, eventName),
         [estimate, eventName],
     );
 
+    const validateTerms = (): boolean => {
+        if (!terms.trim()) {
+            setTermsError("Terms & Conditions are required");
+            return false;
+        }
+        setTermsError(null);
+        return true;
+    };
+
     const handleDownloadPdf = async () => {
+        if (!validateTerms()) return;
         try {
             setDownloading("pdf");
-            await downloadEstimatePdf(estimate, eventName);
+            await downloadEstimatePdf(estimate, eventName, terms);
             toast.success("PDF downloaded");
         } catch (error) {
             console.error(error);
@@ -260,15 +269,23 @@ export function EstimatePreviewModal({
     };
 
     const handleDownloadExcel = async () => {
+        if (!validateTerms()) return;
         try {
             setDownloading("excel");
-            await downloadEstimateExcel(estimate, eventName);
+            await downloadEstimateExcel(estimate, eventName, terms);
             toast.success("Excel downloaded");
         } catch (error) {
             console.error(error);
             toast.error("Failed to download Excel");
         } finally {
             setDownloading(null);
+        }
+    };
+
+    const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setTerms(e.target.value);
+        if (termsError && e.target.value.trim()) {
+            setTermsError(null);
         }
     };
 
@@ -288,6 +305,21 @@ export function EstimatePreviewModal({
                     className="overflow-x-auto rounded border border-gray-200 p-4 bg-white"
                 >
                     <EstimatePreviewContent rows={model.rows} />
+                </div>
+                <div className="mt-4 border-t border-gray-200 pt-4">
+                    <Textarea
+                        label={
+                            <span>
+                                Terms & Conditions <span className="text-error">*</span>
+                            </span>
+                        }
+                        placeholder="Enter terms and conditions..."
+                        value={terms}
+                        onChange={handleTermsChange}
+                        error={termsError ?? undefined}
+                        rows={8}
+                        className="min-h-[160px]"
+                    />
                 </div>
             </ModalBody>
             <ModalFooter>
