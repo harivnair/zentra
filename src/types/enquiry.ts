@@ -60,4 +60,5 @@ export interface CreateEnquiryModalProps {
     onSubmit: () => void;
     editData?: EnquiryFormData | null; // Optional edit data
     mode?: "create" | "edit"; // Modal mode
+    onSaveSuccess?: (enquiry: Enquiry) => void; // Called after successful creation with the created enquiry
 }

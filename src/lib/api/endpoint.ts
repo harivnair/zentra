@@ -5,6 +5,7 @@ export const API_ENDPOINTS = {
         list: "/api/enquiries",
         detail: (id: string | number) => `/api/enquiries/${id}`,
         clientSummary: "/api/enquiries/client-enquiry-summary",
+        clone: "/api/enquiries/clone",
     },
     events: {
         list: "/api/events",
@@ -48,12 +49,28 @@ export const API_ENDPOINTS = {
         list: "/api/notifications",
     },
     users: "/api/users",
-    // Add other endpoints as needed
-};
-
-// Backend Endpoints - to be used by Next.js API routes to communicate with Spring Boot
-export const BACKEND_ENDPOINTS = {
-    events: {
-        sendInvoice: "/events/send-invoice",
+    dashboard: {
+        summary: "/api/dashboard/summary",
+        calendarEvents: "/api/dashboard/calendar-events",
+        upcomingEvents: "/api/dashboard/upcoming-events",
+        recentClients: "/api/dashboard/recent-clients",
+        recentEstimates: "/api/dashboard/recent-estimates",
+        recentEnquiries: "/api/dashboard/recent-enquiries",
+    },
+    bills: {
+        list: "/api/bills",
+        detail: (id: string | number) => `/api/bills/${id}`,
+    },
+    expenses: {
+        list: "/api/expenses",
+        detail: (id: string | number) => `/api/expenses/${id}`,
+    },
+    reports: {
+        summary: "/api/reports/summary",
+    },
+    notificationsList: {
+        list: "/api/notifications",
+        markRead: (id: string | number) => `/api/notifications/${id}/read`,
+        markAllRead: "/api/notifications/read-all",
     },
 };

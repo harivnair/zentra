@@ -15,6 +15,7 @@ import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { Select, DatePickerField } from "./ui";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
+import { VendorDropdown } from "@/components/vendor-dropdown";
 
 const CreatableSelectField = dynamic(
     () =>
@@ -577,34 +578,18 @@ export function ChecklistModal({
                                             isClearable
                                         />
                                     ) : (
-                                        <CreatableSelectField
-                                            smallLabel
-                                            label="Assigned Vendor"
-                                            options={vendorList.map(v => ({
-                                                value: String(v.id || ""),
-                                                label: v.name as string,
-                                            }))}
-                                            value={
-                                                selectedItem.vendor
-                                                    ? {
-                                                          value: selectedItem.vendor,
-                                                          label:
-                                                              vendorList.find(
-                                                                  v =>
-                                                                      String(v.id) ===
-                                                                      selectedItem.vendor,
-                                                              )?.name || selectedItem.vendor,
-                                                      }
-                                                    : null
-                                            }
-                                            onChange={selectedValue => {
+                                        <VendorDropdown
+                                            value={selectedItem.vendor}
+                                            onChange={vendorId => {
                                                 handleItemChange(
                                                     selectedItemIndex!,
                                                     "vendor",
-                                                    selectedValue,
+                                                    vendorId,
                                                 );
                                             }}
-                                            placeholder={loadingVendors ? "Loading..." : "Vendor"}
+                                            vendorList={vendorList}
+                                            loadingVendors={loadingVendors}
+                                            smallLabel
                                             isClearable
                                         />
                                     )}

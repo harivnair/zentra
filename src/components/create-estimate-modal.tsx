@@ -28,6 +28,7 @@ import { eventStatus } from "@/constants/event";
 type EstimateLine = {
     id: string;
     category: string;
+    subCategory: string;
     item: string;
     specification: string;
     days: number;
@@ -135,7 +136,6 @@ const validationSchema = Yup.object({
     highlvelRequirement: Yup.string().required("Please add the enquiry summary"),
     location: Yup.string().optional(),
     venue: Yup.string().required("Venue is required"),
-    clientPoC: Yup.string().required("Client POC is required"),
     pocContactNumber: Yup.string()
         // .matches(/^\d{10}$/u, "Enter a 10 digit number")
         .required("POC contact number is required"),
@@ -600,9 +600,13 @@ export default function CreateEstimateModal({
                     const rate = Number.isFinite(rawRate) ? rawRate : rawUnitCost;
                     const vendor = typeof item.vendor === "string" ? item.vendor : "";
 
+                    const subCategory =
+                        typeof item.subCategory === "string" ? item.subCategory : "";
+
                     fromItems.push({
                         id: derivedId,
                         category,
+                        subCategory,
                         item: itemName,
                         specification,
                         days,
@@ -780,6 +784,8 @@ export default function CreateEstimateModal({
         // Check if we're editing an existing estimate
         const isEditing = prefillData?.id ? true : false;
 
+        console.log({ values });
+
         try {
             const activeEnquiryId = selectedEnquiryId ?? prefillData?.enquiryId;
             if (!activeEnquiryId || !prefillData) {
@@ -845,6 +851,7 @@ export default function CreateEstimateModal({
                         checkList: "",
                         days,
                         category: line.category || "General",
+                        subCategory: line.subCategory || "",
                     };
 
                     const bucket = acc[category] ?? [];
@@ -870,6 +877,7 @@ export default function CreateEstimateModal({
                     unitCost: line.rate,
                     total,
                     vendor: line.vendor || "",
+                    subCategory: line.subCategory || "",
                 });
                 acc[category] = bucket;
                 return acc;
@@ -1293,6 +1301,7 @@ export default function CreateEstimateModal({
                                                             {
                                                                 id: generateId(),
                                                                 category: lastCategory,
+                                                                subCategory: "",
                                                                 item: "",
                                                                 specification: "",
                                                                 days: 1,
@@ -1340,6 +1349,34 @@ export default function CreateEstimateModal({
                                                                         );
                                                                     }}
                                                                     placeholder="Category"
+                                                                />
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "subCategory",
+                                                            header: "Sub Category",
+                                                            render: (_, index) => (
+                                                                <Input
+                                                                    value={
+                                                                        lines[index]?.subCategory ||
+                                                                        ""
+                                                                    }
+                                                                    onChange={event => {
+                                                                        const value =
+                                                                            event.target.value;
+                                                                        setLines(prev =>
+                                                                            prev.map((l, idx) =>
+                                                                                idx === index
+                                                                                    ? {
+                                                                                          ...l,
+                                                                                          subCategory:
+                                                                                              value,
+                                                                                      }
+                                                                                    : l,
+                                                                            ),
+                                                                        );
+                                                                    }}
+                                                                    placeholder="Sub Category"
                                                                 />
                                                             ),
                                                         },

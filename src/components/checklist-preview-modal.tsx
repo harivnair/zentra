@@ -3,7 +3,7 @@
 import React from "react";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Table, Column } from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
 
 interface ChecklistItem {
     category: string;
@@ -31,6 +31,18 @@ interface ChecklistPreviewModalProps {
     onUpdate?: () => void;
 }
 
+function groupByCategory(items: ChecklistItem[]): Map<string, ChecklistItem[]> {
+    const grouped = new Map<string, ChecklistItem[]>();
+    for (const item of items) {
+        const category = item.category || "Uncategorized";
+        if (!grouped.has(category)) {
+            grouped.set(category, []);
+        }
+        grouped.get(category)!.push(item);
+    }
+    return grouped;
+}
+
 export function ChecklistPreviewModal({
     isOpen,
     onClose,
@@ -40,77 +52,6 @@ export function ChecklistPreviewModal({
     onUpdate,
 }: ChecklistPreviewModalProps) {
     if (!isOpen) return null;
-
-    const columns: Column<ChecklistItem>[] = [
-        {
-            key: "item",
-            header: "Item Name",
-            render: (item: ChecklistItem) => <span className="font-medium">{item.item}</span>,
-        },
-        {
-            key: "category",
-            header: "Category",
-            render: (item: ChecklistItem) => item.category || "-",
-        },
-        {
-            key: "quantity",
-            header: "Qty",
-            align: "center",
-            render: (item: ChecklistItem) => item.quantity || 0,
-        },
-        {
-            key: "vendor",
-            header: "Vendor / Inventory",
-            render: (item: ChecklistItem) => {
-                if (item.inventoryID) {
-                    const inv = inventoryList.find(i => String(i.id) === String(item.inventoryID));
-                    return (
-                        <span className="text-blue-600 dark:text-blue-400">📦 {inv?.itemName}</span>
-                    );
-                }
-                const vendor = vendorList.find(v => String(v.id) === String(item.vendor));
-                return <span>{vendor?.name || item.vendor || "-"}</span>;
-            },
-        },
-        {
-            key: "status",
-            header: "Status",
-            align: "center",
-            render: (item: ChecklistItem) => {
-                const statusStyles: Record<string, string> = {
-                    PENDING:
-                        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-                    IN_PROGRESS: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-                    COMPLETED:
-                        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-                };
-                const statusClass = statusStyles[item.status || "PENDING"] || statusStyles.PENDING;
-                return (
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}>
-                        {item.status || "PENDING"}
-                    </span>
-                );
-            },
-        },
-        {
-            key: "startDate",
-            header: "Start Date",
-            align: "center",
-            render: (item: ChecklistItem) => item.startDate || "-",
-        },
-        {
-            key: "endDate",
-            header: "End Date",
-            align: "center",
-            render: (item: ChecklistItem) => item.endDate || "-",
-        },
-        {
-            key: "rate",
-            header: "Rate",
-            align: "right",
-            render: (item: ChecklistItem) => (item.pricePerItem ? `₹${item.pricePerItem}` : "-"),
-        },
-    ];
 
     const summary = {
         total: checklistData.length,
@@ -122,6 +63,8 @@ export function ChecklistPreviewModal({
             0,
         ),
     };
+
+    const grouped = groupByCategory(checklistData);
 
     return (
         <Modal
@@ -173,13 +116,158 @@ export function ChecklistPreviewModal({
                     </div>
                 </div>
 
-                {/* Table */}
-                <Table<ChecklistItem>
-                    data={checklistData}
-                    columns={columns}
-                    showRowNumbers={true}
-                    emptyMessage="No items in checklist"
-                />
+                {/* Single table with grouped categories and one column header */}
+                <div className="overflow-x-auto border border-border rounded-md">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                                <th className="py-3 px-3 font-medium text-xs text-muted-foreground w-10">
+                                    No
+                                </th>
+                                <th className="py-3 px-3 font-medium">Item Name</th>
+                                <th className="py-3 px-3 font-medium max-w-[200px]">Description</th>
+                                <th className="py-3 px-3 font-medium text-center w-16">Qty</th>
+                                <th className="py-3 px-3 font-medium text-center w-16">Days</th>
+                                <th className="py-3 px-3 font-medium">Vendor / Inventory</th>
+                                <th className="py-3 px-3 font-medium text-center w-24">Status</th>
+                                <th className="py-3 px-3 font-medium text-center">Start Date</th>
+                                <th className="py-3 px-3 font-medium text-center">End Date</th>
+                                <th className="py-3 px-3 font-medium text-right w-20">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(() => {
+                                const rows: React.ReactNode[] = [];
+                                let globalIndex = 0;
+                                let categoryIndex = 0;
+                                const totalCategories = grouped.size;
+                                for (const [category, items] of grouped) {
+                                    const isLastCategory = categoryIndex === totalCategories - 1;
+
+                                    // Highlighted category header row spanning all columns
+                                    rows.push(
+                                        <tr
+                                            key={`category-${category}`}
+                                            className="bg-muted/50 border-b border-border"
+                                        >
+                                            <td
+                                                colSpan={10}
+                                                className="px-4 py-2 text-sm font-semibold text-foreground uppercase tracking-wide"
+                                            >
+                                                {category}
+                                            </td>
+                                        </tr>,
+                                    );
+
+                                    // Item rows for this category
+                                    items.forEach((item, idx) => {
+                                        globalIndex++;
+                                        const isLastItem =
+                                            isLastCategory && idx === items.length - 1;
+                                        const descText = item.description || "-";
+                                        const isLongDesc = descText.length > 12;
+
+                                        rows.push(
+                                            <tr
+                                                key={`item-${category}-${idx}`}
+                                                className={
+                                                    !isLastItem ? "border-b border-border" : ""
+                                                }
+                                            >
+                                                <td className="py-3 px-3 align-middle text-xs text-muted-foreground">
+                                                    {globalIndex}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle">
+                                                    <span className="font-medium">{item.item}</span>
+                                                </td>
+                                                <td className="py-3 px-3 align-middle max-w-[200px]">
+                                                    {isLongDesc ? (
+                                                        <Tooltip content={descText}>
+                                                            <span className="block truncate">
+                                                                {descText.slice(0, 12) + "..."}
+                                                            </span>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        descText
+                                                    )}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle text-center">
+                                                    {item.quantity || 0}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle text-center">
+                                                    {item.days ?? "-"}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle">
+                                                    {(() => {
+                                                        if (item.inventoryID) {
+                                                            const inv = inventoryList.find(
+                                                                i =>
+                                                                    String(i.id) ===
+                                                                    String(item.inventoryID),
+                                                            );
+                                                            return (
+                                                                <span className="text-blue-600 dark:text-blue-400">
+                                                                    📦 {inv?.itemName}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        const vendor = vendorList.find(
+                                                            v =>
+                                                                String(v.id) ===
+                                                                String(item.vendor),
+                                                        );
+                                                        return (
+                                                            <span>
+                                                                {vendor?.name || item.vendor || "-"}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle text-center">
+                                                    {(() => {
+                                                        const statusStyles: Record<string, string> =
+                                                            {
+                                                                PENDING:
+                                                                    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                                                                IN_PROGRESS:
+                                                                    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                                                                COMPLETED:
+                                                                    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                                                            };
+                                                        const statusClass =
+                                                            statusStyles[
+                                                                item.status || "PENDING"
+                                                            ] || statusStyles.PENDING;
+                                                        return (
+                                                            <span
+                                                                className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}
+                                                            >
+                                                                {item.status || "PENDING"}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle text-center">
+                                                    {item.startDate || "-"}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle text-center">
+                                                    {item.endDate || "-"}
+                                                </td>
+                                                <td className="py-3 px-3 align-middle text-right">
+                                                    {item.pricePerItem
+                                                        ? `₹${item.pricePerItem}`
+                                                        : "-"}
+                                                </td>
+                                            </tr>,
+                                        );
+                                    });
+                                    categoryIndex++;
+                                }
+                                return rows;
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
             </ModalBody>
 
             <ModalFooter>

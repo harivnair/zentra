@@ -1,3 +1,7 @@
+export { CopyButton } from "./copy-button";
+export { PhoneLink } from "./phone-link";
+export { InfoRow } from "./info-row";
+export { InfoCard } from "./info-card";
 export { Button } from "./button";
 export { Input } from "./input";
 export { Textarea } from "./textarea";

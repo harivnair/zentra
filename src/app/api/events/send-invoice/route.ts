@@ -1,4 +1,3 @@
-import { BACKEND_ENDPOINTS } from "@/lib/api/endpoint";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -16,9 +15,9 @@ export async function POST(req: NextRequest) {
         // Forward to Spring Boot backend - Make sure to use 127.0.0.1 (not localhost)
         const baseUrl = (process.env.BACKEND_URL || "http://127.0.0.1:8080").replace(
             "localhost",
-            "127.0.0.1"
+            "127.0.0.1",
         ); // Force 127.0.0.1
-        const backendUrl = `${baseUrl}${BACKEND_ENDPOINTS.events.sendInvoice}`;
+        const backendUrl = `${baseUrl}/events/send-invoice`;
 
         // When sending FormData with fetch, do NOT manually setContent-Type.
         // The browser/fetch automatically sets it with the correct boundary.
