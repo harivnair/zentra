@@ -66,6 +66,7 @@ interface CreatePurchaseOrderModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave?: () => void;
+    onViewPurchaseOrder?: () => void;
     vendorList?: Array<{ id?: string; name: string }>;
     eventData: EventResponse;
 }
@@ -177,6 +178,7 @@ export function CreatePurchaseOrderModal({
     isOpen,
     onClose,
     onSave,
+    onViewPurchaseOrder,
     vendorList,
     eventData,
 }: CreatePurchaseOrderModalProps) {
@@ -763,6 +765,9 @@ export function CreatePurchaseOrderModal({
                     <div className="flex items-center gap-3">
                         <Button variant="ghost" onClick={onClose}>
                             Cancel
+                        </Button>
+                        <Button variant="outline" onClick={onViewPurchaseOrder}>
+                            Preview Order
                         </Button>
                         <Button className="shadow-lg shadow-primary/30" onClick={handleSave}>
                             Save Purchase Order

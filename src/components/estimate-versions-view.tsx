@@ -322,8 +322,9 @@ export function EstimateVersionsView({
                                                     </button>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <h3 className="text-lg font-semibold">
-                                                                {version.version}
+                                                            <h3 className="text-md font-semibold">
+                                                                {version.versionTitle ||
+                                                                    "Untitled Version"}
                                                             </h3>
                                                             <span
                                                                 className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(
@@ -448,18 +449,20 @@ export function EstimateVersionsView({
                                                                     Revert to Draft
                                                                 </AccessButton>
                                                             )}
-                                                            <AccessButton
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() =>
-                                                                    onVersionSelect?.(version)
-                                                                }
-                                                                className="flex items-center gap-1"
-                                                                scope={["w:estimates"]}
-                                                            >
-                                                                <Edit size={14} />
-                                                                Edit
-                                                            </AccessButton>
+                                                            {version.estimateStatus !== "FINAL" && (
+                                                                <AccessButton
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() =>
+                                                                        onVersionSelect?.(version)
+                                                                    }
+                                                                    className="flex items-center gap-1"
+                                                                    scope={["w:estimates"]}
+                                                                >
+                                                                    <Edit size={14} />
+                                                                    Edit
+                                                                </AccessButton>
+                                                            )}
                                                         </>
                                                     )}
 

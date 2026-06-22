@@ -4,6 +4,7 @@ import React from "react";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
+import { Access } from "@/components/access";
 
 interface ChecklistItem {
     category: string;
@@ -42,6 +43,13 @@ function groupByCategory(items: ChecklistItem[]): Map<string, ChecklistItem[]> {
     }
     return grouped;
 }
+
+const checkPastDate = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const today = new Date();
+    const date = new Date(dateStr);
+    return date < today;
+};
 
 export function ChecklistPreviewModal({
     isOpen,
@@ -132,7 +140,9 @@ export function ChecklistPreviewModal({
                                 <th className="py-3 px-3 font-medium text-center w-24">Status</th>
                                 <th className="py-3 px-3 font-medium text-center">Start Date</th>
                                 <th className="py-3 px-3 font-medium text-center">End Date</th>
-                                <th className="py-3 px-3 font-medium text-right w-20">Rate</th>
+                                <Access roles={["super_admin"]}>
+                                    <th className="py-3 px-3 font-medium text-right w-20">Rate</th>
+                                </Access>
                             </tr>
                         </thead>
                         <tbody>
@@ -251,13 +261,27 @@ export function ChecklistPreviewModal({
                                                     {item.startDate || "-"}
                                                 </td>
                                                 <td className="py-3 px-3 align-middle text-center">
-                                                    {item.endDate || "-"}
+                                                    {item.endDate ? (
+                                                        <span
+                                                            className={
+                                                                checkPastDate(item.endDate)
+                                                                    ? "text-red-500 font-medium"
+                                                                    : ""
+                                                            }
+                                                        >
+                                                            {item.endDate}
+                                                        </span>
+                                                    ) : (
+                                                        "-"
+                                                    )}
                                                 </td>
-                                                <td className="py-3 px-3 align-middle text-right">
-                                                    {item.pricePerItem
-                                                        ? `₹${item.pricePerItem}`
-                                                        : "-"}
-                                                </td>
+                                                <Access roles={["super_admin"]}>
+                                                    <td className="py-3 px-3 align-middle text-right">
+                                                        {item.pricePerItem
+                                                            ? `₹${item.pricePerItem}`
+                                                            : "-"}
+                                                    </td>
+                                                </Access>
                                             </tr>,
                                         );
                                     });
