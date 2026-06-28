@@ -4,12 +4,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Formik, Form, FormikHelpers } from "formik";
 import * as Yup from "yup";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { FormikFieldInput } from "@/components/ui/formik-field-input";
 import { FormikFieldTextArea } from "@/components/ui/formik-field-textarea";
 import { FormikFieldDatePicker } from "@/components/ui/formik-field-date-picker";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
-import { Table, type Column } from "@/components/ui/table";
 import { Label } from "@/components/ui-old/label";
 import { toast } from "sonner";
 import {
@@ -22,8 +20,12 @@ import {
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { calculateEstimateSummary } from "@/lib/utils/estimate";
-import { TrashIcon, PlusIcon, Select, FormikFieldSelect } from "./ui";
+import { Select, FormikFieldSelect } from "./ui";
 import { eventStatus } from "@/constants/event";
+import { ArtifactsSection } from "@/components/artifacts-section";
+import { CostSummary } from "@/components/cost-summary";
+import type { ArtifactLine } from "@/lib/utils/artifact-utils";
+import { isPersistableArtifactLine } from "@/lib/utils/artifact-utils";
 
 type EstimateLine = {
     id: string;
@@ -179,6 +181,7 @@ export default function CreateEstimateModal({
     const [summaryError, setSummaryError] = useState<string | null>(null);
     const [isFetchingEnquiry, setIsFetchingEnquiry] = useState(false);
     const [lines, setLines] = useState<EstimateLine[]>([]);
+    const [invalidLineIds, setInvalidLineIds] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(
         initialData ? { clientName: initialData.client, title: initialData.title } : null,
@@ -811,22 +814,30 @@ export default function CreateEstimateModal({
             }
 
             // Validate artifacts items
-            const invalidItems = lines.filter(line => {
+            const persistableLines = lines.filter(isPersistableArtifactLine);
+            const invalidItems = persistableLines.filter(line => {
                 const hasEmptyItem = !line.item || line.item.trim() === "";
                 const hasEmptyRate = !Number.isFinite(line.rate) || Number(line.rate) === 0;
-                return hasEmptyItem || hasEmptyRate;
+                const hasInvalidQty = !Number.isFinite(line.sqft) || Number(line.sqft) < 1;
+                const hasInvalidDays = !Number.isFinite(line.days) || Number(line.days) < 1;
+                return hasEmptyItem || hasEmptyRate || hasInvalidQty || hasInvalidDays;
             });
 
             if (invalidItems.length > 0) {
+                const invalidIds = new Set(invalidItems.map(line => line.id));
+                setInvalidLineIds(invalidIds);
                 toast.error("Invalid artifacts", {
-                    description: "Each artifact requires an item name and a rate greater than 0.",
+                    description:
+                        "Each artifact requires an item name, days, quantity, and rate greater than 0.",
                 });
                 setIsSaving(false);
                 return;
+            } else {
+                setInvalidLineIds(new Set());
             }
 
             const serialCounters = new Map<string, number>();
-            const requestItems = lines.reduce<Record<string, EstimateLineItemPayload[]>>(
+            const requestItems = persistableLines.reduce<Record<string, EstimateLineItemPayload[]>>(
                 (acc, line) => {
                     const category = line.category?.trim() || "General";
                     const currentSerial = (serialCounters.get(category) ?? 0) + 1;
@@ -861,27 +872,30 @@ export default function CreateEstimateModal({
                 },
                 {},
             );
-            const uiItemsForFallback = lines.reduce<Record<string, EstimateItem[]>>((acc, line) => {
-                const category = line.category || "General";
-                const bucket = acc[category] ?? [];
-                const total = Number((line.days * line.sqft * line.rate).toFixed(2));
+            const uiItemsForFallback = persistableLines.reduce<Record<string, EstimateItem[]>>(
+                (acc, line) => {
+                    const category = line.category || "General";
+                    const bucket = acc[category] ?? [];
+                    const total = Number((line.days * line.sqft * line.rate).toFixed(2));
 
-                bucket.push({
-                    id: line.id,
-                    description: line.item,
-                    specification: line.specification,
-                    days: line.days,
-                    sqft: line.sqft,
-                    rate: line.rate,
-                    quantity: line.sqft,
-                    unitCost: line.rate,
-                    total,
-                    vendor: line.vendor || "",
-                    subCategory: line.subCategory || "",
-                });
-                acc[category] = bucket;
-                return acc;
-            }, {});
+                    bucket.push({
+                        id: line.id,
+                        description: line.item,
+                        specification: line.specification,
+                        days: line.days,
+                        sqft: line.sqft,
+                        rate: line.rate,
+                        quantity: line.sqft,
+                        unitCost: line.rate,
+                        total,
+                        vendor: line.vendor || "",
+                        subCategory: line.subCategory || "",
+                    });
+                    acc[category] = bucket;
+                    return acc;
+                },
+                {},
+            );
 
             const fallbackClientId = clientSummaries.find(
                 c => c.clientName === prefillData.client,
@@ -1117,19 +1131,6 @@ export default function CreateEstimateModal({
                                                 {enquiryStatusMessage}
                                             </p>
                                         </div>
-                                        <div className="text-left md:text-right">
-                                            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                Estimate total
-                                            </span>
-                                            <p className="text-xl font-semibold text-blue-600">
-                                                ₹{summary.totalWithGST.toFixed(2)}
-                                            </p>
-                                            {prefillData?.client && (
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    Client • {prefillData.client}
-                                                </p>
-                                            )}
-                                        </div>
                                     </div>
                                     <FormikFieldInput
                                         name="title"
@@ -1274,407 +1275,98 @@ export default function CreateEstimateModal({
                                 </section>
 
                                 <section className="space-y-4">
-                                    <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                                            <div>
-                                                <h3 className="text-base font-semibold text-gray-900">
-                                                    Artifacts required
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground">
-                                                    List the services, equipment, and resources
-                                                    needed for this estimate.
-                                                </p>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!prefillData?.enquiryId}
-                                                onClick={() =>
-                                                    setLines(prev => {
-                                                        const lastCategory =
-                                                            prev.length > 0
-                                                                ? prev[prev.length - 1].category
-                                                                : "General";
-                                                        return [
-                                                            ...prev,
-                                                            {
-                                                                id: generateId(),
-                                                                category: lastCategory,
-                                                                subCategory: "",
-                                                                item: "",
-                                                                specification: "",
-                                                                days: 1,
-                                                                sqft: 1,
-                                                                rate: 0,
-                                                                vendor: "",
-                                                            },
-                                                        ];
-                                                    })
-                                                }
-                                            >
-                                                <PlusIcon size={16} className="mr-1" />
-                                                Add Item
-                                            </Button>
+                                    <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                                        <div className="mb-3">
+                                            <h3 className="text-base font-semibold text-gray-900">
+                                                Artifacts required
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                List the services, equipment, and resources needed
+                                                for this estimate.
+                                            </p>
                                         </div>
 
-                                        <div className="overflow-x-auto">
-                                            <Table
-                                                data={lines}
-                                                showRowNumbers
-                                                emptyMessage='No items added yet. Click "Add Item" to get started.'
-                                                columns={
-                                                    [
-                                                        {
-                                                            key: "category",
-                                                            header: "Category",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={
-                                                                        lines[index]?.category || ""
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          category:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Category"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "subCategory",
-                                                            header: "Sub Category",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={
-                                                                        lines[index]?.subCategory ||
-                                                                        ""
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          subCategory:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Sub Category"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "item",
-                                                            header: "Item",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={lines[index]?.item || ""}
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          item: value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Item name"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "specification",
-                                                            header: "Specification",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={
-                                                                        lines[index]
-                                                                            ?.specification || ""
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          specification:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Specification"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "days",
-                                                            header: "Days",
-                                                            align: "center",
-                                                            cellClassName: "w-20",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    value={
-                                                                        lines[index]?.days === 0
-                                                                            ? ""
-                                                                            : lines[index]?.days
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value,
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          days: Number.isNaN(
-                                                                                              value,
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    className="text-center"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "sqft",
-                                                            header: "Quantity",
-                                                            align: "center",
-                                                            cellClassName: "w-20",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    value={
-                                                                        lines[index]?.sqft === 0
-                                                                            ? ""
-                                                                            : lines[index]?.sqft
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value,
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          sqft: Number.isNaN(
-                                                                                              value,
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    className="text-center"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "rate",
-                                                            header: "Rate",
-                                                            align: "right",
-                                                            cellClassName: "w-24",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    step="0.01"
-                                                                    value={
-                                                                        lines[index]?.rate === 0
-                                                                            ? ""
-                                                                            : lines[index]?.rate
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value,
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          rate: Number.isNaN(
-                                                                                              value,
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    className="text-right"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "total",
-                                                            header: "Total",
-                                                            align: "right",
-                                                            cellClassName: "w-28 font-semibold",
-                                                            render: (_, index) => (
-                                                                <span className="text-sm">
-                                                                    ₹
-                                                                    {(
-                                                                        lines[index]?.days *
-                                                                        lines[index]?.sqft *
-                                                                        lines[index]?.rate
-                                                                    ).toFixed(2)}
-                                                                </span>
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "actions",
-                                                            header: "",
-                                                            align: "right",
-                                                            cellClassName: "text-right w-16",
-                                                            render: (_, index) => (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        setLines(prev =>
-                                                                            prev.filter(
-                                                                                (_, idx) =>
-                                                                                    idx !== index,
-                                                                            ),
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <TrashIcon
-                                                                        className="text-destructive"
-                                                                        size={16}
-                                                                    />
-                                                                </Button>
-                                                            ),
-                                                        },
-                                                    ] as Column<EstimateLine>[]
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="rounded-xl bg-slate-900/90 px-5 py-4 text-sm text-slate-100">
-                                        <div className="space-y-2">
-                                            <div className="uppercase tracking-wide text-xs text-slate-300 font-semibold mb-3">
-                                                Cost Summary
-                                            </div>
-                                            <>
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-slate-300">Total</span>
-                                                    <span className="font-medium">
-                                                        ₹{totalAmount.toFixed(2)}
-                                                    </span>
-                                                </div>
-                                                {(values.serviceCharge || 0) > 0 && (
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">
-                                                            Service Charge ({values.serviceCharge}%)
-                                                        </span>
-                                                        <span className="font-medium">
-                                                            ₹
-                                                            {summary.serviceChargeAmount.toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {(values.discountAmount || 0) > 0 && (
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">
-                                                            Discount Amount
-                                                        </span>
-                                                        <span className="font-medium text-red-300">
-                                                            -₹
-                                                            {(values.discountAmount || 0).toFixed(
-                                                                2,
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {(values.gst || 0) > 0 && (
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">
-                                                            GST ({values.gst}%)
-                                                        </span>
-                                                        <span className="font-medium">
-                                                            ₹{summary.gstAmount.toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <div className="border-t border-slate-700 pt-2 mt-2 flex justify-between">
-                                                    <span className="text-slate-200 font-semibold">
-                                                        Final Total
-                                                    </span>
-                                                    <span className="text-lg font-bold text-blue-300">
-                                                        ₹{summary.totalWithGST.toFixed(2)}
-                                                    </span>
-                                                </div>
-                                            </>
-                                        </div>
+                                        <ArtifactsSection
+                                            lines={lines as unknown as ArtifactLine[]}
+                                            onLinesChange={newLines =>
+                                                setLines(newLines as EstimateLine[])
+                                            }
+                                            disabled={!prefillData?.enquiryId}
+                                            errorLineIds={invalidLineIds}
+                                        />
                                     </div>
                                 </section>
                             </ModalBody>
-
-                            <ModalFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        clearEnquirySelection(true);
-                                        setSelectedClientId("");
-                                        onClose();
+                            <ModalFooter className="relative justify-between py-2">
+                                <CostSummary
+                                    title="Cost Summary"
+                                    subtitle="Final estimate total"
+                                    amount={summary.totalWithGST}
+                                    breakdownTitle="Cost Breakdown"
+                                    items={[
+                                        {
+                                            label: "Total",
+                                            amount: totalAmount,
+                                        },
+                                        ...((values.serviceCharge || 0) > 0
+                                            ? [
+                                                  {
+                                                      label: `Service Charge (${values.serviceCharge}%)`,
+                                                      amount: summary.serviceChargeAmount,
+                                                  },
+                                              ]
+                                            : []),
+                                        ...((values.discountAmount || 0) > 0
+                                            ? [
+                                                  {
+                                                      label: "Discount Amount",
+                                                      amount: values.discountAmount || 0,
+                                                      tone: "negative" as const,
+                                                      prefix: "-",
+                                                  },
+                                              ]
+                                            : []),
+                                        ...((values.gst || 0) > 0
+                                            ? [
+                                                  {
+                                                      label: `GST (${values.gst}%)`,
+                                                      amount: summary.gstAmount,
+                                                      tone: "positive" as const,
+                                                      prefix: "+",
+                                                  },
+                                              ]
+                                            : []),
+                                    ]}
+                                    totalItem={{
+                                        label: "Final Total",
+                                        amount: summary.totalWithGST,
                                     }}
-                                    disabled={isSaving}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button type="submit" disabled={isSaving || isFetchingEnquiry}>
-                                    {isSaving
-                                        ? initialData?.id
-                                            ? "Updating..."
-                                            : "Saving..."
-                                        : isFetchingEnquiry
-                                          ? "Loading enquiry..."
-                                          : initialData?.id
-                                            ? "Update Estimate"
-                                            : "Save Estimate"}
-                                </Button>
+                                />
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            clearEnquirySelection(true);
+                                            setSelectedClientId("");
+                                            onClose();
+                                        }}
+                                        disabled={isSaving}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" disabled={isSaving || isFetchingEnquiry}>
+                                        {isSaving
+                                            ? initialData?.id
+                                                ? "Updating..."
+                                                : "Saving..."
+                                            : isFetchingEnquiry
+                                              ? "Loading enquiry..."
+                                              : initialData?.id
+                                                ? "Update Estimate"
+                                                : "Save Estimate"}
+                                    </Button>
+                                </div>
                             </ModalFooter>
                         </Form>
                     );
