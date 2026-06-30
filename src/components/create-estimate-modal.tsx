@@ -415,6 +415,8 @@ export default function CreateEstimateModal({
                     ? (normalisedStatus as EstimateStatus)
                     : "ENQUIRY_CREATED";
 
+            console.log({ record });
+
             return {
                 enquiryId: persistedId,
                 title:
@@ -514,6 +516,8 @@ export default function CreateEstimateModal({
 
                     return undefined;
                 })();
+
+                console.log({ parsed, fallbackId });
 
                 const nextPrefill = mapEnquiryToPrefill(parsed, {
                     id: fallbackId,
@@ -923,6 +927,7 @@ export default function CreateEstimateModal({
                 serviceCharge: values.serviceCharge,
                 discounts: values.discountAmount,
                 billingAddress: values.billingAddress,
+                estimateStatus: "DRAFT",
             };
 
             // Check if we're editing an existing estimate (has an id)

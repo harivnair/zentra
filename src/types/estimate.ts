@@ -122,4 +122,5 @@ export interface CreateEstimatePayload {
     serviceCharge: number;
     discounts?: number;
     billingAddress?: string;
+    estimateStatus?: string;
 }

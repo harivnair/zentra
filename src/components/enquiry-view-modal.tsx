@@ -202,8 +202,19 @@ export function EnquiryViewModal({ open, onClose, enquiry, onEdit }: EnquiryView
 
             if (createdEstimate) {
                 toast.success("Estimate created from enquiry");
+                // Ensure title is populated for the estimate modal prefill
+                const prefillPayload = {
+                    ...createdEstimate,
+                    location: createdEstimate.location || enquiry.location || "",
+                    title:
+                        createdEstimate.title ||
+                        createdEstimate.eventName ||
+                        enquiry.eventName ||
+                        enquiry.title ||
+                        "Event",
+                };
                 // Set the prefill context so the estimates page opens the edit modal
-                setEstimatePrefill(createdEstimate);
+                setEstimatePrefill(prefillPayload);
                 router.push(`/estimates`);
             }
         } catch (err) {

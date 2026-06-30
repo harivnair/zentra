@@ -485,28 +485,28 @@ function CategoryCard({
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-gray-200 bg-gray-50">
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     #
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Item
+                                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                    Elements
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Specification
                                 </th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Days
                                 </th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Qty
                                 </th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Rate
                                 </th>
-                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Total
                                 </th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600" />
+                                <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600" />
                                 {/* Action */}
                             </tr>
                         </thead>

@@ -15,11 +15,9 @@ import {
 import { apiRequest } from "@/lib/api/api-client";
 import { toast } from "sonner";
 import { Button, Modal, ModalBody, ModalFooter } from "./ui";
-import { Table, type Column } from "@/components/ui/table";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { useRouter } from "next/navigation";
 import { AccessButton } from "./shared/access-button";
-import { calculateEstimateSummary } from "@/lib/utils/estimate";
 import { EstimatePreviewModal } from "./estimate-preview-modal";
 
 interface EstimateVersionsViewProps {
@@ -352,21 +350,19 @@ export function EstimateVersionsView({
                                                 <div className="flex gap-2">
                                                     {!isViewOnlyMode && (
                                                         <>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    handleClone(version.id || "")
+                                                                }
+                                                                className="flex items-center gap-1"
+                                                            >
+                                                                <Copy size={14} />
+                                                                Clone
+                                                            </Button>
                                                             {version.estimateStatus === "DRAFT" && (
                                                                 <>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        onClick={() =>
-                                                                            handleClone(
-                                                                                version.id || "",
-                                                                            )
-                                                                        }
-                                                                        className="flex items-center gap-1"
-                                                                    >
-                                                                        <Copy size={14} />
-                                                                        Clone
-                                                                    </Button>
                                                                     <Button
                                                                         size="sm"
                                                                         variant="outline"
@@ -381,26 +377,26 @@ export function EstimateVersionsView({
                                                                         <Send size={14} />
                                                                         Send to Client
                                                                     </Button>
+                                                                    <AccessButton
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() =>
+                                                                            onVersionSelect?.(
+                                                                                version,
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1"
+                                                                        scope={["w:estimates"]}
+                                                                    >
+                                                                        <Edit size={14} />
+                                                                        Edit
+                                                                    </AccessButton>
                                                                 </>
                                                             )}
 
                                                             {version.estimateStatus ===
                                                                 "UNDER_CLIENT_REVIEW" && (
                                                                 <>
-                                                                    <AccessButton
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        onClick={() =>
-                                                                            handleClone(
-                                                                                version.id || "",
-                                                                            )
-                                                                        }
-                                                                        className="flex items-center gap-1"
-                                                                        scope={["w:estimates"]}
-                                                                    >
-                                                                        <Copy size={14} />
-                                                                        Clone
-                                                                    </AccessButton>
                                                                     <AccessButton
                                                                         size="sm"
                                                                         variant="outline"
@@ -447,20 +443,6 @@ export function EstimateVersionsView({
                                                                     scope={["w:estimates"]}
                                                                 >
                                                                     Revert to Draft
-                                                                </AccessButton>
-                                                            )}
-                                                            {version.estimateStatus !== "FINAL" && (
-                                                                <AccessButton
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        onVersionSelect?.(version)
-                                                                    }
-                                                                    className="flex items-center gap-1"
-                                                                    scope={["w:estimates"]}
-                                                                >
-                                                                    <Edit size={14} />
-                                                                    Edit
                                                                 </AccessButton>
                                                             )}
                                                         </>

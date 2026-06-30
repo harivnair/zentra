@@ -273,7 +273,6 @@ export default function EstimatesPage() {
                 _hasFinal: !!finalVersion,
             } as EstimateRecord & { _versionsCount: number; _hasFinal: boolean });
         }
-        console.log({ representatives, filtered, estimates });
 
         return representatives;
     }, [filtered]);
