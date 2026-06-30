@@ -77,7 +77,6 @@ export function Modal({
     const modal = (
         <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-            onClick={handleBackdropClick}
             role="dialog"
             aria-modal
             aria-labelledby={title ? "modal-title" : undefined}
@@ -87,11 +86,13 @@ export function Modal({
             <div
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
                 aria-hidden
+                onClick={handleBackdropClick}
             />
 
             {/* Panel */}
             <div
                 ref={dialogRef}
+                onClick={e => e.stopPropagation()}
                 className={cn(
                     "relative z-10 w-full rounded-md border border-border bg-surface shadow-2xl animate-in zoom-in-95 fade-in duration-200",
                     sizeStyles[size],

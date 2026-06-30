@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { EstimateDto, EstimateVersionStatus, EstimateItem } from "@/types/estimate";
 import {
     Copy,
@@ -19,6 +19,16 @@ import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { useRouter } from "next/navigation";
 import { AccessButton } from "./shared/access-button";
 import { EstimatePreviewModal } from "./estimate-preview-modal";
+import { EstimateEmailPreviewModal } from "./estimate-email-preview-modal";
+
+interface ClientData {
+    email?: string;
+}
+
+function getClientEmail(estimate: EstimateDto): string {
+    const estimateWithClient = estimate as EstimateDto & { client?: ClientData };
+    return estimateWithClient.client?.email ?? "";
+}
 
 interface EstimateVersionsViewProps {
     enquiryId: string;
@@ -39,6 +49,7 @@ export function EstimateVersionsView({
     const [loading, setLoading] = useState(true);
     const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
     const [previewVersion, setPreviewVersion] = useState<EstimateDto | null>(null);
+    const [emailVersion, setEmailVersion] = useState<EstimateDto | null>(null);
     const [versionsWithEvents, setVersionsWithEvents] = useState<Set<string>>(new Set());
 
     // Fetch versions on mount
@@ -120,6 +131,21 @@ export function EstimateVersionsView({
             toast.error("Failed to update status");
         }
     };
+
+    const handleEmailSuccess = useCallback(async (estimateId: string) => {
+        // Update the estimate status to UNDER_CLIENT_REVIEW after successful email send
+        try {
+            await apiRequest(`/api/estimates/${estimateId}/status?status=UNDER_CLIENT_REVIEW`, {
+                method: "PATCH",
+            });
+            toast.success("Status updated to Under Client Review");
+            await fetchVersions();
+        } catch (error) {
+            console.error("Error updating status:", error);
+            toast.error("Failed to update status");
+            throw error; // Re-throw so the email modal knows the operation failed
+        }
+    }, []);
 
     const toggleExpand = (versionId: string) => {
         const newExpanded = new Set(expandedVersions);
@@ -272,6 +298,16 @@ export function EstimateVersionsView({
                     onClose={() => setPreviewVersion(null)}
                 />
             )}
+            {emailVersion && (
+                <EstimateEmailPreviewModal
+                    estimate={emailVersion}
+                    eventName={eventName}
+                    clientEmail={getClientEmail(emailVersion)}
+                    open={!!emailVersion}
+                    onClose={() => setEmailVersion(null)}
+                    onSuccess={() => handleEmailSuccess(emailVersion.id || "")}
+                />
+            )}
             <Modal
                 onClose={onClose}
                 size="xxl"
@@ -367,10 +403,7 @@ export function EstimateVersionsView({
                                                                         size="sm"
                                                                         variant="outline"
                                                                         onClick={() =>
-                                                                            handleStatusChange(
-                                                                                version.id || "",
-                                                                                "UNDER_CLIENT_REVIEW",
-                                                                            )
+                                                                            setEmailVersion(version)
                                                                         }
                                                                         className="flex items-center gap-1"
                                                                     >
