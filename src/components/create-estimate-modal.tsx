@@ -37,6 +37,7 @@ type EstimateLine = {
     sqft: number;
     rate: number;
     vendor: string;
+    unit?: string;
 };
 
 type ClientEnquirySummary = {
@@ -415,8 +416,6 @@ export default function CreateEstimateModal({
                     ? (normalisedStatus as EstimateStatus)
                     : "ENQUIRY_CREATED";
 
-            console.log({ record });
-
             return {
                 enquiryId: persistedId,
                 title:
@@ -517,8 +516,6 @@ export default function CreateEstimateModal({
                     return undefined;
                 })();
 
-                console.log({ parsed, fallbackId });
-
                 const nextPrefill = mapEnquiryToPrefill(parsed, {
                     id: fallbackId,
                     clientId: selectedClientId,
@@ -610,6 +607,9 @@ export default function CreateEstimateModal({
                     const subCategory =
                         typeof item.subCategory === "string" ? item.subCategory : "";
 
+                    const unit =
+                        typeof item.unit === "string" && item.unit.trim() ? item.unit : "nos";
+
                     fromItems.push({
                         id: derivedId,
                         category,
@@ -620,6 +620,7 @@ export default function CreateEstimateModal({
                         sqft,
                         rate,
                         vendor,
+                        unit,
                     });
                 });
             });
@@ -791,8 +792,6 @@ export default function CreateEstimateModal({
         // Check if we're editing an existing estimate
         const isEditing = prefillData?.id ? true : false;
 
-        console.log({ values });
-
         try {
             const activeEnquiryId = selectedEnquiryId ?? prefillData?.enquiryId;
             if (!activeEnquiryId || !prefillData) {
@@ -867,6 +866,7 @@ export default function CreateEstimateModal({
                         days,
                         category: line.category || "General",
                         subCategory: line.subCategory || "",
+                        unit: line.unit || "nos",
                     };
 
                     const bucket = acc[category] ?? [];
@@ -894,6 +894,7 @@ export default function CreateEstimateModal({
                         total,
                         vendor: line.vendor || "",
                         subCategory: line.subCategory || "",
+                        unit: line.unit || "nos",
                     });
                     acc[category] = bucket;
                     return acc;

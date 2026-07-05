@@ -31,6 +31,7 @@ export interface EstimateItem {
     item?: string;
     category?: string;
     subCategory?: string;
+    unit?: string;
 }
 
 export interface EstimateDto {
@@ -96,6 +97,7 @@ export interface EstimateLineItemPayload {
     finalAmt: number;
     category?: string;
     subCategory?: string;
+    unit?: string;
 }
 
 export interface CreateEstimatePayload {

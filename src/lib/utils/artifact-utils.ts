@@ -17,6 +17,7 @@ export interface ArtifactLine {
     rate: number;
     vendor: string;
     kind?: ArtifactLineKind;
+    unit?: string;
 }
 
 export interface GroupedItem {
@@ -27,6 +28,7 @@ export interface GroupedItem {
     sqft: number;
     rate: number;
     vendor: string;
+    unit?: string;
 }
 
 export interface GroupedSubCategory {
@@ -54,10 +56,12 @@ export function generateId(): string {
     return `id-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-
 /* ------------------------------------------------------------------ */
 /*  Group flat lines into hierarchical structure                       */
 /* ------------------------------------------------------------------ */
+
+export const QUANTITY_UNITS = ["sq.ft", "nos", "g", "kg", "cm", "m", "ft", "in"] as const;
+export type QuantityUnit = (typeof QUANTITY_UNITS)[number];
 
 export function groupLinesByCategory(lines: ArtifactLine[]): GroupedCategory[] {
     const categoryMap = new Map<
@@ -105,6 +109,7 @@ export function groupLinesByCategory(lines: ArtifactLine[]): GroupedCategory[] {
             sqft: line.sqft,
             rate: line.rate,
             vendor: line.vendor,
+            unit: line.unit || "nos",
         };
 
         if (line.subCategory && line.subCategory.trim()) {
@@ -164,6 +169,7 @@ export function flattenGroupedToLines(categories: GroupedCategory[]): ArtifactLi
                 sqft: item.sqft,
                 rate: item.rate,
                 vendor: item.vendor,
+                unit: item.unit || "nos",
             });
         }
         for (const sub of cat.subCategories) {
@@ -178,6 +184,7 @@ export function flattenGroupedToLines(categories: GroupedCategory[]): ArtifactLi
                     sqft: item.sqft,
                     rate: item.rate,
                     vendor: item.vendor,
+                    unit: item.unit || "nos",
                 });
             }
         }
@@ -201,6 +208,7 @@ export function createEmptyLine(category: string, subCategory = ""): ArtifactLin
         rate: 0,
         vendor: "",
         kind: "item",
+        unit: "nos",
     };
 }
 
@@ -216,6 +224,7 @@ export function createCategoryMarker(category: string): ArtifactLine {
         rate: 0,
         vendor: "",
         kind: "category_marker",
+        unit: "nos",
     };
 }
 
@@ -231,6 +240,7 @@ export function createSubCategoryMarker(category: string, subCategory: string): 
         rate: 0,
         vendor: "",
         kind: "subcategory_marker",
+        unit: "nos",
     };
 }
 
@@ -283,4 +293,3 @@ export function itemTotal(item: GroupedItem): number {
 export function sumItemsTotal(items: GroupedItem[]): number {
     return items.reduce((sum, item) => sum + itemTotal(item), 0);
 }
-

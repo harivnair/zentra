@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -16,6 +16,8 @@ import {
     itemTotal,
 } from "@/lib/utils/artifact-utils";
 import { TrashIcon, PlusIcon } from "@/components/ui/icons";
+import { InlineEdit, InlineNumber, InlineUnitSelect } from "@/components/ui";
+import { QUANTITY_UNITS } from "@/lib/utils/artifact-utils";
 
 /* ------------------------------------------------------------------ */
 /*  Line insertion helpers – preserve creation order within categories */
@@ -114,189 +116,6 @@ function insertItemInSubCategory(
 }
 
 /* ------------------------------------------------------------------ */
-
-interface InlineEditProps {
-    value: string;
-    onSave: (value: string) => void;
-    placeholder?: string;
-    className?: string;
-    disabled?: boolean;
-}
-
-function InlineEdit({
-    value,
-    onSave,
-    placeholder = "",
-    className = "",
-    disabled = false,
-}: InlineEditProps) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(value);
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        setEditValue(value);
-    }, [value]);
-
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-        }
-    }, [isEditing]);
-
-    const handleSave = useCallback(() => {
-        setIsEditing(false);
-        const trimmed = editValue.trim();
-        if (trimmed !== value) {
-            onSave(trimmed);
-        }
-    }, [editValue, onSave, value]);
-
-    const handleKeyDown = useCallback(
-        (e: React.KeyboardEvent) => {
-            if (e.key === "Enter") {
-                handleSave();
-            } else if (e.key === "Escape") {
-                setEditValue(value);
-                setIsEditing(false);
-            }
-        },
-        [handleSave, value],
-    );
-
-    if (disabled) {
-        return (
-            <span className={cn("text-sm text-gray-500", className)}>{value || placeholder}</span>
-        );
-    }
-
-    if (isEditing) {
-        return (
-            <input
-                ref={inputRef}
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                onBlur={handleSave}
-                onKeyDown={handleKeyDown}
-                className={cn(
-                    "w-full border-b-2 border-primary bg-transparent px-1 py-0.5 text-sm outline-none transition-colors",
-                    className,
-                )}
-                placeholder={placeholder}
-            />
-        );
-    }
-
-    return (
-        <span
-            className={cn(
-                "cursor-pointer rounded py-0.5 text-sm transition-colors hover:bg-blue-50 hover:text-blue-700",
-                !value && "italic text-gray-400",
-                className,
-            )}
-            onClick={() => setIsEditing(true)}
-            title="Click to edit"
-        >
-            {value || <span className="text-gray-400 italic">{placeholder}</span>}
-        </span>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/*  InlineNumber – click-to-edit number field                          */
-/* ------------------------------------------------------------------ */
-
-interface InlineNumberProps {
-    value: number;
-    onSave: (value: number) => void;
-    className?: string;
-    disabled?: boolean;
-    min?: number;
-    step?: number;
-}
-
-function InlineNumber({
-    value,
-    onSave,
-    className = "",
-    disabled = false,
-    min = 0,
-    step = 1,
-}: InlineNumberProps) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(String(value));
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        setEditValue(String(value));
-    }, [value]);
-
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-        }
-    }, [isEditing]);
-
-    const handleSave = useCallback(() => {
-        setIsEditing(false);
-        const parsed = Number(editValue);
-        if (!Number.isNaN(parsed) && parsed !== value) {
-            onSave(parsed);
-        }
-    }, [editValue, onSave, value]);
-
-    const handleKeyDown = useCallback(
-        (e: React.KeyboardEvent) => {
-            if (e.key === "Enter") {
-                handleSave();
-            } else if (e.key === "Escape") {
-                setEditValue(String(value));
-                setIsEditing(false);
-            }
-        },
-        [handleSave, value],
-    );
-
-    if (disabled) {
-        return <span className={cn("text-sm text-gray-500", className)}>{value}</span>;
-    }
-
-    if (isEditing) {
-        return (
-            <input
-                ref={inputRef}
-                type="number"
-                min={min}
-                step={step}
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                onBlur={handleSave}
-                onKeyDown={handleKeyDown}
-                className={cn(
-                    "w-16 border-b-2 border-blue-400 bg-transparent px-1 py-0.5 text-right text-sm outline-none transition-colors",
-                    className,
-                )}
-            />
-        );
-    }
-
-    return (
-        <span
-            className={cn(
-                "inline-flex cursor-pointer items-center justify-end gap-0.5 rounded px-1.5 py-0.5 text-sm tabular-nums transition-colors hover:bg-blue-50 hover:text-blue-700",
-                className,
-            )}
-            onClick={() => setIsEditing(true)}
-            title="Click to edit"
-        >
-            {value}
-        </span>
-    );
-}
-
-/* ------------------------------------------------------------------ */
 /*  ArtifactItemRow – renders a single item with inline fields         */
 /* ------------------------------------------------------------------ */
 
@@ -377,6 +196,14 @@ function ArtifactItemRow({
                 />
             </td>
             <td className="px-2 py-1.5 text-center">
+                <InlineUnitSelect
+                    value={item.unit || "nos"}
+                    onSave={val => onUpdate({ ...item, unit: val })}
+                    disabled={disabled}
+                    options={QUANTITY_UNITS}
+                />
+            </td>
+            <td className="px-2 py-1.5 text-center">
                 <div className="flex items-center justify-center gap-1">
                     <span className="text-xs text-gray-400">₹</span>
                     <InlineNumber
@@ -442,7 +269,7 @@ function CategoryCard({
     errorLineIds,
 }: CategoryCardProps) {
     return (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+        <div className="rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
             {/* ---- Category Header ---- */}
             <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/80 px-4 py-2.5">
                 <div className="flex items-center gap-2">
@@ -501,13 +328,15 @@ function CategoryCard({
                                     Qty
                                 </th>
                                 <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                    Unit
+                                </th>
+                                <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Rate
                                 </th>
                                 <th className="px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Total
                                 </th>
                                 <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-gray-600" />
-                                {/* Action */}
                             </tr>
                         </thead>
                         <tbody>
@@ -527,7 +356,7 @@ function CategoryCard({
                             {/* ---- Category-level Add Item (when sub categories exist) ---- */}
                             {category.subCategories.length > 0 && (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-1">
+                                    <td colSpan={9} className="px-6 py-1">
                                         <div className="flex flex-col gap-1 px-6 py-2">
                                             <Button
                                                 type="button"
@@ -549,7 +378,7 @@ function CategoryCard({
                             {category.subCategories.map(sub => (
                                 <React.Fragment key={sub.id}>
                                     <tr className="border-b border-gray-100 bg-gray-50/30">
-                                        <td colSpan={8} className="px-4 py-1.5">
+                                        <td colSpan={9} className="px-4 py-1.5">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-semibold uppercase text-gray-400">
@@ -593,7 +422,7 @@ function CategoryCard({
                                         />
                                     ))}
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-1">
+                                        <td colSpan={9} className="px-6 py-1">
                                             <div className="flex flex-col gap-1 px-6 py-2">
                                                 <Button
                                                     type="button"
@@ -756,6 +585,7 @@ export function ArtifactsSection({
                               specification: updated.specification,
                               days: updated.days,
                               sqft: updated.sqft,
+                              unit: updated.unit,
                               rate: updated.rate,
                               vendor: updated.vendor,
                           }

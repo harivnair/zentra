@@ -106,10 +106,18 @@ export function ChevronLeftIcon({ size, className }: IconProps) {
     );
 }
 
+export function ChevronDownIcon({ size, className }: IconProps) {
+    return (
+        <svg {...svg(size, className)}>
+            <path d="M6 9l6 6 6-6" />
+        </svg>
+    );
+}
+
 export function ChevronRightIcon({ size, className }: IconProps) {
     return (
         <svg {...svg(size, className)}>
-            <path d="m9 18 6-6-6-6" />
+            <path d="M9 18l6-6-6-6" />
         </svg>
     );
 }

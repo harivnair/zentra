@@ -86,8 +86,6 @@ export function EstimateVersionsView({
                 }
                 setVersionsWithEvents(versionsWithEventsSet);
             }
-
-            console.log({ versionsWithEvents, estimatesWithTitle, raw: data.estimates });
         } catch (error) {
             console.error("Error fetching versions:", error);
             toast.error("Failed to load estimate versions");
@@ -325,8 +323,6 @@ export function EstimateVersionsView({
                         ) : (
                             <div className="space-y-4">
                                 {sortedVersions.map(version => {
-                                    console.log({ sortedVersions });
-
                                     const isExpanded = expandedVersions.has(version.id || "");
                                     const isFinal = version.estimateStatus === "FINAL";
 
