@@ -285,6 +285,16 @@ async function populateWorksheet(
                 rowIndex += 1;
                 break;
             }
+            case "subCategory": {
+                const row = sheet.getRow(rowIndex);
+                row.getCell(2).value = `Sub Category: ${exportRow.name}`;
+                row.getCell(2).font = { bold: true };
+                fillRow(row, 1, 6, ESTIMATE_EXPORT_COLORS.subCategoryBg, false);
+                row.getCell(2).font = { bold: true };
+                row.height = 20;
+                rowIndex += 1;
+                break;
+            }
             case "item": {
                 const row = sheet.getRow(rowIndex);
                 const item = exportRow.item;

@@ -31,6 +31,7 @@ const previewStyles = {
     titleBg: "bg-[#e6e0f8]",
     headerBg: "bg-[#e6e0f8]",
     categoryBg: "bg-[#d9ead3]",
+    subCategoryBg: "bg-[#eef5ea]",
     totalBg: "bg-[#b4c6e7]",
     subTotalBg: "bg-[#fff2cc]",
     summaryBg: "bg-[#e6e0f8]",
@@ -46,6 +47,7 @@ function EstimatePreviewTable({ rows }: { rows: EstimateExportRow[] }) {
     const tableRows = rows.filter(
         r =>
             r.type === "category" ||
+            r.type === "subCategory" ||
             r.type === "item" ||
             r.type === "summary" ||
             r.type === "table-header",
@@ -82,6 +84,19 @@ function EstimatePreviewTable({ rows }: { rows: EstimateExportRow[] }) {
                                         className="border border-black px-2 py-2 font-bold"
                                     >
                                         {row.name}
+                                    </td>
+                                </tr>
+                            );
+                        }
+                        if (row.type === "subCategory") {
+                            return (
+                                <tr key={`sub-${index}`} className={previewStyles.subCategoryBg}>
+                                    <td className="border border-black px-2 py-2" />
+                                    <td
+                                        colSpan={5}
+                                        className="border border-black px-2 py-2 font-semibold"
+                                    >
+                                        Sub Category: {row.name}
                                     </td>
                                 </tr>
                             );
@@ -202,6 +217,7 @@ function EstimatePreviewContent({ rows }: { rows: EstimateExportRow[] }) {
             } else if (
                 row.type === "table-header" ||
                 row.type === "category" ||
+                row.type === "subCategory" ||
                 row.type === "item" ||
                 row.type === "summary"
             ) {

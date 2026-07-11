@@ -127,6 +127,7 @@ const normaliseEstimate = (raw: Record<string, unknown>): EstimateRecord => {
         serviceCharge: get<number>(["serviceCharge"], 0),
         discounts: get<number>(["discounts"], 0),
         eventID: get<string | undefined>(["eventID", "eventId"], undefined),
+        versionTitle: get<string | undefined>(["versionTitle"], undefined),
     };
 };
 
@@ -335,9 +336,9 @@ export default function EstimatesPage() {
                             <span className="text-primary hover:underline">
                                 {row.eventName || row.highlvelRequirement || "Untitled Estimate"}
                             </span>
-                            {row.version && (
+                            {row.versionTitle && (
                                 <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
-                                    {row.version}
+                                    {row.versionTitle}
                                 </span>
                             )}
                             {(row as EstimateRecord & { _versionsCount?: number })._versionsCount &&

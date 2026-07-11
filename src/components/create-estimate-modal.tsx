@@ -4,12 +4,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Formik, Form, FormikHelpers } from "formik";
 import * as Yup from "yup";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { FormikFieldInput } from "@/components/ui/formik-field-input";
 import { FormikFieldTextArea } from "@/components/ui/formik-field-textarea";
 import { FormikFieldDatePicker } from "@/components/ui/formik-field-date-picker";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
-import { Table, type Column } from "@/components/ui/table";
 import { Label } from "@/components/ui-old/label";
 import { toast } from "sonner";
 import {
@@ -19,21 +17,31 @@ import {
     EstimateLineItemPayload,
     EstimateStatus,
 } from "@/types/estimate";
+import { EventItem } from "@/types/event";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { calculateEstimateSummary } from "@/lib/utils/estimate";
-import { TrashIcon, PlusIcon, Select, FormikFieldSelect } from "./ui";
+import { groupLinesByCategory } from "@/lib/utils/artifact-utils";
+import { groupEventItemsByCategory } from "@/lib/utils/estimate-comparison";
+import AdditionalEstimateConfirmationModal from "@/components/ui/additional-estimate-confirmation-modal";
+import { Select, FormikFieldSelect } from "./ui";
 import { eventStatus } from "@/constants/event";
+import { ArtifactsSection } from "@/components/artifacts-section";
+import { CostSummary } from "@/components/cost-summary";
+import type { ArtifactLine } from "@/lib/utils/artifact-utils";
+import { isPersistableArtifactLine } from "@/lib/utils/artifact-utils";
 
 type EstimateLine = {
     id: string;
     category: string;
+    subCategory: string;
     item: string;
     specification: string;
     days: number;
     sqft: number;
     rate: number;
     vendor: string;
+    unit?: string;
 };
 
 type ClientEnquirySummary = {
@@ -127,6 +135,7 @@ interface CreateEstimateModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialData?: Partial<EstimateDto> & { enquiryId?: string };
+    isAdditionalEstimate?: boolean;
     onSaved: (estimate: EstimateDto) => void;
 }
 
@@ -135,7 +144,6 @@ const validationSchema = Yup.object({
     highlvelRequirement: Yup.string().required("Please add the enquiry summary"),
     location: Yup.string().optional(),
     venue: Yup.string().required("Venue is required"),
-    clientPoC: Yup.string().required("Client POC is required"),
     pocContactNumber: Yup.string()
         // .matches(/^\d{10}$/u, "Enter a 10 digit number")
         .required("POC contact number is required"),
@@ -166,6 +174,7 @@ export default function CreateEstimateModal({
     onClose,
     initialData,
     onSaved,
+    isAdditionalEstimate = false,
 }: CreateEstimateModalProps) {
     const [prefillData, setPrefillData] = useState<
         (Partial<EstimateDto> & { enquiryId?: string }) | undefined
@@ -179,7 +188,17 @@ export default function CreateEstimateModal({
     const [summaryError, setSummaryError] = useState<string | null>(null);
     const [isFetchingEnquiry, setIsFetchingEnquiry] = useState(false);
     const [lines, setLines] = useState<EstimateLine[]>([]);
+    const [invalidLineIds, setInvalidLineIds] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const [existingEventItems, setExistingEventItems] = useState<EventItem[]>([]);
+    const [isFetchingEventItems, setIsFetchingEventItems] = useState(false);
+    const [eventItemsError, setEventItemsError] = useState<string | null>(null);
+    const [pendingAdditionalEstimate, setPendingAdditionalEstimate] = useState<{
+        payload: CreateEstimatePayload;
+        uiItemsForFallback: Record<string, EstimateItem[]>;
+        lines: ArtifactLine[];
+    } | null>(null);
+    const [isAdditionalConfirmationOpen, setIsAdditionalConfirmationOpen] = useState(false);
     const selectionRef = useRef<{ clientName?: string; title?: string } | null>(
         initialData ? { clientName: initialData.client, title: initialData.title } : null,
     );
@@ -561,7 +580,7 @@ export default function CreateEstimateModal({
     useEffect(() => {
         if (!isOpen) return;
         const fromItems: EstimateLine[] = [];
-        if (prefillData?.items) {
+        if (!isAdditionalEstimate && prefillData?.items) {
             Object.entries(prefillData.items).forEach(([category, items]) => {
                 items.forEach((item, index) => {
                     const derivedId =
@@ -600,21 +619,74 @@ export default function CreateEstimateModal({
                     const rate = Number.isFinite(rawRate) ? rawRate : rawUnitCost;
                     const vendor = typeof item.vendor === "string" ? item.vendor : "";
 
+                    const subCategory =
+                        typeof item.subCategory === "string" ? item.subCategory : "";
+
+                    const unit =
+                        typeof item.unit === "string" && item.unit.trim() ? item.unit : "nos";
+
                     fromItems.push({
                         id: derivedId,
                         category,
+                        subCategory,
                         item: itemName,
                         specification,
                         days,
                         sqft,
                         rate,
                         vendor,
+                        unit,
                     });
                 });
             });
         }
         setLines(fromItems);
-    }, [isOpen, prefillData]);
+    }, [isOpen, prefillData, isAdditionalEstimate]);
+
+    useEffect(() => {
+        if (!isOpen || !isAdditionalEstimate || !prefillData?.eventID) {
+            setExistingEventItems([]);
+            setEventItemsError(null);
+            return;
+        }
+
+        let cancelled = false;
+        const loadEventItems = async () => {
+            setIsFetchingEventItems(true);
+            setEventItemsError(null);
+            try {
+                const eventRes = await apiRequest(
+                    API_ENDPOINTS.events.detail(prefillData.eventID ?? ""),
+                );
+                if (!eventRes.ok) {
+                    throw new Error(`Failed to fetch event items (${eventRes.status})`);
+                }
+                const eventData = (await eventRes.json()) as { items?: EventItem[] };
+                if (!cancelled) {
+                    setExistingEventItems(eventData.items ?? []);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setEventItemsError(
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to load existing event items.",
+                    );
+                    setExistingEventItems([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsFetchingEventItems(false);
+                }
+            }
+        };
+
+        void loadEventItems();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, isAdditionalEstimate, prefillData?.eventID]);
 
     const initialForm = useMemo(
         () => ({
@@ -805,22 +877,30 @@ export default function CreateEstimateModal({
             }
 
             // Validate artifacts items
-            const invalidItems = lines.filter(line => {
+            const persistableLines = lines.filter(isPersistableArtifactLine);
+            const invalidItems = persistableLines.filter(line => {
                 const hasEmptyItem = !line.item || line.item.trim() === "";
                 const hasEmptyRate = !Number.isFinite(line.rate) || Number(line.rate) === 0;
-                return hasEmptyItem || hasEmptyRate;
+                const hasInvalidQty = !Number.isFinite(line.sqft) || Number(line.sqft) < 1;
+                const hasInvalidDays = !Number.isFinite(line.days) || Number(line.days) < 1;
+                return hasEmptyItem || hasEmptyRate || hasInvalidQty || hasInvalidDays;
             });
 
             if (invalidItems.length > 0) {
+                const invalidIds = new Set(invalidItems.map(line => line.id));
+                setInvalidLineIds(invalidIds);
                 toast.error("Invalid artifacts", {
-                    description: "Each artifact requires an item name and a rate greater than 0.",
+                    description:
+                        "Each artifact requires an item name, days, quantity, and rate greater than 0.",
                 });
                 setIsSaving(false);
                 return;
+            } else {
+                setInvalidLineIds(new Set());
             }
 
             const serialCounters = new Map<string, number>();
-            const requestItems = lines.reduce<Record<string, EstimateLineItemPayload[]>>(
+            const requestItems = persistableLines.reduce<Record<string, EstimateLineItemPayload[]>>(
                 (acc, line) => {
                     const category = line.category?.trim() || "General";
                     const currentSerial = (serialCounters.get(category) ?? 0) + 1;
@@ -845,6 +925,8 @@ export default function CreateEstimateModal({
                         checkList: "",
                         days,
                         category: line.category || "General",
+                        subCategory: line.subCategory || "",
+                        unit: line.unit || "nos",
                     };
 
                     const bucket = acc[category] ?? [];
@@ -854,26 +936,31 @@ export default function CreateEstimateModal({
                 },
                 {},
             );
-            const uiItemsForFallback = lines.reduce<Record<string, EstimateItem[]>>((acc, line) => {
-                const category = line.category || "General";
-                const bucket = acc[category] ?? [];
-                const total = Number((line.days * line.sqft * line.rate).toFixed(2));
+            const uiItemsForFallback = persistableLines.reduce<Record<string, EstimateItem[]>>(
+                (acc, line) => {
+                    const category = line.category || "General";
+                    const bucket = acc[category] ?? [];
+                    const total = Number((line.days * line.sqft * line.rate).toFixed(2));
 
-                bucket.push({
-                    id: line.id,
-                    description: line.item,
-                    specification: line.specification,
-                    days: line.days,
-                    sqft: line.sqft,
-                    rate: line.rate,
-                    quantity: line.sqft,
-                    unitCost: line.rate,
-                    total,
-                    vendor: line.vendor || "",
-                });
-                acc[category] = bucket;
-                return acc;
-            }, {});
+                    bucket.push({
+                        id: line.id,
+                        description: line.item,
+                        specification: line.specification,
+                        days: line.days,
+                        sqft: line.sqft,
+                        rate: line.rate,
+                        quantity: line.sqft,
+                        unitCost: line.rate,
+                        total,
+                        vendor: line.vendor || "",
+                        subCategory: line.subCategory || "",
+                        unit: line.unit || "nos",
+                    });
+                    acc[category] = bucket;
+                    return acc;
+                },
+                {},
+            );
 
             const fallbackClientId = clientSummaries.find(
                 c => c.clientName === prefillData.client,
@@ -901,6 +988,7 @@ export default function CreateEstimateModal({
                 serviceCharge: values.serviceCharge,
                 discounts: values.discountAmount,
                 billingAddress: values.billingAddress,
+                estimateStatus: "DRAFT",
             };
 
             // Check if we're editing an existing estimate (has an id)
@@ -908,6 +996,17 @@ export default function CreateEstimateModal({
             const body = isEditing
                 ? { ...payload, id: prefillData.id, version: prefillData.version }
                 : payload;
+
+            if (isAdditionalEstimate && !isEditing) {
+                setPendingAdditionalEstimate({
+                    payload: body,
+                    uiItemsForFallback,
+                    lines: persistableLines as ArtifactLine[],
+                });
+                setIsAdditionalConfirmationOpen(true);
+                setIsSaving(false);
+                return;
+            }
 
             const res = await apiRequest(API_ENDPOINTS.estimates.list, {
                 method: "POST",
@@ -964,244 +1063,321 @@ export default function CreateEstimateModal({
         }
     };
 
+    const handleConfirmAdditionalEstimate = async () => {
+        if (!pendingAdditionalEstimate) return;
+
+        setIsAdditionalConfirmationOpen(false);
+        setIsSaving(true);
+
+        try {
+            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(pendingAdditionalEstimate.payload),
+            });
+
+            let saved: EstimateDto | null = null;
+            if (res.ok) {
+                const data = await res.text();
+                try {
+                    saved = JSON.parse(data) as EstimateDto;
+                } catch (parseErr) {
+                    console.warn("Failed to parse estimate response, using fallback", parseErr);
+                }
+            }
+
+            const fallback: EstimateDto = saved ?? {
+                id: `tmp-${Date.now()}`,
+                title: pendingAdditionalEstimate.payload.title,
+                highlvelRequirement: pendingAdditionalEstimate.payload.highlvelRequirement,
+                enquiryDate: pendingAdditionalEstimate.payload.enquiryDate,
+                fromDate: pendingAdditionalEstimate.payload.fromDate,
+                toDate: pendingAdditionalEstimate.payload.toDate,
+                status: pendingAdditionalEstimate.payload.status,
+                location: pendingAdditionalEstimate.payload.location,
+                venue: pendingAdditionalEstimate.payload.venue,
+                clientPoC: pendingAdditionalEstimate.payload.clientPoC,
+                pocContactNumber: pendingAdditionalEstimate.payload.pocContactNumber,
+                enquiryPoC: pendingAdditionalEstimate.payload.enquiryPoC,
+                client: pendingAdditionalEstimate.payload.client,
+                clientID: pendingAdditionalEstimate.payload.clientID,
+                items: pendingAdditionalEstimate.uiItemsForFallback,
+                gst: pendingAdditionalEstimate.payload.gst,
+                serviceCharge: pendingAdditionalEstimate.payload.serviceCharge,
+                discounts: pendingAdditionalEstimate.payload.discounts,
+                billingAddress: pendingAdditionalEstimate.payload.billingAddress,
+                enquiryId: pendingAdditionalEstimate.payload.enquiryId,
+                eventName: pendingAdditionalEstimate.payload.eventName,
+                eventID: pendingAdditionalEstimate.payload.eventID,
+            };
+
+            toast.success("Estimate created successfully");
+            onSaved(fallback);
+            onClose();
+        } catch (error) {
+            console.error("Failed to save additional estimate", error);
+            toast.error("Failed to create additional estimate");
+        } finally {
+            setPendingAdditionalEstimate(null);
+            setIsSaving(false);
+        }
+    };
+
+    const existingEventItemGroups = useMemo(
+        () => groupEventItemsByCategory(existingEventItems),
+        [existingEventItems],
+    );
+
+    const newEstimateItemGroups = useMemo(
+        () =>
+            pendingAdditionalEstimate
+                ? groupLinesByCategory(pendingAdditionalEstimate.lines as ArtifactLine[])
+                : [],
+        [pendingAdditionalEstimate],
+    );
+
     if (!isOpen) return null;
 
     return (
-        <Modal
-            open={isOpen}
-            onClose={() => !isSaving && onClose()}
-            size="xxl"
-            title={initialData?.id ? "Edit Estimate" : "Create Estimate"}
-            description={
-                initialData?.id
-                    ? "Update estimate details below."
-                    : "Choose an enquiry to instantly prefill the estimate details."
-            }
-        >
-            <Formik
-                initialValues={initialForm}
-                enableReinitialize
-                validationSchema={validationSchema}
-                onSubmit={handleSubmit}
+        <>
+            <AdditionalEstimateConfirmationModal
+                open={isAdditionalConfirmationOpen}
+                onClose={() => {
+                    setIsAdditionalConfirmationOpen(false);
+                    setPendingAdditionalEstimate(null);
+                }}
+                onConfirm={handleConfirmAdditionalEstimate}
+                existingEventItems={existingEventItemGroups}
+                newEstimateItems={newEstimateItemGroups}
+                loading={isFetchingEventItems}
+                error={eventItemsError}
+            />
+            <Modal
+                open={isOpen}
+                onClose={() => !isSaving && onClose()}
+                size="xxl"
+                title={initialData?.id ? "Edit Estimate" : "Create Estimate"}
+                description={
+                    initialData?.id
+                        ? "Update estimate details below."
+                        : "Choose an enquiry to instantly prefill the estimate details."
+                }
             >
-                {({ status, values }) => {
-                    const summary = calculateEstimateSummary({
-                        totalAmount,
-                        gst: Number(values.gst) || 0,
-                        serviceCharge: Number(values.serviceCharge) || 0,
-                        discounts: Number(values.discountAmount) || 0,
-                    });
+                <Formik
+                    initialValues={initialForm}
+                    enableReinitialize
+                    validationSchema={validationSchema}
+                    onSubmit={handleSubmit}
+                >
+                    {({ status, values }) => {
+                        const summary = calculateEstimateSummary({
+                            totalAmount,
+                            gst: Number(values.gst) || 0,
+                            serviceCharge: Number(values.serviceCharge) || 0,
+                            discounts: Number(values.discountAmount) || 0,
+                        });
 
-                    return (
-                        <Form>
-                            <ModalBody className="flex flex-col gap-4">
-                                {status && (
-                                    <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
-                                        {status}
-                                    </div>
-                                )}
-                                <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                        <div className="w-full md:max-w-md">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                Source enquiry
-                                            </Label>
-                                            <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
-                                                <Select
-                                                    options={[
-                                                        ...clientSummaries.map(summary => ({
-                                                            label: summary.clientName,
-                                                            value: summary.clientId,
-                                                        })),
-                                                    ]}
-                                                    value={
-                                                        selectedClientId
-                                                            ? {
-                                                                  label:
-                                                                      clientSummaries.find(
-                                                                          c =>
-                                                                              c.clientId ===
-                                                                              selectedClientId,
-                                                                      )?.clientName ||
-                                                                      selectedClientId,
-                                                                  value: selectedClientId,
-                                                              }
-                                                            : null
-                                                    }
-                                                    isDisabled={
-                                                        Boolean(initialData) ||
-                                                        summaryLoading ||
-                                                        isFetchingEnquiry
-                                                    }
-                                                    onChange={option => {
-                                                        if (option) {
-                                                            const event = {
-                                                                target: { value: option.value },
-                                                            } as React.ChangeEvent<HTMLSelectElement>;
-                                                            handleClientChange(event);
-                                                        }
-                                                    }}
-                                                    className="flex-1"
-                                                    placeholder={
-                                                        summaryLoading
-                                                            ? "Loading clients…"
-                                                            : "Select client"
-                                                    }
-                                                />
-                                                <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
+                        return (
+                            <Form>
+                                <ModalBody className="flex flex-col gap-4">
+                                    {status && (
+                                        <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+                                            {status}
+                                        </div>
+                                    )}
+                                    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                            <div className="w-full md:max-w-md">
+                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                    Source enquiry
+                                                </Label>
+                                                <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-center">
                                                     <Select
                                                         options={[
-                                                            ...titlesForSelectedClient.map(
-                                                                enquiry => ({
-                                                                    label: enquiry.title,
-                                                                    value: enquiry.enquiryId,
-                                                                }),
-                                                            ),
+                                                            ...clientSummaries.map(summary => ({
+                                                                label: summary.clientName,
+                                                                value: summary.clientId,
+                                                            })),
                                                         ]}
                                                         value={
-                                                            selectedEnquiryId
+                                                            selectedClientId
                                                                 ? {
                                                                       label:
-                                                                          titlesForSelectedClient.find(
-                                                                              e =>
-                                                                                  e.enquiryId ===
-                                                                                  selectedEnquiryId,
-                                                                          )?.title ||
-                                                                          selectedEnquiryId,
-                                                                      value: selectedEnquiryId,
+                                                                          clientSummaries.find(
+                                                                              c =>
+                                                                                  c.clientId ===
+                                                                                  selectedClientId,
+                                                                          )?.clientName ||
+                                                                          selectedClientId,
+                                                                      value: selectedClientId,
                                                                   }
                                                                 : null
                                                         }
                                                         isDisabled={
                                                             Boolean(initialData) ||
-                                                            !selectedClientId ||
                                                             summaryLoading ||
-                                                            isFetchingEnquiry ||
-                                                            titlesForSelectedClient.length === 0
+                                                            isFetchingEnquiry
                                                         }
                                                         onChange={option => {
                                                             if (option) {
                                                                 const event = {
                                                                     target: { value: option.value },
                                                                 } as React.ChangeEvent<HTMLSelectElement>;
-                                                                handleEnquiryTitleChange(event);
-                                                            } else {
-                                                                clearEnquirySelection();
+                                                                handleClientChange(event);
                                                             }
                                                         }}
                                                         className="flex-1"
-                                                        placeholder="Select enquiry"
+                                                        placeholder={
+                                                            summaryLoading
+                                                                ? "Loading clients…"
+                                                                : "Select client"
+                                                        }
                                                     />
-                                                    {selectedEnquiryId && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={isFetchingEnquiry}
-                                                            onClick={() => clearEnquirySelection()}
-                                                        >
-                                                            Clear
-                                                        </Button>
-                                                    )}
+                                                    <div className="flex w-full gap-2 lg:w-auto lg:flex-1">
+                                                        <Select
+                                                            options={[
+                                                                ...titlesForSelectedClient.map(
+                                                                    enquiry => ({
+                                                                        label: enquiry.title,
+                                                                        value: enquiry.enquiryId,
+                                                                    }),
+                                                                ),
+                                                            ]}
+                                                            value={
+                                                                selectedEnquiryId
+                                                                    ? {
+                                                                          label:
+                                                                              titlesForSelectedClient.find(
+                                                                                  e =>
+                                                                                      e.enquiryId ===
+                                                                                      selectedEnquiryId,
+                                                                              )?.title ||
+                                                                              selectedEnquiryId,
+                                                                          value: selectedEnquiryId,
+                                                                      }
+                                                                    : null
+                                                            }
+                                                            isDisabled={
+                                                                Boolean(initialData) ||
+                                                                !selectedClientId ||
+                                                                summaryLoading ||
+                                                                isFetchingEnquiry ||
+                                                                titlesForSelectedClient.length === 0
+                                                            }
+                                                            onChange={option => {
+                                                                if (option) {
+                                                                    const event = {
+                                                                        target: {
+                                                                            value: option.value,
+                                                                        },
+                                                                    } as React.ChangeEvent<HTMLSelectElement>;
+                                                                    handleEnquiryTitleChange(event);
+                                                                } else {
+                                                                    clearEnquirySelection();
+                                                                }
+                                                            }}
+                                                            className="flex-1"
+                                                            placeholder="Select enquiry"
+                                                        />
+                                                        {selectedEnquiryId && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={isFetchingEnquiry}
+                                                                onClick={() =>
+                                                                    clearEnquirySelection()
+                                                                }
+                                                            >
+                                                                Clear
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <p className="mt-2 text-xs text-muted-foreground">
+                                                    {enquiryStatusMessage}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <FormikFieldInput
+                                            name="title"
+                                            label="Event title"
+                                            placeholder="e.g. Birthday party"
+                                            wrapperClassName="mt-4"
+                                            disabled={!prefillData?.enquiryId}
+                                        />
+                                        <FormikFieldTextArea
+                                            name="highlvelRequirement"
+                                            label="Project summary"
+                                            rows={3}
+                                            placeholder="Describe the goal of this estimate"
+                                            wrapperClassName="mt-4"
+                                            disabled={!prefillData?.enquiryId}
+                                        />
+                                    </section>
+
+                                    <section className="grid gap-4 md:grid-cols-2">
+                                        <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
+                                            <h4 className="text-sm font-semibold text-gray-700">
+                                                Event schedule
+                                            </h4>
+                                            <div className="mt-3 grid gap-3">
+                                                <FormikFieldDatePicker
+                                                    name="enquiryDate"
+                                                    label="Enquiry Date"
+                                                    placeholderText="Pick enquiry date"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                                <div className="grid gap-3 md:grid-cols-2">
+                                                    <FormikFieldDatePicker
+                                                        name="fromDate"
+                                                        label="Event Start"
+                                                        placeholderText="Pick start"
+                                                        disabled={!prefillData?.enquiryId}
+                                                    />
+                                                    <FormikFieldDatePicker
+                                                        name="toDate"
+                                                        label="Event End"
+                                                        placeholderText="Pick end"
+                                                        disabled={!prefillData?.enquiryId}
+                                                    />
                                                 </div>
                                             </div>
-                                            <p className="mt-2 text-xs text-muted-foreground">
-                                                {enquiryStatusMessage}
-                                            </p>
                                         </div>
-                                        <div className="text-left md:text-right">
-                                            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                Estimate total
-                                            </span>
-                                            <p className="text-xl font-semibold text-blue-600">
-                                                ₹{summary.totalWithGST.toFixed(2)}
-                                            </p>
-                                            {prefillData?.client && (
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    Client • {prefillData.client}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <FormikFieldInput
-                                        name="title"
-                                        label="Event title"
-                                        placeholder="e.g. Birthday party"
-                                        wrapperClassName="mt-4"
-                                        disabled={!prefillData?.enquiryId}
-                                    />
-                                    <FormikFieldTextArea
-                                        name="highlvelRequirement"
-                                        label="Project summary"
-                                        rows={3}
-                                        placeholder="Describe the goal of this estimate"
-                                        wrapperClassName="mt-4"
-                                        disabled={!prefillData?.enquiryId}
-                                    />
-                                </section>
 
-                                <section className="grid gap-4 md:grid-cols-2">
-                                    <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
-                                        <h4 className="text-sm font-semibold text-gray-700">
-                                            Event schedule
-                                        </h4>
-                                        <div className="mt-3 grid gap-3">
-                                            <FormikFieldDatePicker
-                                                name="enquiryDate"
-                                                label="Enquiry Date"
-                                                placeholderText="Pick enquiry date"
-                                                disabled={!prefillData?.enquiryId}
-                                            />
-                                            <div className="grid gap-3 md:grid-cols-2">
-                                                <FormikFieldDatePicker
-                                                    name="fromDate"
-                                                    label="Event Start"
-                                                    placeholderText="Pick start"
-                                                    disabled={!prefillData?.enquiryId}
+                                        <div className="rounded-xl border border-gray-200 bg-white p-4">
+                                            <h4 className="text-sm font-semibold text-gray-700">
+                                                Logistics
+                                            </h4>
+                                            <div className="mt-3 grid gap-3">
+                                                <FormikFieldSelect
+                                                    name="status"
+                                                    label="Status"
+                                                    options={eventStatus.map(s => ({
+                                                        label: s.label,
+                                                        value: s.value,
+                                                    }))}
+                                                    isDisabled={!prefillData?.enquiryId}
                                                 />
-                                                <FormikFieldDatePicker
-                                                    name="toDate"
-                                                    label="Event End"
-                                                    placeholderText="Pick end"
-                                                    disabled={!prefillData?.enquiryId}
-                                                />
+                                                <div className="grid gap-3 md:grid-cols-2">
+                                                    <FormikFieldInput
+                                                        name="venue"
+                                                        label="Venue"
+                                                        placeholder="Enter venue"
+                                                        disabled={!prefillData?.enquiryId}
+                                                    />
+                                                    <FormikFieldInput
+                                                        name="location"
+                                                        label="Location"
+                                                        placeholder="Enter event location"
+                                                        disabled={!prefillData?.enquiryId}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                        <h4 className="text-sm font-semibold text-gray-700">
-                                            Logistics
-                                        </h4>
-                                        <div className="mt-3 grid gap-3">
-                                            <FormikFieldSelect
-                                                name="status"
-                                                label="Status"
-                                                options={eventStatus.map(s => ({
-                                                    label: s.label,
-                                                    value: s.value,
-                                                }))}
-                                                isDisabled={!prefillData?.enquiryId}
-                                            />
-                                            <div className="grid gap-3 md:grid-cols-2">
-                                                <FormikFieldInput
-                                                    name="venue"
-                                                    label="Venue"
-                                                    placeholder="Enter venue"
-                                                    disabled={!prefillData?.enquiryId}
-                                                />
-                                                <FormikFieldInput
-                                                    name="location"
-                                                    label="Location"
-                                                    placeholder="Enter event location"
-                                                    disabled={!prefillData?.enquiryId}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
-                                {/* Hide Client Details for temporary */}
-                                {/* <section className="rounded-xl border border-gray-200 bg-white p-4">
+                                    </section>
+                                    {/* Hide Client Details for temporary */}
+                                    {/* <section className="rounded-xl border border-gray-200 bg-white p-4">
                                     <h4 className="text-sm font-semibold text-gray-700">
                                         Key contacts
                                     </h4>
@@ -1228,421 +1404,145 @@ export default function CreateEstimateModal({
                                     </div>
                                 </section> */}
 
-                                <section className="rounded-xl border border-gray-200 bg-white p-4">
-                                    <h4 className="text-sm font-semibold text-gray-700">
-                                        Billing Details
-                                    </h4>
-                                    <div className="mt-3 grid gap-3">
-                                        <div className="grid gap-3 md:grid-cols-3">
+                                    <section className="rounded-xl border border-gray-200 bg-white p-4">
+                                        <h4 className="text-sm font-semibold text-gray-700">
+                                            Billing Details
+                                        </h4>
+                                        <div className="mt-3 grid gap-3">
+                                            <div className="grid gap-3 md:grid-cols-3">
+                                                <FormikFieldInput
+                                                    name="serviceCharge"
+                                                    label="Service Charge  (%)"
+                                                    type="number"
+                                                    placeholder="%"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                                <FormikFieldInput
+                                                    name="gst"
+                                                    label="GST (%)"
+                                                    type="number"
+                                                    placeholder="%"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                                <FormikFieldInput
+                                                    name="discountAmount"
+                                                    label="Discount Amount"
+                                                    type="number"
+                                                    placeholder="0"
+                                                    disabled={!prefillData?.enquiryId}
+                                                />
+                                            </div>
                                             <FormikFieldInput
-                                                name="serviceCharge"
-                                                label="Service Charge  (%)"
-                                                type="number"
-                                                placeholder="%"
-                                                disabled={!prefillData?.enquiryId}
-                                            />
-                                            <FormikFieldInput
-                                                name="gst"
-                                                label="GST (%)"
-                                                type="number"
-                                                placeholder="%"
-                                                disabled={!prefillData?.enquiryId}
-                                            />
-                                            <FormikFieldInput
-                                                name="discountAmount"
-                                                label="Discount Amount"
-                                                type="number"
-                                                placeholder="0"
+                                                name="billingAddress"
+                                                label="Billing Address"
+                                                placeholder="Enter billing address"
                                                 disabled={!prefillData?.enquiryId}
                                             />
                                         </div>
-                                        <FormikFieldInput
-                                            name="billingAddress"
-                                            label="Billing Address"
-                                            placeholder="Enter billing address"
-                                            disabled={!prefillData?.enquiryId}
-                                        />
-                                    </div>
-                                </section>
+                                    </section>
 
-                                <section className="space-y-4">
-                                    <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                                            <div>
+                                    <section className="space-y-4">
+                                        <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                                            <div className="mb-3">
                                                 <h3 className="text-base font-semibold text-gray-900">
-                                                    Artifacts required
+                                                    Elements required
                                                 </h3>
                                                 <p className="text-xs text-muted-foreground">
                                                     List the services, equipment, and resources
                                                     needed for this estimate.
                                                 </p>
                                             </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!prefillData?.enquiryId}
-                                                onClick={() =>
-                                                    setLines(prev => {
-                                                        const lastCategory =
-                                                            prev.length > 0
-                                                                ? prev[prev.length - 1].category
-                                                                : "General";
-                                                        return [
-                                                            ...prev,
-                                                            {
-                                                                id: generateId(),
-                                                                category: lastCategory,
-                                                                item: "",
-                                                                specification: "",
-                                                                days: 1,
-                                                                sqft: 1,
-                                                                rate: 0,
-                                                                vendor: "",
-                                                            },
-                                                        ];
-                                                    })
-                                                }
-                                            >
-                                                <PlusIcon size={16} className="mr-1" />
-                                                Add Item
-                                            </Button>
-                                        </div>
 
-                                        <div className="overflow-x-auto">
-                                            <Table
-                                                data={lines}
-                                                showRowNumbers
-                                                emptyMessage='No items added yet. Click "Add Item" to get started.'
-                                                columns={
-                                                    [
-                                                        {
-                                                            key: "category",
-                                                            header: "Category",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={
-                                                                        lines[index]?.category || ""
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          category:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Category"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "item",
-                                                            header: "Item",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={lines[index]?.item || ""}
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          item: value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Item name"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "specification",
-                                                            header: "Specification",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    value={
-                                                                        lines[index]
-                                                                            ?.specification || ""
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value =
-                                                                            event.target.value;
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          specification:
-                                                                                              value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    placeholder="Specification"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "days",
-                                                            header: "Days",
-                                                            align: "center",
-                                                            cellClassName: "w-20",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    value={
-                                                                        lines[index]?.days === 0
-                                                                            ? ""
-                                                                            : lines[index]?.days
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value,
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          days: Number.isNaN(
-                                                                                              value,
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    className="text-center"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "sqft",
-                                                            header: "Quantity",
-                                                            align: "center",
-                                                            cellClassName: "w-20",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    value={
-                                                                        lines[index]?.sqft === 0
-                                                                            ? ""
-                                                                            : lines[index]?.sqft
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value,
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          sqft: Number.isNaN(
-                                                                                              value,
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    className="text-center"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "rate",
-                                                            header: "Rate",
-                                                            align: "right",
-                                                            cellClassName: "w-24",
-                                                            render: (_, index) => (
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    step="0.01"
-                                                                    value={
-                                                                        lines[index]?.rate === 0
-                                                                            ? ""
-                                                                            : lines[index]?.rate
-                                                                    }
-                                                                    onChange={event => {
-                                                                        const value = Number(
-                                                                            event.target.value,
-                                                                        );
-                                                                        setLines(prev =>
-                                                                            prev.map((l, idx) =>
-                                                                                idx === index
-                                                                                    ? {
-                                                                                          ...l,
-                                                                                          rate: Number.isNaN(
-                                                                                              value,
-                                                                                          )
-                                                                                              ? 0
-                                                                                              : value,
-                                                                                      }
-                                                                                    : l,
-                                                                            ),
-                                                                        );
-                                                                    }}
-                                                                    className="text-right"
-                                                                />
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "total",
-                                                            header: "Total",
-                                                            align: "right",
-                                                            cellClassName: "w-28 font-semibold",
-                                                            render: (_, index) => (
-                                                                <span className="text-sm">
-                                                                    ₹
-                                                                    {(
-                                                                        lines[index]?.days *
-                                                                        lines[index]?.sqft *
-                                                                        lines[index]?.rate
-                                                                    ).toFixed(2)}
-                                                                </span>
-                                                            ),
-                                                        },
-                                                        {
-                                                            key: "actions",
-                                                            header: "",
-                                                            align: "right",
-                                                            cellClassName: "text-right w-16",
-                                                            render: (_, index) => (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        setLines(prev =>
-                                                                            prev.filter(
-                                                                                (_, idx) =>
-                                                                                    idx !== index,
-                                                                            ),
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <TrashIcon
-                                                                        className="text-destructive"
-                                                                        size={16}
-                                                                    />
-                                                                </Button>
-                                                            ),
-                                                        },
-                                                    ] as Column<EstimateLine>[]
+                                            <ArtifactsSection
+                                                lines={lines as unknown as ArtifactLine[]}
+                                                onLinesChange={newLines =>
+                                                    setLines(newLines as EstimateLine[])
                                                 }
+                                                disabled={!prefillData?.enquiryId}
+                                                errorLineIds={invalidLineIds}
                                             />
                                         </div>
+                                    </section>
+                                </ModalBody>
+                                <ModalFooter className="relative justify-between py-2">
+                                    <CostSummary
+                                        title="Cost Summary"
+                                        subtitle="Final estimate total"
+                                        amount={summary.totalWithGST}
+                                        breakdownTitle="Cost Breakdown"
+                                        items={[
+                                            {
+                                                label: "Total",
+                                                amount: totalAmount,
+                                            },
+                                            ...((values.serviceCharge || 0) > 0
+                                                ? [
+                                                      {
+                                                          label: `Service Charge (${values.serviceCharge}%)`,
+                                                          amount: summary.serviceChargeAmount,
+                                                      },
+                                                  ]
+                                                : []),
+                                            ...((values.discountAmount || 0) > 0
+                                                ? [
+                                                      {
+                                                          label: "Discount Amount",
+                                                          amount: values.discountAmount || 0,
+                                                          tone: "negative" as const,
+                                                          prefix: "-",
+                                                      },
+                                                  ]
+                                                : []),
+                                            ...((values.gst || 0) > 0
+                                                ? [
+                                                      {
+                                                          label: `GST (${values.gst}%)`,
+                                                          amount: summary.gstAmount,
+                                                          tone: "positive" as const,
+                                                          prefix: "+",
+                                                      },
+                                                  ]
+                                                : []),
+                                        ]}
+                                        totalItem={{
+                                            label: "Final Total",
+                                            amount: summary.totalWithGST,
+                                        }}
+                                    />
+                                    <div className="flex items-center gap-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => {
+                                                clearEnquirySelection(true);
+                                                setSelectedClientId("");
+                                                onClose();
+                                            }}
+                                            disabled={isSaving}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            disabled={isSaving || isFetchingEnquiry}
+                                        >
+                                            {isSaving
+                                                ? initialData?.id
+                                                    ? "Updating..."
+                                                    : "Saving..."
+                                                : isFetchingEnquiry
+                                                  ? "Loading enquiry..."
+                                                  : initialData?.id
+                                                    ? "Update Estimate"
+                                                    : "Save Estimate"}
+                                        </Button>
                                     </div>
-                                    <div className="rounded-xl bg-slate-900/90 px-5 py-4 text-sm text-slate-100">
-                                        <div className="space-y-2">
-                                            <div className="uppercase tracking-wide text-xs text-slate-300 font-semibold mb-3">
-                                                Cost Summary
-                                            </div>
-                                            <>
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-slate-300">Total</span>
-                                                    <span className="font-medium">
-                                                        ₹{totalAmount.toFixed(2)}
-                                                    </span>
-                                                </div>
-                                                {(values.serviceCharge || 0) > 0 && (
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">
-                                                            Service Charge ({values.serviceCharge}%)
-                                                        </span>
-                                                        <span className="font-medium">
-                                                            ₹
-                                                            {summary.serviceChargeAmount.toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {(values.discountAmount || 0) > 0 && (
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">
-                                                            Discount Amount
-                                                        </span>
-                                                        <span className="font-medium text-red-300">
-                                                            -₹
-                                                            {(values.discountAmount || 0).toFixed(
-                                                                2,
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {(values.gst || 0) > 0 && (
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">
-                                                            GST ({values.gst}%)
-                                                        </span>
-                                                        <span className="font-medium">
-                                                            ₹{summary.gstAmount.toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <div className="border-t border-slate-700 pt-2 mt-2 flex justify-between">
-                                                    <span className="text-slate-200 font-semibold">
-                                                        Final Total
-                                                    </span>
-                                                    <span className="text-lg font-bold text-blue-300">
-                                                        ₹{summary.totalWithGST.toFixed(2)}
-                                                    </span>
-                                                </div>
-                                            </>
-                                        </div>
-                                    </div>
-                                </section>
-                            </ModalBody>
-
-                            <ModalFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                        clearEnquirySelection(true);
-                                        setSelectedClientId("");
-                                        onClose();
-                                    }}
-                                    disabled={isSaving}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button type="submit" disabled={isSaving || isFetchingEnquiry}>
-                                    {isSaving
-                                        ? initialData?.id
-                                            ? "Updating..."
-                                            : "Saving..."
-                                        : isFetchingEnquiry
-                                          ? "Loading enquiry..."
-                                          : initialData?.id
-                                            ? "Update Estimate"
-                                            : "Save Estimate"}
-                                </Button>
-                            </ModalFooter>
-                        </Form>
-                    );
-                }}
-            </Formik>
-        </Modal>
+                                </ModalFooter>
+                            </Form>
+                        );
+                    }}
+                </Formik>
+            </Modal>
+        </>
     );
 }

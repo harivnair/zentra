@@ -25,12 +25,21 @@ export function Tooltip({ content, children, className }: TooltipProps) {
         }
     }, [isVisible]);
 
+    function handleKeyDown(e: React.KeyboardEvent) {
+        if (e.key === "Escape") {
+            setIsVisible(false);
+        }
+    }
+
     return (
         <div
             ref={triggerRef}
             className="relative inline-block"
             onMouseEnter={() => setIsVisible(true)}
             onMouseLeave={() => setIsVisible(false)}
+            onFocus={() => setIsVisible(true)}
+            onBlur={() => setIsVisible(false)}
+            onKeyDown={handleKeyDown}
         >
             {children}
             {isVisible &&

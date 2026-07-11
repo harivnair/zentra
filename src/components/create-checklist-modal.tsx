@@ -579,7 +579,7 @@ export default function CreateChecklistModal({ open, onClose, onSave }: Props) {
                                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-3">
                                         <div>
                                             <h3 className="text-base font-semibold text-gray-900">
-                                                Artifacts required
+                                                Elements required
                                             </h3>
                                             <p className="text-xs text-muted-foreground">
                                                 List the services, equipment, and resources needed.

@@ -91,6 +91,7 @@ export function CreatableSelectField({
                 placeholder={placeholder}
                 isDisabled={isDisabled}
                 isClearable={isClearable}
+                menuPosition="fixed"
                 className={cn(selectClassName)}
                 styles={{
                     container: (provided, _state) => ({
@@ -152,7 +153,7 @@ export function CreatableSelectField({
                         border: "1px solid var(--border)",
                         borderRadius: "6px",
                         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                        zIndex: 50,
+                        zIndex: 9999,
                     }),
                     menuList: (provided, _state) => ({
                         ...provided,

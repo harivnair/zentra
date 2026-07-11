@@ -6,6 +6,7 @@ export const ESTIMATE_EXPORT_COLORS = {
     titleBg: "FFE6E0F8",
     headerBg: "FFE6E0F8",
     categoryBg: "FFD9EAD3",
+    subCategoryBg: "FFEEF5EA",
     totalBg: "FFB4C6E7",
     subTotalBg: "FFFFF2CC",
     summaryBg: "FFE6E0F8",
@@ -27,6 +28,7 @@ export type EstimateExportRow =
     | { type: "table-header" }
     | { type: "section-title"; text: string }
     | { type: "category"; serial: string; name: string }
+    | { type: "subCategory"; name: string }
     | { type: "item"; serial: number; item: EstimateItem }
     | { type: "summary"; label: string; value: number; variant: "total" | "service" | "subtotal" | "gst" | "grand" | "discount" };
 
@@ -131,6 +133,39 @@ function splitItemCategories(items: Record<string, EstimateItem[]>) {
     return { main, additional };
 }
 
+export interface GroupedCategoryItems {
+    directItems: EstimateItem[];
+    subCategories: { name: string; items: EstimateItem[] }[];
+}
+
+/** Groups category items: direct items first, then sub categories in first-seen order. */
+export function groupCategoryItems(items: EstimateItem[]): GroupedCategoryItems {
+    const directItems: EstimateItem[] = [];
+    const subCategoryMap = new Map<string, EstimateItem[]>();
+    const subCategoryOrder: string[] = [];
+
+    for (const item of items) {
+        const subName = (item.subCategory || "").trim();
+        if (!subName) {
+            directItems.push(item);
+            continue;
+        }
+        if (!subCategoryMap.has(subName)) {
+            subCategoryMap.set(subName, []);
+            subCategoryOrder.push(subName);
+        }
+        subCategoryMap.get(subName)!.push(item);
+    }
+
+    return {
+        directItems,
+        subCategories: subCategoryOrder.map(name => ({
+            name,
+            items: subCategoryMap.get(name)!,
+        })),
+    };
+}
+
 function appendCategoryRows(
     rows: EstimateExportRow[],
     categories: { category: string; items: EstimateItem[] }[],
@@ -148,11 +183,28 @@ function appendCategoryRows(
             name: category,
         });
 
-        categoryItems.forEach((item, itemIndex) => {
+        const { directItems, subCategories } = groupCategoryItems(categoryItems);
+
+        directItems.forEach((item, itemIndex) => {
             rows.push({
                 type: "item",
                 serial: itemIndex + 1,
                 item,
+            });
+        });
+
+        subCategories.forEach(({ name, items: subItems }) => {
+            rows.push({
+                type: "subCategory",
+                name,
+            });
+
+            subItems.forEach((item, itemIndex) => {
+                rows.push({
+                    type: "item",
+                    serial: itemIndex + 1,
+                    item,
+                });
             });
         });
     });

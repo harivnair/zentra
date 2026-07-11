@@ -1,7 +1,14 @@
+export { CopyButton } from "./copy-button";
+export { PhoneLink } from "./phone-link";
+export { InfoRow } from "./info-row";
+export { InfoCard } from "./info-card";
 export { Button } from "./button";
 export { Input } from "./input";
 export { Textarea } from "./textarea";
 export { Select } from "./select";
+export { InlineEdit } from "./inline-edit";
+export { InlineUnitSelect } from "./inline-unit-select";
+export { InlineNumber } from "./inline-number";
 export { FormikFieldSelect } from "./formik-field-select";
 export { FormikFieldInput } from "./formik-field-input";
 export { Card, CardHeader, CardContent, CardFooter } from "./card";

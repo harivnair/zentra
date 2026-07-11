@@ -19,6 +19,7 @@ const PDF_COLORS = {
     titleBg: [231, 231, 231] as [number, number, number],
     headerBg: [230, 224, 248] as [number, number, number],
     categoryBg: [217, 234, 211] as [number, number, number],
+    subCategoryBg: [238, 245, 234] as [number, number, number],
     totalBg: [180, 198, 231] as [number, number, number],
     subTotalBg: [255, 242, 204] as [number, number, number],
     summaryBg: [230, 224, 248] as [number, number, number],
@@ -61,6 +62,9 @@ function rowsToSegment(rows: EstimateExportRow[]): TableSegment {
         if (exportRow.type === "category") {
             segment.body.push([exportRow.serial, exportRow.name, "", "", "", ""]);
             segment.rowMeta.push({ fillColor: PDF_COLORS.categoryBg, fontStyle: "bold" });
+        } else if (exportRow.type === "subCategory") {
+            segment.body.push(["", `Sub Category: ${exportRow.name}`, "", "", "", ""]);
+            segment.rowMeta.push({ fillColor: PDF_COLORS.subCategoryBg, fontStyle: "bold" });
         } else if (exportRow.type === "item") {
             const item = exportRow.item;
             segment.body.push([
@@ -123,7 +127,7 @@ function splitRowsIntoSegments(rows: EstimateExportRow[]): {
             flushItems();
             return;
         }
-        if (row.type === "category" || row.type === "item") {
+        if (row.type === "category" || row.type === "subCategory" || row.type === "item") {
             itemBuffer.push(row);
             return;
         }

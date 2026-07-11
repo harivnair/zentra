@@ -8,7 +8,6 @@ import { BillingExpenseModal } from "@/components/billing-expense-modal";
 import { ChecklistModal } from "@/components/checklist-modal";
 import { ChecklistPreviewModal } from "@/components/checklist-preview-modal";
 import { ClientDetailView } from "@/components/client-detail-view";
-import { PurchaseOrderSection } from "@/components/purchase-order-section";
 import { CreatePurchaseOrderModal } from "@/components/create-purchase-order-modal";
 import { PurchaseOrderPreviewModal } from "@/components/purchase-order-preview-modal";
 import { InventoryListModal } from "@/components/inventory-list-modal";
@@ -35,6 +34,7 @@ import {
     ArrowRight,
     Edit3,
     CheckCircle2,
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 
@@ -133,12 +133,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
         }
     }, [isChecklistModalOpen, fetchChecklistData]);
 
-    useEffect(() => {
-        if (expandedSection === "purchaseOrder" && eventData?.vendorSummary) {
-            fetchVendorsOnly();
-        }
-    }, [expandedSection, eventData?.vendorSummary, fetchVendorsOnly]);
-
     // Calculate totals from categorySummary (provided by backend)
     let totalEstimatedCost = 0;
     const totalExpense = 0;
@@ -222,6 +216,17 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             description: "Manage stock and vendor allocations for this event.",
             linkLabel: "View List",
             onClick: () => setIsInventoryListModalOpen(true),
+        },
+        {
+            id: "purchaseOrder",
+            icon: FileText,
+            title: "Purchase Order",
+            description: "Create and manage purchase orders for vendors.",
+            linkLabel: "Create Order",
+            onClick: () => {
+                setIsAddPurchaseOrderModalOpen(true);
+                fetchVendorsOnly();
+            },
         },
         {
             id: "expenses",
@@ -497,21 +502,6 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                             )}
                         </div>
 
-                        {/* Purchase Order Section */}
-                        <PurchaseOrderSection
-                            expanded={expandedSection === "purchaseOrder"}
-                            onToggle={() => toggleSection("purchaseOrder")}
-                            onAddPurchaseOrder={() => {
-                                setIsAddPurchaseOrderModalOpen(true);
-                            }}
-                            onViewPurchaseOrder={() => {
-                                setIsPurchaseOrderPreviewOpen(true);
-                            }}
-                            isChecklistCompleted={eventData?.checkListCompleted ?? false}
-                            vendorSummary={eventData?.vendorSummary}
-                            vendorList={vendorList}
-                        />
-
                         {/* Financial Overview Section */}
                         <div className="bg-surface rounded-xl border border-border/20 overflow-hidden">
                             <button
@@ -677,6 +667,10 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                     isOpen={isAddPurchaseOrderModalOpen}
                     onClose={() => setIsAddPurchaseOrderModalOpen(false)}
                     onSave={fetchEventData}
+                    onViewPurchaseOrder={() => {
+                        setIsAddPurchaseOrderModalOpen(false);
+                        setIsPurchaseOrderPreviewOpen(true);
+                    }}
                     vendorList={vendorList}
                     eventData={eventData}
                 />

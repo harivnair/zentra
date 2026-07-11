@@ -1,8 +1,9 @@
+import { BACKEND_URL } from "@/lib/api/backend-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
     try {
-        console.log("Received send-invoice request via Next.js API Route");
+        console.log("Received send-email request via Next.js API Route");
 
         // Parse incoming request as FormData
         const formData = await req.formData();
@@ -12,19 +13,14 @@ export async function POST(req: NextRequest) {
 
         console.log("Auth Header present:", !!authHeader);
 
-        // Forward to Spring Boot backend - Make sure to use 127.0.0.1 (not localhost)
-        const baseUrl = (process.env.BACKEND_URL || "http://127.0.0.1:8080").replace(
-            "localhost",
-            "127.0.0.1",
-        ); // Force 127.0.0.1
-        const backendUrl = `${baseUrl}/events/send-invoice`;
-
-        // When sending FormData with fetch, do NOT manually setContent-Type.
+        // Forward to Spring Boot backend - Use 127.0.0.1 (not localhost) for consistency
+        const url = `${BACKEND_URL}/notifications/send-email`;
+        // When sending FormData with fetch, do NOT manually set Content-Type.
         // The browser/fetch automatically sets it with the correct boundary.
-        const response = await fetch(backendUrl, {
+        const response = await fetch(url, {
             method: "POST",
             body: formData, // passing FormData directly lets fetch set the content-type with boundary
-            headers: authHeader ? { Authorization: authHeader } : undefined, // do not set Content-Type
+            headers: authHeader ? { Authorization: authHeader } : undefined,
         });
 
         if (!response.ok) {
@@ -36,8 +32,9 @@ export async function POST(req: NextRequest) {
         const result = await response.text();
         console.log("Backend success:", result);
         return new NextResponse(result, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Unknown error";
         console.error("API Route Proxy Error:", error);
-        return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 });
+        return new NextResponse(`Internal Server Error: ${message}`, { status: 500 });
     }
 }

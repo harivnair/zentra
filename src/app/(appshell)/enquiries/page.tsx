@@ -1,25 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useFormik } from "formik";
 import { toast } from "sonner";
 
 import { useRequestApi } from "@/hooks/useRequestApi";
 import { Button } from "@/components/ui/button";
-import { Badge, MenuList } from "@/components/ui";
-import { MoreVerticalIcon, PencilIcon, TrashIcon, FileTextIcon } from "@/components/ui/icons";
-import { PageHeader } from "@/components/ui";
+import { Badge, PageHeader } from "@/components/ui";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { MobileCardList } from "@/components/shared/mobile-card-list";
-import { ConfirmationModal } from "@/components/shared/confirmation-modal";
-import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
-import { KeyValueDisplay } from "@/components/ui/key-value-display";
 import CreateEnquiryModal from "@/components/create-enquiry-modal";
 import { EnquiriesTableFilters } from "@/components/enquiries-table-filters";
+import { EnquiryViewModal } from "@/components/enquiry-view-modal";
 import { Enquiry, EnquiryFormData, EnquiriesTableFiltersFormValues } from "@/types/enquiry";
 import { DEFAULT_PAGE_SIZE } from "@/constants";
-import { APIResponse, MenuItem } from "@/types";
+import { APIResponse } from "@/types";
 import { usePagination } from "@/hooks/usePagination";
 import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
@@ -37,22 +32,13 @@ const enquiryFiltersInitialValues: EnquiriesTableFiltersFormValues = {
     sortOrder: "desc",
 };
 
-const columns = (
-    onEdit: (enquiry: Enquiry) => void,
-    onDelete: (row: Enquiry) => void,
-    onView: (enquiry: Enquiry) => void,
-): Column<Enquiry>[] => [
+const columns = (onView: (enquiry: Enquiry) => void): Column<Enquiry>[] => [
     {
         key: "eventName",
         header: "Event Details",
         render: row => (
             <div>
-                <div
-                    onClick={() => onView(row)}
-                    className="font-medium text-primary cursor-pointer hover:underline"
-                >
-                    {row.eventName || "-"}
-                </div>
+                <div className="font-medium text-primary">{row.eventName || "-"}</div>
                 <div className="text-xs text-gray-500 mt-1">ID: {row.eventID ?? "N/A"}</div>
                 <div className="mt-1">
                     <Badge variant="info">{row.eventType || "Unknown"}</Badge>
@@ -157,66 +143,16 @@ const columns = (
             </div>
         ),
     },
-    {
-        key: "actions",
-        header: "",
-        className: "text-right",
-        render: row => {
-            const items: MenuItem[] = [
-                {
-                    key: "view",
-                    label: "View",
-                    icon: <FileTextIcon size={16} />,
-                    onClick: () => onView(row),
-                },
-                {
-                    key: "edit",
-                    label: "Edit",
-                    icon: <PencilIcon size={16} />,
-                    onClick: () => onEdit(row),
-                    scopes: ["w:enquiries"],
-                },
-                {
-                    key: "delete",
-                    label: "Delete",
-                    icon: <TrashIcon size={16} />,
-                    onClick: () => onDelete(row),
-                    className: "text-destructive focus:text-destructive",
-                    scopes: ["w:enquiries"],
-                },
-            ];
-
-            return (
-                <div className="flex justify-center">
-                    <MenuList
-                        align="end"
-                        items={items}
-                        trigger={
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVerticalIcon size={16} />
-                            </Button>
-                        }
-                    />
-                </div>
-            );
-        },
-    },
 ];
 
 export default function EnquiriesPage() {
-    const router = useRouter();
     const { request, loading } = useRequestApi<APIResponse<Enquiry[]>>();
     const [result, setResult] = useState<APIResponse<Enquiry[]>>();
     const [modalOpen, setModalOpen] = useState(false);
     const [editEnquiry, setEditEnquiry] = useState<EnquiryFormData | null>(null);
     const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [enquiryToDelete, setEnquiryToDelete] = useState<Enquiry | null>(null);
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
-    const [eventSaving, setEventSaving] = useState(false);
-    const [estimateLoading, setEstimateLoading] = useState(false);
-    const [enquiryStatuses, setEnquiryStatuses] = useState<string>("");
 
     const enquiries = result?.content || [];
     const totalElements = result?.totalElements || 0;
@@ -271,59 +207,6 @@ export default function EnquiriesPage() {
         formik.submitForm();
     }, [values.search, values.status, values.sortBy, values.sortOrder]);
 
-    useEffect(() => {
-        if (!selectedEnquiry?.id) return;
-
-        const fetchEvents = async () => {
-            setEstimateLoading(true);
-
-            try {
-                // 1. Call Event API first
-                const eventUrl = API_ENDPOINTS.events.detail(
-                    selectedEnquiry.eventID || selectedEnquiry.id,
-                );
-
-                let hasEvent = false;
-
-                try {
-                    const eventRes = await apiRequest(eventUrl, { method: "GET" });
-
-                    // Adjust condition based on your API response structure
-                    if (eventRes.ok) {
-                        hasEvent = true;
-                        setEnquiryStatuses("EVENT_CREATED");
-                    }
-                } catch (error) {
-                    console.log("Event API failed:", error);
-                }
-
-                // 2. If no event found, call Estimate API
-                if (!hasEvent) {
-                    try {
-                        const estimateUrl = API_ENDPOINTS.estimates.byEnquiry(selectedEnquiry.id);
-
-                        const estimateRes = await apiRequest(estimateUrl, {
-                            method: "GET",
-                        });
-                        const body = await estimateRes.json();
-                        if (body?.estimates?.length > 0) {
-                            setEnquiryStatuses("ESTIMATE_CREATED");
-                        } else {
-                            setEnquiryStatuses("");
-                        }
-                    } catch (error) {
-                        console.log("Estimate API failed:", error);
-                        setEnquiryStatuses("");
-                    }
-                }
-            } finally {
-                setEstimateLoading(false);
-            }
-        };
-
-        fetchEvents();
-    }, [selectedEnquiry]);
-
     const handleCreate = () => {
         setEditEnquiry(null);
         setModalMode("create");
@@ -354,103 +237,14 @@ export default function EnquiriesPage() {
         setModalOpen(true);
     };
 
-    const handleDeleteClick = (enquiry: Enquiry) => {
-        setEnquiryToDelete(enquiry);
-        setDeleteModalOpen(true);
-    };
-
-    const handleDeleteConfirm = async () => {
-        if (!enquiryToDelete) return;
-        try {
-            const res = await apiRequest(`/api/enquiries/${enquiryToDelete.id}`, {
-                method: "DELETE",
-            });
-
-            if (res.ok) {
-                toast.success("Enquiry deleted successfully");
-                fetchEnquiries();
-            } else {
-                throw new Error(`Failed to delete enquiry: ${res.status}`);
-            }
-        } catch {
-            toast.error("Failed to delete enquiry. Please try again.");
-        } finally {
-            setDeleteModalOpen(false);
-            setEnquiryToDelete(null);
-        }
-    };
-
-    const handleDeleteCancel = () => {
-        setDeleteModalOpen(false);
-        setEnquiryToDelete(null);
-    };
-
     const handleView = (enquiry: Enquiry) => {
         setSelectedEnquiry(enquiry);
         setViewModalOpen(true);
     };
 
-    const openEstimatePage = () => {
-        if (!selectedEnquiry) return;
-        setViewModalOpen(false);
+    const handleEditFromView = (enquiry: Enquiry) => {
         setSelectedEnquiry(null);
-        router.push(`/estimates?enquiryId=${selectedEnquiry.id}`);
-    };
-
-    const handleCreateEstimate = async () => {
-        if (!selectedEnquiry) return;
-        setEventSaving(true);
-        try {
-            const payload = {
-                title: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
-                status: "ENQUIRY_CREATED",
-                enquiryDate: selectedEnquiry.date || new Date().toISOString(),
-                fromDate:
-                    selectedEnquiry.fromDate || selectedEnquiry.date || new Date().toISOString(),
-                toDate: selectedEnquiry.toDate || selectedEnquiry.date || new Date().toISOString(),
-                assignedTo: selectedEnquiry.assignee,
-                eventID: selectedEnquiry.eventID,
-                venue: selectedEnquiry.venue || "",
-                eventName: selectedEnquiry.eventName || selectedEnquiry.title || "Event",
-                location: selectedEnquiry.location || "",
-                clientPoC: selectedEnquiry.clientPoC || "",
-                pocContactNumber: selectedEnquiry.enquiryPoCNumber || "",
-                eventPoCNumber: selectedEnquiry.eventPoCNumber || "",
-                eventPoC: selectedEnquiry.eventPoC || "",
-                client: selectedEnquiry.client,
-                enquiryId: String(selectedEnquiry.id ?? ""),
-                eventType: selectedEnquiry.eventType || "CORPORATE",
-                highlvelRequirement: selectedEnquiry.highlvelRequirement || "",
-                enquiryPoC: selectedEnquiry.enquiryPoC || "",
-                clientID: selectedEnquiry.clientID || "",
-            };
-
-            const res = await apiRequest(API_ENDPOINTS.estimates.list, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if (!res.ok) {
-                const errText = await res.text().catch(() => "");
-                throw new Error(`Failed to create estimate: ${res.status} ${errText}`);
-            }
-
-            const createdEstimate = await res.json();
-            // toast.success("Estimate created from enquiry");
-            setViewModalOpen(false);
-            setSelectedEnquiry(null);
-
-            if (createdEstimate) {
-                toast.success("Estimate created from enquiry");
-                openEstimatePage();
-            }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to create estimate";
-            toast.error(message);
-        } finally {
-            setEventSaving(false);
-        }
+        handleEdit(enquiry);
     };
 
     const handleExport = () => {
@@ -464,6 +258,13 @@ export default function EnquiriesPage() {
             Location: enquiry.venue || enquiry.location || "-",
         }));
         downloadCSV(exportData, "enquiries-export.csv");
+    };
+
+    const handleViewModalClose = () => {
+        setViewModalOpen(false);
+        setSelectedEnquiry(null);
+        // Refresh list in case of delete/clone
+        fetchEnquiries();
     };
 
     return (
@@ -496,7 +297,7 @@ export default function EnquiriesPage() {
                 <EnquiriesTableFilters formik={formik} onReset={handleResetFilters} />
                 <div className="rounded-lg bg-surface p-4 sm:p-6 shadow-sm hidden md:block">
                     <DataTable
-                        columns={columns(handleEdit, handleDeleteClick, handleView)}
+                        columns={columns(handleView)}
                         data={enquiries}
                         rowKey={row => String(row.id)}
                         emptyMessage="No enquiries found."
@@ -504,6 +305,7 @@ export default function EnquiriesPage() {
                         pagination={pagination}
                         onPageChange={handlePageChange}
                         isLoading={loading}
+                        onRowClick={handleView}
                     />
                 </div>
                 <MobileCardList
@@ -536,16 +338,6 @@ export default function EnquiriesPage() {
                             <Button variant="outline" size="sm" onClick={() => handleView(enquiry)}>
                                 View
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(enquiry)}>
-                                Edit
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDeleteClick(enquiry)}
-                            >
-                                Delete
-                            </Button>
                         </div>
                     )}
                     emptyMessage="No enquiries found."
@@ -563,141 +355,22 @@ export default function EnquiriesPage() {
                     onSubmit={fetchEnquiries}
                     editData={editEnquiry}
                     mode={modalMode}
-                />
-                <ConfirmationModal
-                    open={deleteModalOpen}
-                    onClose={handleDeleteCancel}
-                    onConfirm={handleDeleteConfirm}
-                    title="Delete Enquiry"
-                    description={
-                        enquiryToDelete
-                            ? `Are you sure you want to delete "${enquiryToDelete.eventName || enquiryToDelete.client}"? This action cannot be undone.`
-                            : undefined
-                    }
-                    confirmText="Delete"
-                    cancelText="Cancel"
+                    onSaveSuccess={enquiry => {
+                        // Re-fetch to get updated data, then open view modal
+                        fetchEnquiries().then(() => {
+                            setSelectedEnquiry(enquiry);
+                            setViewModalOpen(true);
+                        });
+                    }}
                 />
             </div>
 
-            {/* View Enquiry Modal */}
-            <Modal
+            <EnquiryViewModal
                 open={viewModalOpen}
-                onClose={() => {
-                    setViewModalOpen(false);
-                    setSelectedEnquiry(null);
-                    setEnquiryStatuses("");
-                }}
-                title="Enquiry Details"
-                size="xxl"
-            >
-                <ModalBody>
-                    {selectedEnquiry && (
-                        <KeyValueDisplay
-                            items={[
-                                {
-                                    key: "Enquiry ID",
-                                    value: selectedEnquiry.id || "-",
-                                },
-                                {
-                                    key: "Title",
-                                    value:
-                                        selectedEnquiry.eventName || selectedEnquiry.title || "-",
-                                },
-                                {
-                                    key: "Status",
-                                    value: selectedEnquiry.status || "-",
-                                },
-                                {
-                                    key: "Event Type",
-                                    value: selectedEnquiry.eventType || "-",
-                                },
-                                {
-                                    key: "Client",
-                                    value:
-                                        selectedEnquiry.clientName || selectedEnquiry.client || "-",
-                                },
-                                {
-                                    key: "Enquiry Date",
-                                    value: selectedEnquiry.date
-                                        ? new Date(selectedEnquiry.date).toLocaleString()
-                                        : "-",
-                                },
-                                {
-                                    key: "Event Schedule",
-                                    value: `${selectedEnquiry.fromDate ? new Date(selectedEnquiry.fromDate).toLocaleString() : "TBD"} → ${selectedEnquiry.toDate ? new Date(selectedEnquiry.toDate).toLocaleString() : "TBD"}`,
-                                },
-                                { key: "Venue", value: selectedEnquiry.venue || "-" },
-                                { key: "Location", value: selectedEnquiry.location || "-" },
-                                {
-                                    key: "High-level Requirement",
-                                    value: selectedEnquiry.highlvelRequirement || "-",
-                                },
-                                {
-                                    key: "Enquiry POC",
-                                    value: selectedEnquiry.poc || selectedEnquiry.enquiryPoC || "-",
-                                },
-                                {
-                                    key: "Enquiry POC Number",
-                                    value: selectedEnquiry.enquiryPoCNumber || "-",
-                                },
-                                {
-                                    key: "Event POC",
-                                    value: selectedEnquiry.eventPoC || "-",
-                                },
-                                {
-                                    key: "Event POC Number",
-                                    value: selectedEnquiry.eventPoCNumber || "-",
-                                },
-                                { key: "Assignee", value: selectedEnquiry.assignee || "-" },
-                                {
-                                    key: "Event ID",
-                                    value: selectedEnquiry.eventID || "-",
-                                },
-                            ]}
-                            columns={2}
-                        />
-                    )}
-                </ModalBody>
-                <ModalFooter>
-                    <Button
-                        variant="outline"
-                        onClick={() => {
-                            setViewModalOpen(false);
-                            setSelectedEnquiry(null);
-                        }}
-                        disabled={eventSaving}
-                    >
-                        Close
-                    </Button>
-                    {selectedEnquiry && enquiryStatuses === "EVENT_CREATED" ? (
-                        <Button
-                            onClick={() => {
-                                setViewModalOpen(false);
-                                setSelectedEnquiry(null);
-                                router.push(`/events/${selectedEnquiry.eventID}`);
-                            }}
-                            disabled={estimateLoading || eventSaving}
-                        >
-                            View Event
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={
-                                enquiryStatuses === "ESTIMATE_CREATED"
-                                    ? openEstimatePage
-                                    : handleCreateEstimate
-                            }
-                            disabled={eventSaving || estimateLoading}
-                        >
-                            {eventSaving
-                                ? "Creating Estimate..."
-                                : enquiryStatuses === "ESTIMATE_CREATED"
-                                  ? "View Estimate"
-                                  : "Create Estimate"}
-                        </Button>
-                    )}
-                </ModalFooter>
-            </Modal>
+                onClose={handleViewModalClose}
+                enquiry={selectedEnquiry}
+                onEdit={handleEditFromView}
+            />
         </div>
     );
 }

@@ -160,6 +160,7 @@ export const Select = ({
                     Menu: CustomMenu,
                     Option: CustomOption,
                 }}
+                menuPosition="fixed"
                 styles={customStyles}
                 theme={theme => ({
                     ...theme,

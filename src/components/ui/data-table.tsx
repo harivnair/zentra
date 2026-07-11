@@ -24,6 +24,7 @@ interface DataTableProps<T> {
     pagination?: PaginationInfo;
     onPageChange?: (page: number) => void;
     isLoading?: boolean;
+    onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -38,6 +39,7 @@ export function DataTable<T>({
     pagination,
     onPageChange,
     isLoading = false,
+    onRowClick,
 }: DataTableProps<T>) {
     const visibleColumns = columns.filter(col => !col.hidden);
 
@@ -78,7 +80,9 @@ export function DataTable<T>({
                                     className={cn(
                                         hoverable && "transition-colors hover:bg-muted/50",
                                         striped && i % 2 === 1 && "bg-muted/30",
+                                        onRowClick && "cursor-pointer",
                                     )}
+                                    onClick={() => onRowClick?.(row)}
                                 >
                                     {visibleColumns.map(col => (
                                         <td

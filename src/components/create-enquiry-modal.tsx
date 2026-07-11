@@ -73,6 +73,7 @@ export default function CreateEnquiryModal({
     onSubmit,
     editData,
     mode = "create",
+    onSaveSuccess,
 }: CreateEnquiryModalProps) {
     const { clients, loading: clientsLoading } = useClients();
 
@@ -207,7 +208,13 @@ export default function CreateEnquiryModal({
                 resetForm({ values: { ...initialValues } });
             }
 
+            // After successful save, close the edit/create modal
             onClose();
+
+            // Then open the enquiry in view modal if callback provided
+            if (savedEnquiry && onSaveSuccess) {
+                onSaveSuccess(savedEnquiry as unknown as import("@/types/enquiry").Enquiry);
+            }
         } catch (error) {
             const message =
                 error instanceof Error
