@@ -8,6 +8,9 @@ import { BillingExpenseModal } from "@/components/billing-expense-modal";
 import { ChecklistModal } from "@/components/checklist-modal";
 import { ChecklistPreviewModal } from "@/components/checklist-preview-modal";
 import { ClientDetailView } from "@/components/client-detail-view";
+import { PurchaseOrderSection } from "@/components/purchase-order-section";
+import { CreatePurchaseOrderModal } from "@/components/create-purchase-order-modal";
+import { PurchaseOrderPreviewModal } from "@/components/purchase-order-preview-modal";
 import { InventoryListModal } from "@/components/inventory-list-modal";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { apiRequest } from "@/lib/api/api-client";
@@ -46,6 +49,8 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
     const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
     const [isChecklistPreviewModalOpen, setIsChecklistPreviewModalOpen] = useState(false);
     const [isInventoryListModalOpen, setIsInventoryListModalOpen] = useState(false);
+    const [isAddPurchaseOrderModalOpen, setIsAddPurchaseOrderModalOpen] = useState(false);
+    const [isPurchaseOrderPreviewOpen, setIsPurchaseOrderPreviewOpen] = useState(false);
     const [expandedSection, setExpandedSection] = useState<string>("client");
     const [vendorList, setVendorList] = useState<Vendor[]>([]);
     const [inventoryList, setInventoryList] = useState<Inventory[]>([]);
@@ -82,22 +87,22 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
         fetchEventData();
     }, [fetchEventData]);
 
-    const fetchChecklistData = React.useCallback(async () => {
-        const fetchVendors = async () => {
-            setLoadingVendors(true);
-            try {
-                const res = await apiRequest(API_ENDPOINTS.vendors.list);
-                if (res.ok) {
-                    const data = await res.json();
-                    setVendorList(Array.isArray(data) ? data : []);
-                }
-            } catch (err) {
-                console.error("Failed to fetch vendors:", err);
-            } finally {
-                setLoadingVendors(false);
+    const fetchVendorsOnly = React.useCallback(async () => {
+        setLoadingVendors(true);
+        try {
+            const res = await apiRequest(API_ENDPOINTS.vendors.list);
+            if (res.ok) {
+                const data = await res.json();
+                setVendorList(Array.isArray(data) ? data : []);
             }
-        };
+        } catch (err) {
+            console.error("Failed to fetch vendors:", err);
+        } finally {
+            setLoadingVendors(false);
+        }
+    }, []);
 
+    const fetchChecklistData = React.useCallback(async () => {
         const fetchInventory = async () => {
             setLoadingInventory(true);
             try {
@@ -113,14 +118,26 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             }
         };
 
-        await Promise.all([fetchVendors(), fetchInventory()]);
-    }, []);
+        await Promise.all([fetchVendorsOnly(), fetchInventory()]);
+    }, [fetchVendorsOnly]);
 
     useEffect(() => {
         if (isChecklistPreviewModalOpen) {
             fetchChecklistData();
         }
     }, [isChecklistPreviewModalOpen, fetchChecklistData]);
+
+    useEffect(() => {
+        if (isChecklistModalOpen) {
+            fetchChecklistData();
+        }
+    }, [isChecklistModalOpen, fetchChecklistData]);
+
+    useEffect(() => {
+        if (expandedSection === "purchaseOrder" && eventData?.vendorSummary) {
+            fetchVendorsOnly();
+        }
+    }, [expandedSection, eventData?.vendorSummary, fetchVendorsOnly]);
 
     // Calculate totals from categorySummary (provided by backend)
     let totalEstimatedCost = 0;
@@ -209,7 +226,7 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
         {
             id: "expenses",
             icon: Receipt,
-            title: "Expenses & Billing",
+            title: "Expenses",
             description: "Track invoices, vendor payments, and overheads.",
             linkLabel: "Manage Expenses",
             onClick: () => setIsExpensesModalOpen(true),
@@ -480,6 +497,21 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                             )}
                         </div>
 
+                        {/* Purchase Order Section */}
+                        <PurchaseOrderSection
+                            expanded={expandedSection === "purchaseOrder"}
+                            onToggle={() => toggleSection("purchaseOrder")}
+                            onAddPurchaseOrder={() => {
+                                setIsAddPurchaseOrderModalOpen(true);
+                            }}
+                            onViewPurchaseOrder={() => {
+                                setIsPurchaseOrderPreviewOpen(true);
+                            }}
+                            isChecklistCompleted={eventData?.checkListCompleted ?? false}
+                            vendorSummary={eventData?.vendorSummary}
+                            vendorList={vendorList}
+                        />
+
                         {/* Financial Overview Section */}
                         <div className="bg-surface rounded-xl border border-border/20 overflow-hidden">
                             <button
@@ -596,7 +628,8 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
             <BillingExpenseModal
                 isOpen={isBillingModalOpen}
                 onClose={() => setIsBillingModalOpen(false)}
-                eventData={eventData || {}}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                eventData={(eventData as any) || {}}
                 onSave={() => {
                     setIsBillingModalOpen(false);
                     fetchEventData();
@@ -636,6 +669,29 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                         setIsChecklistPreviewModalOpen(false);
                         setIsChecklistModalOpen(true);
                     }}
+                />
+            )}
+
+            {eventData && (
+                <CreatePurchaseOrderModal
+                    isOpen={isAddPurchaseOrderModalOpen}
+                    onClose={() => setIsAddPurchaseOrderModalOpen(false)}
+                    onSave={fetchEventData}
+                    vendorList={vendorList}
+                    eventData={eventData}
+                />
+            )}
+
+            {isPurchaseOrderPreviewOpen && eventData && (
+                <PurchaseOrderPreviewModal
+                    eventData={eventData}
+                    eventName={eventData.title}
+                    vendorList={vendorList}
+                    inventoryList={inventoryList.map(inv => ({
+                        id: inv.id,
+                        name: inv.itemName,
+                    }))}
+                    onClose={() => setIsPurchaseOrderPreviewOpen(false)}
                 />
             )}
 

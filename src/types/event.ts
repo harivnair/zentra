@@ -106,6 +106,17 @@ export interface CalendarEvent {
     currentTask?: string;
 }
 
+export type VendorSummary = {
+    vendor: string;
+    totalAmount: number;
+    advanceAmount: number;
+    gst?: number;
+    tds?: number;
+    adjustedAmt?: number;
+    balance: number;
+    changeSummary?: string;
+};
+
 export type EventResponse = {
     id?: string;
     eventID?: string;
@@ -123,6 +134,7 @@ export type EventResponse = {
     billingAddress?: string;
     pan?: string;
     checklist?: unknown[];
+    checkListCompleted: boolean;
     invoiceSummary?: {
         discountAmount?: number;
         serviceChargeAmt?: number;
@@ -151,7 +163,7 @@ export type EventResponse = {
         adjustedAmt?: number;
         balance?: number;
     }>;
-    vendorSummary?: Array<unknown>;
+    vendorSummary?: Array<VendorSummary>;
     purchaseOrders?: Array<{
         vendor?: string;
         items?: Array<{
@@ -174,3 +186,43 @@ export type EventResponse = {
     enquiryId?: string;
     [key: string]: unknown;
 };
+
+export interface PurchaseOrderPreviewModalProps {
+    eventData: EventResponse;
+    eventName?: string;
+    vendorList?: Array<{ id?: string; name: string }>;
+    inventoryList?: Array<{ id?: string; name: string }>;
+    onClose: () => void;
+}
+
+export interface CategoryPurchaseRow {
+    category: string;
+    items: PurchaseItemRow[];
+    subtotal: number;
+}
+
+export interface PurchaseItemRow {
+    serial: number;
+    itemName: string;
+    description: string;
+    qty: number;
+    rate: number;
+    days: number;
+    amount: number;
+    gstAmount: number;
+    tdsAmount: number;
+    netTotal: number;
+    vendorName: string;
+    vendorId?: string;
+}
+
+/** Vendor summary for the per-vendor financial table */
+export interface VendorFinancialRow {
+    vendorName: string;
+    totalAmount: number;
+    gstPercent: number;
+    tdsPercent: number;
+    adjustedAmt: number;
+    advanceAmount: number;
+    balance: number;
+}

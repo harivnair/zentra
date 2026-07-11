@@ -23,18 +23,7 @@ import { apiRequest } from "@/lib/api/api-client";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { calculateEstimateSummary } from "@/lib/utils/estimate";
 import { TrashIcon, PlusIcon, Select, FormikFieldSelect } from "./ui";
-
-const statusOptions: { value: EstimateStatus; label: string }[] = [
-    { value: "CHECKLIST_COMPLETED", label: "Checklist completed" },
-    { value: "PROJECT_POSTONED", label: "Project postponed" },
-    { value: "PROJECT_COMPLETED", label: "Project completed" },
-    { value: "ESTIMATE_UNDER_REVIEW", label: "Estimate under review" },
-    { value: "PROJECT_SETTLEMENT_IN_PROGRESS", label: "Settlement in progress" },
-    { value: "PROJECT_INPROGRESS", label: "Project in progress" },
-    { value: "ESTIMATE_INPROGRESS", label: "Estimate in progress" },
-    { value: "ENQUIRY_CREATED", label: "Enquiry created" },
-    { value: "ESTIMATE_APPROVED", label: "Estimate approved" },
-];
+import { eventStatus } from "@/constants/event";
 
 type EstimateLine = {
     id: string;
@@ -152,7 +141,7 @@ const validationSchema = Yup.object({
         .required("POC contact number is required"),
     enquiryPoC: Yup.string().optional(),
     status: Yup.mixed<EstimateStatus>()
-        .oneOf(statusOptions.map(s => s.value))
+        .oneOf(eventStatus.map(s => s.value))
         .required(),
     serviceCharge: Yup.number().optional().min(0, "Service charge must be 0 or more"),
     gst: Yup.number().optional().min(0, "GST must be 0 or more"),
@@ -1188,7 +1177,7 @@ export default function CreateEstimateModal({
                                             <FormikFieldSelect
                                                 name="status"
                                                 label="Status"
-                                                options={statusOptions.map(s => ({
+                                                options={eventStatus.map(s => ({
                                                     label: s.label,
                                                     value: s.value,
                                                 }))}
@@ -1211,8 +1200,8 @@ export default function CreateEstimateModal({
                                         </div>
                                     </div>
                                 </section>
-
-                                <section className="rounded-xl border border-gray-200 bg-white p-4">
+                                {/* Hide Client Details for temporary */}
+                                {/* <section className="rounded-xl border border-gray-200 bg-white p-4">
                                     <h4 className="text-sm font-semibold text-gray-700">
                                         Key contacts
                                     </h4>
@@ -1237,7 +1226,7 @@ export default function CreateEstimateModal({
                                             disabled={!prefillData?.enquiryId}
                                         />
                                     </div>
-                                </section>
+                                </section> */}
 
                                 <section className="rounded-xl border border-gray-200 bg-white p-4">
                                     <h4 className="text-sm font-semibold text-gray-700">

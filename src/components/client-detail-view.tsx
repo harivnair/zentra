@@ -67,15 +67,6 @@ export function ClientDetailView({ clientId, clientName }: ClientDetailViewProps
         };
     }, [clientId]);
 
-    if (!clientId || !clientData) {
-        return (
-            <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground font-bold uppercase">Name</p>
-                <p className="text-sm font-medium text-foreground">{clientName || "-"}</p>
-            </div>
-        );
-    }
-
     if (loading) {
         return (
             <div className="flex items-center justify-center py-8">
@@ -83,6 +74,15 @@ export function ClientDetailView({ clientId, clientName }: ClientDetailViewProps
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     <p className="text-xs text-muted-foreground">Loading client details...</p>
                 </div>
+            </div>
+        );
+    }
+
+    if (!clientId || !clientData) {
+        return (
+            <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase">Name</p>
+                <p className="text-sm font-medium text-foreground">{clientName || "-"}</p>
             </div>
         );
     }

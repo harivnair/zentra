@@ -186,6 +186,7 @@ function renderTableSegment(
 export async function generateEstimatePdfBlob(
     estimate: EstimateDto,
     eventName?: string,
+    terms?: string,
 ): Promise<Blob> {
     const model = buildEstimateDocumentModel(estimate, eventName);
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -248,12 +249,39 @@ export async function generateEstimatePdfBlob(
         });
     }
 
+    if (terms?.trim()) {
+        y += 4;
+        // Check if we need a new page
+        const termsHeight = 10 + terms.split("\n").length * 5;
+        if (y + termsHeight > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = margin;
+        }
+
+        // Terms section background
+        doc.setFillColor(245, 245, 245);
+        doc.roundedRect(margin, y, contentWidth, termsHeight, 2, 2, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("Terms & Conditions", margin + 4, y + 6);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        const termsLines = doc.splitTextToSize(terms, contentWidth - 12);
+        doc.text(termsLines, margin + 4, y + 12);
+    }
+
     return doc.output("blob");
 }
 
-export async function downloadEstimatePdf(estimate: EstimateDto, eventName?: string) {
+export async function downloadEstimatePdf(
+    estimate: EstimateDto,
+    eventName?: string,
+    terms?: string,
+) {
     const model = buildEstimateDocumentModel(estimate, eventName);
-    const blob = await generateEstimatePdfBlob(estimate, eventName);
+    const blob = await generateEstimatePdfBlob(estimate, eventName, terms);
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
