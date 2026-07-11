@@ -13,7 +13,7 @@ export type EstimateStatus =
     | "CANCELLED";
 
 // Estimate versioning status
-export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL";
+export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL" | "EVENT_CREATED";
 
 export interface EstimateItem {
     id: string;

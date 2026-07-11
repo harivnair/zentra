@@ -11,15 +11,18 @@ import {
     ChevronRight,
     Calendar,
     Eye,
+    Merge,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api/api-client";
 import { toast } from "sonner";
-import { Button, Modal, ModalBody, ModalFooter } from "./ui";
+import { Button, Modal, ModalBody, ModalFooter, Badge } from "./ui";
 import { API_ENDPOINTS } from "@/lib/api/endpoint";
 import { useRouter } from "next/navigation";
 import { AccessButton } from "./shared/access-button";
+import { ConfirmationModal } from "./shared/confirmation-modal";
 import { EstimatePreviewModal } from "./estimate-preview-modal";
 import { EstimateEmailPreviewModal } from "./estimate-email-preview-modal";
+import CreateEstimateModal from "./create-estimate-modal";
 
 interface ClientData {
     email?: string;
@@ -50,7 +53,12 @@ export function EstimateVersionsView({
     const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
     const [previewVersion, setPreviewVersion] = useState<EstimateDto | null>(null);
     const [emailVersion, setEmailVersion] = useState<EstimateDto | null>(null);
-    const [versionsWithEvents, setVersionsWithEvents] = useState<Set<string>>(new Set());
+    const [isCreateEstimateOpen, setIsCreateEstimateOpen] = useState(false);
+    const [additionalEstimateData, setAdditionalEstimateData] = useState<
+        (Partial<EstimateDto> & { enquiryId?: string }) | undefined
+    >(undefined);
+    const [mergeTargetVersion, setMergeTargetVersion] = useState<EstimateDto | null>(null);
+    const [isMerging, setIsMerging] = useState(false);
 
     // Fetch versions on mount
     useEffect(() => {
@@ -70,22 +78,9 @@ export function EstimateVersionsView({
             const estimatesWithTitle = (data.estimates || []).map(est => ({
                 ...est,
                 title: est.title || data.eventName,
-                eventID: est.eventID, // Ensure eventID is set for event existence check
+                eventID: est.eventID,
             }));
             setVersions(estimatesWithTitle);
-
-            // Load event status for each FINAL estimate
-            const finalEstimates = estimatesWithTitle.filter(e => e.estimateStatus === "FINAL");
-            if (finalEstimates.length > 0) {
-                const versionsWithEventsSet = new Set<string>();
-                for (const estimate of finalEstimates) {
-                    const hasEvent = await checkEventExists(estimate);
-                    if (hasEvent) {
-                        versionsWithEventsSet.add(estimate.id || "");
-                    }
-                }
-                setVersionsWithEvents(versionsWithEventsSet);
-            }
         } catch (error) {
             console.error("Error fetching versions:", error);
             toast.error("Failed to load estimate versions");
@@ -117,10 +112,11 @@ export function EstimateVersionsView({
                 method: "PATCH",
             });
 
-            const statusLabels = {
+            const statusLabels: Record<EstimateVersionStatus, string> = {
                 DRAFT: "Draft",
                 UNDER_CLIENT_REVIEW: "Under Client Review",
                 FINAL: "Final",
+                EVENT_CREATED: "Event Created",
             };
             toast.success(`Status updated to ${statusLabels[newStatus]}`);
             await fetchVersions();
@@ -145,6 +141,18 @@ export function EstimateVersionsView({
         }
     }, []);
 
+    const handleAdditionalEstimate = useCallback(
+        (version: EstimateDto) => {
+            const { id: _id, items: _items, ...prefill } = version;
+            setAdditionalEstimateData({
+                ...prefill,
+                enquiryId: version.enquiryId || enquiryId,
+            });
+            setIsCreateEstimateOpen(true);
+        },
+        [enquiryId],
+    );
+
     const toggleExpand = (versionId: string) => {
         const newExpanded = new Set(expandedVersions);
         if (newExpanded.has(versionId)) {
@@ -155,16 +163,18 @@ export function EstimateVersionsView({
         setExpandedVersions(newExpanded);
     };
 
-    const getStatusBadgeColor = (status?: EstimateVersionStatus) => {
+    const getStatusBadgeVariant = (status?: EstimateVersionStatus) => {
         switch (status) {
             case "DRAFT":
-                return "bg-gray-100 text-gray-800";
+                return "default" as const;
             case "UNDER_CLIENT_REVIEW":
-                return "bg-blue-100 text-blue-800";
+                return "info" as const;
             case "FINAL":
-                return "bg-green-100 text-green-800";
+                return "success" as const;
+            case "EVENT_CREATED":
+                return "success" as const;
             default:
-                return "bg-gray-100 text-gray-800";
+                return "default" as const;
         }
     };
 
@@ -176,10 +186,16 @@ export function EstimateVersionsView({
                 return "Under Review";
             case "FINAL":
                 return "Final";
+            case "EVENT_CREATED":
+                return "Event Created";
             default:
                 return "Unknown";
         }
     };
+
+    const hasEventCreatedEstimate = useMemo(() => {
+        return versions.some(v => v.estimateStatus === "EVENT_CREATED");
+    }, [versions]);
 
     const sortedVersions = useMemo(() => {
         const parseVersion = (v: string) => parseInt(v?.replace("v", ""), 10) || 0;
@@ -194,23 +210,6 @@ export function EstimateVersionsView({
             return parseVersion(a.version ?? "") - parseVersion(b.version ?? "");
         });
     }, [versions]);
-
-    const checkEventExists = async (estimate: EstimateDto): Promise<boolean> => {
-        try {
-            const eventUrl = API_ENDPOINTS.events.detail(
-                estimate.eventID || estimate.enquiryId || enquiryId,
-            );
-            const eventRes = await apiRequest(eventUrl, { method: "GET" });
-
-            // If response is ok, event exists
-            if (eventRes.ok) {
-                return true;
-            }
-        } catch (error) {
-            console.log("Event API check failed:", error);
-        }
-        return false;
-    };
 
     const handleCreateEvent = async (version: EstimateDto) => {
         if (!version) return;
@@ -277,6 +276,38 @@ export function EstimateVersionsView({
         }
     };
 
+    const handleMerge = async (version: EstimateDto) => {
+        if (!version) return;
+        setIsMerging(true);
+        try {
+            const eventId = version.eventID || enquiryId;
+            const estimateId = version.id;
+            if (!eventId || !estimateId) {
+                throw new Error("Missing event or estimate ID");
+            }
+
+            const res = await apiRequest(API_ENDPOINTS.events.mergeEstimate, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ eventId, estimateId }),
+            });
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => "");
+                throw new Error(`Failed to merge estimate: ${res.status} ${errText}`);
+            }
+
+            toast.success("Estimate merged into event successfully");
+            setMergeTargetVersion(null);
+            await fetchVersions();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to merge estimate";
+            toast.error(message);
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -306,6 +337,37 @@ export function EstimateVersionsView({
                     onSuccess={() => handleEmailSuccess(emailVersion.id || "")}
                 />
             )}
+            <ConfirmationModal
+                open={!!mergeTargetVersion}
+                onClose={() => {
+                    setMergeTargetVersion(null);
+                }}
+                onConfirm={() => {
+                    if (mergeTargetVersion) {
+                        return handleMerge(mergeTargetVersion);
+                    }
+                }}
+                title="Merge Estimate"
+                description="Are you sure you want to merge this finalized estimate into the existing event? This action will update the event with the estimate changes."
+                confirmText="Merge"
+                cancelText="Cancel"
+                variant="primary"
+                isLoading={isMerging}
+            />
+            <CreateEstimateModal
+                isOpen={isCreateEstimateOpen}
+                isAdditionalEstimate={true}
+                onClose={() => {
+                    setIsCreateEstimateOpen(false);
+                    setAdditionalEstimateData(undefined);
+                }}
+                initialData={additionalEstimateData}
+                onSaved={async () => {
+                    setIsCreateEstimateOpen(false);
+                    setAdditionalEstimateData(undefined);
+                    await fetchVersions();
+                }}
+            />
             <Modal
                 onClose={onClose}
                 size="xxl"
@@ -324,13 +386,15 @@ export function EstimateVersionsView({
                             <div className="space-y-4">
                                 {sortedVersions.map(version => {
                                     const isExpanded = expandedVersions.has(version.id || "");
+                                    const isEventCreated =
+                                        version.estimateStatus === "EVENT_CREATED";
                                     const isFinal = version.estimateStatus === "FINAL";
 
                                     return (
                                         <div
                                             key={version.id}
                                             className={`border rounded-lg p-4 ${
-                                                isFinal
+                                                isFinal || isEventCreated
                                                     ? "border-green-500 bg-green-50"
                                                     : "border-gray-200"
                                             }`}
@@ -356,15 +420,15 @@ export function EstimateVersionsView({
                                                                 {version.versionTitle ||
                                                                     "Untitled Version"}
                                                             </h3>
-                                                            <span
-                                                                className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(
+                                                            <Badge
+                                                                variant={getStatusBadgeVariant(
                                                                     version.estimateStatus,
-                                                                )}`}
+                                                                )}
                                                             >
                                                                 {getStatusLabel(
                                                                     version.estimateStatus,
                                                                 )}
-                                                            </span>
+                                                            </Badge>
                                                             {isFinal && (
                                                                 <CheckCircle
                                                                     size={16}
@@ -488,6 +552,23 @@ export function EstimateVersionsView({
                                                         Preview
                                                     </AccessButton>
                                                     {version.estimateStatus === "FINAL" &&
+                                                        hasEventCreatedEstimate &&
+                                                        !isViewOnlyMode && (
+                                                            <AccessButton
+                                                                size="sm"
+                                                                variant="primary"
+                                                                className="flex items-center gap-1"
+                                                                icon={<Merge size={14} />}
+                                                                onClick={() =>
+                                                                    setMergeTargetVersion(version)
+                                                                }
+                                                                scope={["w:estimates"]}
+                                                            >
+                                                                Merge
+                                                            </AccessButton>
+                                                        )}
+                                                    {version.estimateStatus === "FINAL" &&
+                                                        !hasEventCreatedEstimate &&
                                                         !isViewOnlyMode && (
                                                             <AccessButton
                                                                 size="sm"
@@ -498,9 +579,6 @@ export function EstimateVersionsView({
                                                                     handleCreateEvent(version)
                                                                 }
                                                                 scope={["w:events"]}
-                                                                disabled={versionsWithEvents.has(
-                                                                    version.id || "",
-                                                                )}
                                                             >
                                                                 Create Event
                                                             </AccessButton>
@@ -592,6 +670,19 @@ export function EstimateVersionsView({
                     <Button variant="outline" onClick={onClose}>
                         Close
                     </Button>
+                    {!isViewOnlyMode && (
+                        <Button
+                            variant="primary"
+                            onClick={() => {
+                                const selectedVersion = sortedVersions[0];
+                                if (selectedVersion) {
+                                    handleAdditionalEstimate(selectedVersion);
+                                }
+                            }}
+                        >
+                            Additional Estimate
+                        </Button>
+                    )}
                 </ModalFooter>
             </Modal>
         </>

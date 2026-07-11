@@ -600,7 +600,7 @@ export function ArtifactsSection({
     if (categories.length === 0) {
         return (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-sm text-gray-500">No artifacts added yet.</p>
+                <p className="text-sm text-gray-500">No elements added yet.</p>
                 <Button
                     type="button"
                     variant="outline"
