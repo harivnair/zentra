@@ -13,7 +13,12 @@ export type EstimateStatus =
     | "CANCELLED";
 
 // Estimate versioning status
-export type EstimateVersionStatus = "DRAFT" | "UNDER_CLIENT_REVIEW" | "FINAL" | "EVENT_CREATED";
+export type EstimateVersionStatus =
+    | "DRAFT"
+    | "UNDER_CLIENT_REVIEW"
+    | "FINAL"
+    | "EVENT_CREATED"
+    | "EVENT_MERGED";
 
 export interface EstimateItem {
     id: string;
@@ -66,6 +71,8 @@ export interface EstimateDto {
     serviceCharge: number;
     discounts?: number;
     billingAddress?: string;
+    additionalEstimate?: boolean;
+    lastEstimateID?: string;
     invoiceSummary?: {
         additionalCostAmt: number;
         discountAmount: number;
@@ -125,4 +132,6 @@ export interface CreateEstimatePayload {
     discounts?: number;
     billingAddress?: string;
     estimateStatus?: string;
+    additionalEstimate?: boolean;
+    lastEstimateID?: string;
 }

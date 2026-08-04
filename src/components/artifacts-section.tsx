@@ -316,7 +316,7 @@ function CategoryCard({
                                     #
                                 </th>
                                 <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                                    Elements
+                                    Element
                                 </th>
                                 <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                                     Specification
