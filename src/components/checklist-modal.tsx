@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import type { Vendor } from "@/types/vendor";
 import type { Inventory } from "@/types/inventory";
 import { cn } from "@/lib/utils/cn";
+import { groupItemsByCategory } from "@/lib/utils";
 import { TrashIcon } from "@/components/ui/icons";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { Select, DatePickerField } from "./ui";
@@ -270,18 +271,27 @@ export function ChecklistModal({
 
     if (!isOpen) return null;
 
-    // Group checklist items by category
-    const itemsByCategory = checklistData.reduce(
-        (acc, item, index) => {
-            const cat = item.category || "Uncategorized";
-            if (!acc[cat]) acc[cat] = [];
-            acc[cat].push({ ...item, originalIndex: index });
+    // Group checklist items by category using the shared grouping utility.
+    const groupedByCategory = groupItemsByCategory(checklistData);
+    const categories = Array.from(groupedByCategory.keys());
+
+    // Re-attach the original array index expected by the detail panel.
+    const indexMap = new Map<ChecklistItem, number>();
+    checklistData.forEach((item, index) => indexMap.set(item, index));
+    const itemsByCategory = Array.from(groupedByCategory.entries()).reduce(
+        (acc, [category, items]) => {
+            acc[category] = items.map(item => {
+                const originalIndex = indexMap.get(item);
+                return {
+                    ...item,
+                    originalIndex: originalIndex ?? 0,
+                };
+            });
             return acc;
         },
         {} as Record<string, (ChecklistItem & { originalIndex: number })[]>,
     );
 
-    const categories = Object.keys(itemsByCategory);
     const selectedItem = selectedItemIndex !== null ? checklistData[selectedItemIndex] : null;
 
     const toggleCategory = (category: string) => {
