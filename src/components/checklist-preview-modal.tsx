@@ -68,10 +68,7 @@ export function ChecklistPreviewModal({
         (sum, group) =>
             sum +
             group.directItems.length +
-            group.subCategories.reduce(
-                (subSum, sub) => subSum + sub.items.length,
-                0,
-            ),
+            group.subCategories.reduce((subSum, sub) => subSum + sub.items.length, 0),
         0,
     );
 
@@ -85,40 +82,27 @@ export function ChecklistPreviewModal({
         const isLongDesc = descText.length > 12;
 
         return (
-            <tr
-                key={key}
-                className={!isLastItem ? "border-b border-border" : ""}
-            >
-                <td className="py-3 px-3 align-middle text-xs text-muted-foreground">
-                    {rowIndex}
-                </td>
+            <tr key={key} className={!isLastItem ? "border-b border-border" : ""}>
+                <td className="py-3 px-3 align-middle text-xs text-muted-foreground">{rowIndex}</td>
                 <td className="py-3 px-3 align-middle">
                     <span className="font-medium">{item.item}</span>
                 </td>
                 <td className="py-3 px-3 align-middle max-w-[200px]">
                     {isLongDesc ? (
                         <Tooltip content={descText}>
-                            <span className="block truncate">
-                                {descText.slice(0, 12) + "..."}
-                            </span>
+                            <span className="block truncate">{descText.slice(0, 12) + "..."}</span>
                         </Tooltip>
                     ) : (
                         descText
                     )}
                 </td>
-                <td className="py-3 px-3 align-middle text-center">
-                    {item.quantity || 0}
-                </td>
-                <td className="py-3 px-3 align-middle text-center">
-                    {item.days ?? "-"}
-                </td>
+                <td className="py-3 px-3 align-middle text-center">{item.quantity || 0}</td>
+                <td className="py-3 px-3 align-middle text-center">{item.days ?? "-"}</td>
                 <td className="py-3 px-3 align-middle">
                     {(() => {
                         if (item.inventoryID) {
                             const inv = inventoryList.find(
-                                i =>
-                                    String(i.id) ===
-                                    String(item.inventoryID),
+                                i => String(i.id) === String(item.inventoryID),
                             );
                             return (
                                 <span className="text-blue-600 dark:text-blue-400">
@@ -126,14 +110,8 @@ export function ChecklistPreviewModal({
                                 </span>
                             );
                         }
-                        const vendor = vendorList.find(
-                            v => String(v.id) === String(item.vendor),
-                        );
-                        return (
-                            <span>
-                                {vendor?.name || item.vendor || "-"}
-                            </span>
-                        );
+                        const vendor = vendorList.find(v => String(v.id) === String(item.vendor));
+                        return <span>{vendor?.name || item.vendor || "-"}</span>;
                     })()}
                 </td>
                 <td className="py-3 px-3 align-middle text-center">
@@ -147,8 +125,7 @@ export function ChecklistPreviewModal({
                                 "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
                         };
                         const statusClass =
-                            statusStyles[item.status || "PENDING"] ||
-                            statusStyles.PENDING;
+                            statusStyles[item.status || "PENDING"] || statusStyles.PENDING;
                         return (
                             <span
                                 className={`px-2 py-1 rounded text-xs font-medium ${statusClass}`}
@@ -158,16 +135,12 @@ export function ChecklistPreviewModal({
                         );
                     })()}
                 </td>
-                <td className="py-3 px-3 align-middle text-center">
-                    {item.startDate || "-"}
-                </td>
+                <td className="py-3 px-3 align-middle text-center">{item.startDate || "-"}</td>
                 <td className="py-3 px-3 align-middle text-center">
                     {item.endDate ? (
                         <span
                             className={
-                                checkPastDate(item.endDate)
-                                    ? "text-red-500 font-medium"
-                                    : ""
+                                checkPastDate(item.endDate) ? "text-red-500 font-medium" : ""
                             }
                         >
                             {item.endDate}
@@ -244,31 +217,15 @@ export function ChecklistPreviewModal({
                                     No
                                 </th>
                                 <th className="py-3 px-3 font-medium">Item Name</th>
-                                <th className="py-3 px-3 font-medium max-w-[200px]">
-                                    Description
-                                </th>
-                                <th className="py-3 px-3 font-medium text-center w-16">
-                                    Qty
-                                </th>
-                                <th className="py-3 px-3 font-medium text-center w-16">
-                                    Days
-                                </th>
-                                <th className="py-3 px-3 font-medium">
-                                    Vendor / Inventory
-                                </th>
-                                <th className="py-3 px-3 font-medium text-center w-24">
-                                    Status
-                                </th>
-                                <th className="py-3 px-3 font-medium text-center">
-                                    Start Date
-                                </th>
-                                <th className="py-3 px-3 font-medium text-center">
-                                    End Date
-                                </th>
+                                <th className="py-3 px-3 font-medium max-w-[200px]">Description</th>
+                                <th className="py-3 px-3 font-medium text-center w-16">Qty</th>
+                                <th className="py-3 px-3 font-medium text-center w-16">Days</th>
+                                <th className="py-3 px-3 font-medium">Vendor / Inventory</th>
+                                <th className="py-3 px-3 font-medium text-center w-24">Status</th>
+                                <th className="py-3 px-3 font-medium text-center">Start Date</th>
+                                <th className="py-3 px-3 font-medium text-center">End Date</th>
                                 <Access roles={["super_admin"]}>
-                                    <th className="py-3 px-3 font-medium text-right w-20">
-                                        Rate
-                                    </th>
+                                    <th className="py-3 px-3 font-medium text-right w-20">Rate</th>
                                 </Access>
                             </tr>
                         </thead>
@@ -296,8 +253,7 @@ export function ChecklistPreviewModal({
                                     // 1) Items without a Sub Category first
                                     group.directItems.forEach((item, idx) => {
                                         globalIndex++;
-                                        const isLastItem =
-                                            globalIndex === totalItems;
+                                        const isLastItem = globalIndex === totalItems;
                                         rows.push(
                                             renderItemRow(
                                                 item,
@@ -327,8 +283,7 @@ export function ChecklistPreviewModal({
 
                                         sub.items.forEach((item, idx) => {
                                             globalIndex++;
-                                            const isLastItem =
-                                                globalIndex === totalItems;
+                                            const isLastItem = globalIndex === totalItems;
                                             rows.push(
                                                 renderItemRow(
                                                     item,

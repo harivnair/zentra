@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { focusAndScrollIntoView } from "@/lib/category-editor/utils/focus";
 
 interface InlineEditProps {
     value: string;
@@ -12,6 +13,7 @@ interface InlineEditProps {
     focusSignal?: number;
     onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     refCb?: (el: HTMLElement | null) => void;
+    onEditingChange?: (editing: boolean) => void;
     "data-field"?: string;
 }
 
@@ -24,6 +26,7 @@ export function InlineEdit({
     focusSignal = 0,
     onKeyDown,
     refCb,
+    onEditingChange,
     "data-field": dataField,
 }: InlineEditProps) {
     const [isEditing, setIsEditing] = useState(false);
@@ -33,10 +36,10 @@ export function InlineEdit({
     useEffect(() => {
         setEditValue(value);
     }, [value]);
-
+    
     useEffect(() => {
         if (isEditing && inputRef.current) {
-            inputRef.current.focus();
+            focusAndScrollIntoView(inputRef.current);
             inputRef.current.select();
         }
     }, [isEditing]);
@@ -45,7 +48,12 @@ export function InlineEdit({
         if (focusSignal > 0) {
             setIsEditing(true);
         }
-    }, [focusSignal]);
+        }, [focusSignal]);
+
+    // Notify parent when editing state changes (e.g., to clear focus signals)
+    useEffect(() => {
+        onEditingChange?.(isEditing);
+    }, [isEditing, onEditingChange]);
 
     const handleSave = useCallback(() => {
         setIsEditing(false);

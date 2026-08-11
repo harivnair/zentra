@@ -27,6 +27,47 @@ export function focusElement(elem: HTMLElement | null) {
 }
 
 /**
+ * Focus an element and smoothly scroll it into view within its scrollable
+ * container, but only if the element is not already fully visible.
+ */
+export function focusAndScrollIntoView(elem: HTMLElement | null) {
+    if (!elem || !elem.isConnected) {
+        return;
+    }
+
+    focusElement(elem);
+
+    // Find the nearest scrollable ancestor
+    let container: HTMLElement | null = elem.parentElement;
+    while (container) {
+        const style = window.getComputedStyle(container);
+        const overflow = style.overflow + style.overflowY + style.overflowX;
+        if (/(auto|scroll)/.test(overflow)) {
+            break;
+        }
+        container = container.parentElement;
+    }
+
+    if (!container) {
+        return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const elemRect = elem.getBoundingClientRect();
+
+    // Check if element is fully visible within the container
+    const isFullyVisible =
+        elemRect.top >= containerRect.top &&
+        elemRect.bottom <= containerRect.bottom &&
+        elemRect.left >= containerRect.left &&
+        elemRect.right <= containerRect.right;
+
+    if (!isFullyVisible) {
+        elem.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+}
+
+/**
  * Focus the next editable field in the item row. Returns `false` when there
  * is no next field, so the caller can fall back to default browser behavior.
  */

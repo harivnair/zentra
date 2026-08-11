@@ -18,6 +18,8 @@ interface ModalProps {
     className?: string;
     closeOnBackdrop?: boolean;
     showCloseIcon?: boolean;
+    /** Optional right-aligned actions rendered in the header (before the close icon). */
+    headerActions?: ReactNode;
 }
 
 const sizeStyles: Record<ModalSize, string> = {
@@ -39,6 +41,7 @@ export function Modal({
     className,
     closeOnBackdrop = false,
     showCloseIcon = false,
+    headerActions,
 }: ModalProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -118,6 +121,11 @@ export function Modal({
                                 </p>
                             )}
                         </div>
+                        {headerActions && (
+                            <div className="flex items-center gap-2">
+                                {headerActions}
+                            </div>
+                        )}
                         {showCloseIcon && (
                             <button
                                 onClick={onClose}
