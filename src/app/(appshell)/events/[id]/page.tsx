@@ -655,6 +655,13 @@ export default function EventDetailsPage({ params }: { params: Promise<{ id: str
                     checklistData={(eventData as any)?.items || (eventData as any)?.checklist || []}
                     vendorList={vendorList}
                     inventoryList={inventoryList}
+                    exportContext={{
+                        eventName: eventData.title,
+                        clientName: eventData.client,
+                        eventStartDate: eventData.eventStartDate,
+                        eventEndDate: eventData.eventEndDate,
+                        venue: eventData.venue,
+                    }}
                     onUpdate={() => {
                         setIsChecklistPreviewModalOpen(false);
                         setIsChecklistModalOpen(true);

@@ -1,28 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { Eye } from "lucide-react";
 import { Modal, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Access } from "@/components/access";
 import { groupByCategory } from "@/lib/utils";
-
-interface ChecklistItem {
-    category: string;
-    subCategory?: string;
-    item: string;
-    description?: string;
-    quantity: number;
-    days?: number;
-    pricePerItem?: number;
-    startDate?: string;
-    endDate?: string;
-    deadlineDate?: string;
-    vendor?: string;
-    inventoryID?: string | number;
-    status?: string;
-    isInventoryItem?: boolean;
-}
+import type { ChecklistItem } from "@/components/checklist-modal/types";
+import type { ChecklistExportContext } from "@/lib/checklist-export/checklist-document";
+import { ChecklistExportPreviewModal } from "@/components/checklist-export-preview-modal";
 
 interface ChecklistPreviewModalProps {
     isOpen: boolean;
@@ -30,6 +17,7 @@ interface ChecklistPreviewModalProps {
     checklistData: ChecklistItem[];
     vendorList: { id?: string | number; name?: string }[];
     inventoryList: { id?: string | number; itemName?: string }[];
+    exportContext?: ChecklistExportContext;
     onUpdate?: () => void;
 }
 
@@ -46,8 +34,11 @@ export function ChecklistPreviewModal({
     checklistData,
     vendorList,
     inventoryList,
+    exportContext,
     onUpdate,
 }: ChecklistPreviewModalProps) {
+    const [isExportPreviewOpen, setIsExportPreviewOpen] = useState(false);
+
     if (!isOpen) return null;
 
     const summary = {
@@ -307,12 +298,30 @@ export function ChecklistPreviewModal({
                 <Button variant="outline" onClick={onClose}>
                     Close
                 </Button>
+                <Button
+                    variant="outline"
+                    onClick={() => setIsExportPreviewOpen(true)}
+                    className="flex items-center gap-2"
+                    icon={<Eye size={16} />}
+                >
+                    Preview
+                </Button>
                 {onUpdate && (
                     <Button onClick={onUpdate} variant="primary">
                         Update Checklist
                     </Button>
                 )}
             </ModalFooter>
+
+            {isExportPreviewOpen && (
+                <ChecklistExportPreviewModal
+                    checklistData={checklistData}
+                    vendorList={vendorList}
+                    inventoryList={inventoryList}
+                    exportContext={exportContext}
+                    onClose={() => setIsExportPreviewOpen(false)}
+                />
+            )}
         </Modal>
     );
 }
